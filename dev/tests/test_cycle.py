@@ -20,6 +20,19 @@ from neutrino_cycle import BASE, Console, campaign, main
 
 PCI = '0000:01:00.0 Ethernet controller [0200]: Example [1234:5678]\n0001:01:00.0 PCI bridge [0604]: Fabric [10de:2f95]\n'
 SENSORS = 'Temp | 30 | degrees C | ok | na\nFan | 12000 | RPM | ok | na\n'
+BMC_USB_TREE = """Bus 001.Port 001: Dev 001, Class=root_hub, Driver=ehci-platform/1p, 480M
+    ID 1d6b:0002
+    |__ Port 001: Dev 002, If 0, Class=[unknown], Driver=hub/4p, 480M
+        ID 0424:2514
+        |__ Port 002: Dev 004, If 0, Class=[unknown], Driver=hub/4p, 480M
+            ID 0424:2514
+            |__ Port 001: Dev 010, If 2, Class=[unknown], Driver=mctp-usb, 480M
+                ID 0955:7410
+            |__ Port 002: Dev 011, If 2, Class=[unknown], Driver=mctp-usb, 480M
+                ID 0955:7410
+        |__ Port 003: Dev 005, If 0, Class=[unknown], Driver=mctp-usb, 480M
+            ID 0955:cf11
+"""
 
 def target(node='n1', tray='tray1', offset=0):
     return Target(tray, node, f'192.0.2.{1+offset}', f'192.0.2.{2+offset}', f'bmc-{node}', f'os-{node}')
@@ -42,6 +55,8 @@ class FakeTransport:
         self.power_off = False
         self.on_action = None
         self.package_missing = False
+        self.mctp_stressor_present = True
+        self.mctp_stress_fail = False
 
     def local_dependencies(self):
         return Command(0, 'available')
@@ -77,12 +92,25 @@ class FakeTransport:
             return self.action(t)
         if cmd == 'lspci -Dnn':
             return Command(0, '' if self.empty_baseline else PCI.splitlines()[0] if self.pci_drift and self.boots.get(t.key) == 1 else PCI)
+        if cmd == 'lsusb -tv':
+            return Command(0, BMC_USB_TREE)
+        if 'dmesg -c | grep' in cmd:
+            return Command(0, '')
         if (cmd.startswith('bash ') or cmd.startswith('MEMORY_MIN_RATIO=')):
             return Command(1, 'ISSUE|BF4_MISSING|BF4|Expected at least 1; detected 0\nRESULT|FAIL\n') if self.hardware_failure else Command(0, 'RESULT|PASS\n')
         if cmd == '/usr/bin/powerctrl.sh power_status':
             return Command(0, 'Host: Running\nChassis Power: On')
         if cmd in {value[0] for value in CAPTURES.values()} | {'dmesg -c', 'dmesg -C', 'command -v mst'}:
             return Command(0, 'available\n')
+        if cmd.startswith('test -x ') and 'mctp-stressor-p5032.sh' in cmd:
+            return Command(0 if self.mctp_stressor_present else 1, '')
+        if 'mctp-stressor-p5032.sh' in cmd:
+            if '--check' in cmd:
+                return Command(0, 'pldmd.service state: active\nPreflight passed. No PLDM requests sent\n')
+            if self.mctp_stress_fail:
+                return Command(1, 'PASS iteration=1/10\nFAIL iteration=2/10\n'
+                                  'SUMMARY cpu=CPU0 eid=16 attempted=10 passed=9 failed=1\n')
+            return Command(0, 'PASS iteration=1/10\nSUMMARY cpu=CPU0 eid=16 attempted=10 passed=10 failed=0\n')
         if cmd.startswith('test -f ') or cmd.startswith('rm -f '):
             return Command(0, '')
         return Command(127, 'Unsupported fake SSH command: ' + cmd)

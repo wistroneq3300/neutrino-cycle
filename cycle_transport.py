@@ -173,6 +173,31 @@ class Transport:
             watchdog.cancel()
             client.close()
 
+    def upload_replace(self, target, role, data, remote, mode=0o755):
+        """Push ``data`` to ``remote`` as ``role``, replacing any existing file.
+
+        Unlike :meth:`upload` (which must refuse to overwrite the OS hardware
+        script), the BMC stressor is a fixed path that may legitimately already
+        hold an older copy, so a stale file is removed first.
+        """
+        client = self._connect(target, role, 10)
+        watchdog = threading.Timer(60, client.close)
+        watchdog.daemon = True
+        watchdog.start()
+        try:
+            with client.open_sftp() as sftp:
+                sftp.get_channel().settimeout(60)
+                try:
+                    sftp.remove(remote)
+                except IOError:
+                    pass
+                with sftp.file(remote, "wx") as stream:
+                    stream.write(data)
+                sftp.chmod(remote, mode)
+        finally:
+            watchdog.cancel()
+            client.close()
+
     def oob(self, target, command, timeout=30):
         env = os.environ.copy()
         env["IPMI_PASSWORD"] = self.credentials.get("bmc", "")

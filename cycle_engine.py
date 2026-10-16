@@ -10,6 +10,7 @@ from pathlib import Path
 
 from cycle_core import (
     atomic_write,
+    bmc_usb_issues,
     classify_against_pre,
     compare_sensors,
     config_issues,
@@ -18,11 +19,14 @@ from cycle_core import (
     health,
     issue,
     issue_baseline,
+    mctp_check_issues,
+    mctp_stress_issues,
     merge_pci_devices,
     missing_sensors,
     network_issues,
     nic_slot_issues,
     now,
+    parse_bmc_lsusb,
     parse_network,
     parse_pci,
     parse_pci_verbose,
@@ -41,6 +45,17 @@ from cycle_core import (
     write_json,
 )
 from cycle_transport import Command, IdentityUnsafe
+
+# P5032 MCTP stressor: BMC-side PLDM GetFirmwareParameters stressor. EID 16/17
+# are CPU0/CPU1 on the saved P5032 BMC configuration.
+MCTP_STRESSOR = "/usr/local/bin/mctp-stressor-p5032.sh"
+MCTP_TARGETS = (("16", "0"), ("17", "1"))
+# Diagnostic-only BMC dmesg grep: retained with the loop evidence so a stress
+# failure can be explained, but never judged (only the stressor decides
+# PASS/FAIL). ``|| true`` keeps grep's no-match exit 1 from surfacing as a
+# collection failure on an otherwise clean loop.
+MCTP_DMESG_GREP = ("dmesg -c | grep -iE 'mctp|musb|error -71|USB disconnect|"
+                   "usb device|renamed from|reset|timeout' || true")
 
 # Redfish members arrive with vendor casing (Id/Severity/Created/Message) and
 # are normalised to lowercase once; read either spelling so no evidence line is
@@ -164,6 +179,8 @@ class NodeSession:
                     'sensor' if code.startswith('SENSOR_') else
                     'pci' if code in {'PCI_DRIFT', 'PCI_EMPTY'} else
                     'usb' if code == 'USB_DRIFT' else
+                    'bmc_usb' if code == 'BMC_USB_DRIFT' else
+                    'mctp' if code.startswith('MCTP_') else
                     'network' if code == 'NET_DRIFT' else
                     'eventlog' if code.startswith('REDFISH_') and component == 'eventlog' else
                     'redfish_sel' if code.startswith('REDFISH_') and component == 'redfish_sel' else
@@ -321,6 +338,64 @@ class NodeSession:
         else:
             self.dmesg_seen = counts
 
+    def collect_bmc_dmesg(self, record):
+        """Retain the BMC's MCTP/USB dmesg grep as diagnostic evidence only.
+
+        The BMC dmesg buffer is read-and-clear (``dmesg -c``), so PRE wipes the
+        boot-time backlog first and each LOOP later keeps only its own events.
+        This never produces a finding: the operator reads it to explain a
+        stressor FAIL; the stressor alone decides PASS/FAIL.
+        """
+        self.command(record, 'bmc_dmesg', 'bmc', MCTP_DMESG_GREP,
+                     timeout=60, check=False, save_evidence=True)
+
+    def ensure_mctp_stressor(self, record):
+        """Make the P5032 stressor available on the BMC before PRE uses it.
+
+        The script lives on the BMC at ``/usr/local/bin``. When it is missing we
+        push this repo's copy (hash-verified) instead of failing the run; a
+        present copy is left untouched. A push failure is recorded but does not
+        block the node - the stressor result will simply surface as a FAIL.
+        """
+        probe = self.command(record, 'mctp_stressor_probe', 'bmc',
+                             f'test -x {MCTP_STRESSOR} && sha256sum {MCTP_STRESSOR}',
+                             timeout=30, check=False)
+        if probe.code == 0:
+            record['mctp_stressor_present'] = True
+            return
+        local = Path(__file__).with_name('mctp-stressor-p5032.sh')
+        try:
+            data = local.read_bytes()
+            self.transport.upload_replace(self.target, 'bmc', data,
+                                          MCTP_STRESSOR, mode=0o755)
+        except Exception as exc:
+            self.add(record, 'MCTP_STRESSOR_PUSH_FAILED', 'mctp',
+                     f'Could not place {MCTP_STRESSOR} on the BMC: {exc}', severity='WARN')
+            record['mctp_stressor_present'] = False
+            return
+        record['mctp_stressor_present'] = True
+        record['mctp_stressor_pushed'] = True
+        self.stage('MCTP stressor pushed to BMC')
+
+    def run_mctp_stressor(self, record, label, eid, cpu, mode, judge):
+        """Run one stressor invocation and (optionally) judge it.
+
+        ``mode`` is ``--check`` or ``--stop-pldmd``. Only the stressor decides
+        PASS/FAIL; the raw output is retained as evidence under ``label``.
+        """
+        cmd = f'{MCTP_STRESSOR} {eid} {mode}'
+        result = self.command(record, label, 'bmc', cmd, timeout=180,
+                              check=False, save_evidence=True)
+        # Keep the tail of the output so the report can show the SUMMARY/iteration
+        # counts even when the invocation succeeded (command() drops the excerpt
+        # for a valid command). The stressor decides PASS/FAIL, not the exit code.
+        if label in record['commands']:
+            record['commands'][label]['output_excerpt'] = result.output[-2000:]
+        if judge:
+            checker = mctp_check_issues if mode == '--check' else mctp_stress_issues
+            record['issues'] += checker(eid, cpu, result.output, result.code)
+        return result
+
     def capture(self, record, post=False):
         self.hardware_execution_complete = False
         record['hardware_execution_complete'] = False
@@ -359,6 +434,17 @@ class NodeSession:
                 record["network_ifaces"] = parse_network(result.output)
                 if post:
                     record["issues"] += network_issues(self.baseline["network"], record["network_ifaces"])
+        # BMC-side USB tree: PRE builds the baseline, each LOOP compares it. The
+        # BMC sees the CPU MCTP endpoints behind its virtual hub, so a vanished
+        # endpoint names the EID path that dropped. Identity is port + vid:pid.
+        # check=True matches the OS usb/network captures: a failed inventory is a
+        # COLLECTION_FAILED finding, not a silent skip of the drift comparison.
+        bmc_usb = self.command(record, "bmc_usb", "bmc", "lsusb -tv", timeout=60,
+                               save_evidence=True)
+        if bmc_usb.code == 0:
+            record["bmc_usb"] = parse_bmc_lsusb(bmc_usb.output)
+            if post:
+                record["issues"] += bmc_usb_issues(self.baseline["bmc_usb"], record["bmc_usb"])
         try:
             self.ensure_verified_script(record)
         except IdentityUnsafe:
@@ -573,7 +659,17 @@ class NodeSession:
             self.baseline = dict(pci=record["pci"].copy(), sensors=[r.copy() for r in record["sensors"]],
                                  nic=dict(record.get("nic_slots", {})),
                                  usb=dict(record.get("usb", {})),
-                                 network=dict(record.get("network_ifaces", {})))
+                                 network=dict(record.get("network_ifaces", {})),
+                                 bmc_usb=dict(record.get("bmc_usb", {})))
+            # P5032 MCTP/USB preflight. The 4 stressor runs are the test baseline
+            # (operator: their PASS/FAIL is the criterion), so a failure here is a
+            # real FAIL. BMC dmesg grep is diagnostic evidence only.
+            self.ensure_mctp_stressor(record)
+            self.collect_bmc_dmesg(record)
+            for eid, cpu in MCTP_TARGETS:
+                self.run_mctp_stressor(record, f'mctp_check_{eid}', eid, cpu, '--check', judge=True)
+            for eid, cpu in MCTP_TARGETS:
+                self.run_mctp_stressor(record, f'mctp_stress_{eid}', eid, cpu, '--stop-pldmd', judge=True)
             self.pre_issue_keys = issue_baseline(record["issues"])
             self.expected_boot = record['identities']['os']['boot_id']
         except Exception as exc:
@@ -1242,6 +1338,15 @@ class NodeSession:
             self.identity(record, 'os', 'os_after_checks')
             if record['identities']['os']['boot_id'] != post_boot:
                 raise IdentityUnsafe('Additional OS boot transition during POST')
+            # P5032 MCTP/USB stress. The stressor's PASS/FAIL is the criterion;
+            # the BMC dmesg grep runs AFTER the stress so it can capture any
+            # messages the PLDM traffic produced, and is retained with this
+            # loop's evidence but never judged. EID 16 and 17 run separately
+            # because the stressor serializes on pldmd via its own lock.
+            for eid, cpu in MCTP_TARGETS:
+                self.stage(f"MCTP stress EID {eid}")
+                self.run_mctp_stressor(record, f'mctp_stress_{eid}', eid, cpu, '--stop-pldmd', judge=True)
+            self.collect_bmc_dmesg(record)
             self.expected_boot = post_boot
             self.stage("system check done")
             if recovered and record.get("power_on"):

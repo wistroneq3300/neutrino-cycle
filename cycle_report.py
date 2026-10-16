@@ -10,7 +10,7 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import quote
 
-from cycle_core import aggregate_issues, atomic_write, health, now, write_json
+from cycle_core import aggregate_issues, atomic_write, health, now, parse_mctp_stressor, write_json
 from cycle_storage import report_writer_lock, reject_live_rebuild
 
 ASSETS = Path(__file__).parent
@@ -129,6 +129,17 @@ _LABELS = {
     'PCI': 'PCI inventory', 'PCIe': 'PCIe validation', 'PCIeFAB': 'PCIeFAB bridge inventory', 'sensor': 'Sensors',
     'USB_DRIFT': 'USB device removed (present at PRE, absent after loop)',
     'NET_DRIFT': 'Network interface removed (present at PRE, absent after loop)',
+    'bmc_usb': 'BMC USB (MCTP) command output',
+    'BMC_USB_DRIFT': 'BMC USB endpoint removed (present at PRE, absent after loop)',
+    'mctp': 'MCTP / P5032',
+    'mctp_check_16': 'MCTP preflight EID 16 (CPU0)',
+    'mctp_check_17': 'MCTP preflight EID 17 (CPU1)',
+    'mctp_stress_16': 'MCTP stress EID 16 (CPU0)',
+    'mctp_stress_17': 'MCTP stress EID 17 (CPU1)',
+    'MCTP_CHECK_FAIL': 'MCTP preflight failed',
+    'MCTP_STRESS_FAIL': 'MCTP stress failed',
+    'bmc_dmesg': 'BMC dmesg (MCTP/USB, diagnostic only)',
+    'mctp_stressor_probe': 'MCTP stressor presence on BMC',
     'dmesg': 'dmesg observations', 'sel': 'SEL collection', 'sel_before': 'Before-cycle SEL collection',
     'start_sel_clear': 'START SEL clear', 'start_dmesg_clear': 'START dmesg clear', 'failure_sel': 'Failure-path SEL collection',
     'hardware': 'Hardware script execution',
@@ -414,15 +425,15 @@ def _render_pci_group(record, baseline=None):
 def _summary_groups(record):
     groups = {'hardware': [], 'evidence': [], 'execution': [], 'other': []}
     hardware_keys = set(record.get('hardware_checks', {}))
-    collection_keys = {'pci', 'pci_tree', 'pci_verbose', 'disks', 'nvme', 'usb', 'memory', 'network', 'firmware', 'system', 'sel', 'sel_before', 'failure_sel'}
-    execution_keys = {'root_uid', 'dependencies', 'package_install', 'dependencies_after_install', 'mst_available', 'script_safety', 'script_sha256', 'hardware', 'cycle_command', 'power', 'host_power', 'bmc_firmware'}
+    collection_keys = {'pci', 'pci_tree', 'pci_verbose', 'disks', 'nvme', 'usb', 'memory', 'network', 'firmware', 'system', 'sel', 'sel_before', 'failure_sel', 'bmc_usb', 'bmc_dmesg', 'mctp_check_16', 'mctp_check_17', 'mctp_stress_16', 'mctp_stress_17'}
+    execution_keys = {'root_uid', 'dependencies', 'package_install', 'dependencies_after_install', 'mst_available', 'script_safety', 'script_sha256', 'hardware', 'cycle_command', 'power', 'host_power', 'bmc_firmware', 'mctp_stressor_probe'}
     for key, value in record.get('check_summary', {}).items():
         if _is_pci_device_check(key):
             # Per-BDF rows are rendered in the PCI / PCIe End Devices group.
             # Keep the JSON key intact, but do not show the same finding twice
             # in the general Hardware validation table.
             continue
-        if key in hardware_keys or key.split('/', 1)[0] in {'CPU', 'CPU_ONLINE', 'DIMM', 'MEMORY_VISIBLE', 'NVMe', 'NIC', 'BF4', 'BF4_IDENTITIES', 'PCIe', 'PCIeFAB', 'PCIE_LINK', 'PCIE_DOWNGRADE', 'USB_DRIFT', 'NET_DRIFT', 'sensor', 'dmesg'}:
+        if key in hardware_keys or key.split('/', 1)[0] in {'CPU', 'CPU_ONLINE', 'DIMM', 'MEMORY_VISIBLE', 'NVMe', 'NIC', 'BF4', 'BF4_IDENTITIES', 'PCIe', 'PCIeFAB', 'PCIE_LINK', 'PCIE_DOWNGRADE', 'USB_DRIFT', 'NET_DRIFT', 'BMC_USB_DRIFT', 'mctp', 'sensor', 'dmesg'}:
             group = 'hardware'
         elif key in collection_keys:
             group = 'evidence'
@@ -635,6 +646,57 @@ def _render_sel(record):
     return f'<div class="sel-panel"><h3>LOOP SEL comparison</h3><div class="tablewrap"><table><thead><tr><th>Stage</th><th>Status</th><th>Event count</th><th>Evidence</th></tr></thead><tbody><tr><td>Before-cycle SEL collection</td><td>{badge(before_status)}</td><td>{esc(before_count)}</td><td>{_record_evidence(record, before.get("evidence"))}</td></tr><tr><td>POST SEL collection</td><td>{badge(after_status)}</td><td>{esc(after_count)}</td><td>{_record_evidence(record, after.get("evidence"))}</td></tr><tr><td>Delta comparison</td><td>{badge(delta.get("status", "UNKNOWN"))}</td><td>{esc(delta_count)}</td><td>{_record_evidence(record, delta.get("evidence"))}</td></tr></tbody></table></div><p><strong>{esc(result)}</strong> · {esc(review)}</p>{event_block}</div>'
 
 
+def _render_mctp_group(record):
+    """Render the P5032 MCTP stressor block for a phase.
+
+    Shows the per-EID preflight/stress verdicts the script printed, the BMC USB
+    (MCTP) endpoint count and drift, and the diagnostic BMC dmesg evidence.
+    Returns '' when the phase has no MCTP activity, so PRE-less/legacy records
+    do not grow an empty block.
+    """
+    commands = record.get('commands', {})
+    stems = [s for s in ('mctp_check_16', 'mctp_check_17', 'mctp_stress_16', 'mctp_stress_17') if s in commands]
+    bmc_usb = commands.get('bmc_usb')
+    if not stems and not bmc_usb and 'mctp_stressor_probe' not in commands:
+        return ''
+    issues = [i for i in record.get('issues', []) if i.get('component') in {'mctp', 'bmc_usb'}]
+    result = 'FAIL' if any(i['severity'] == 'FAIL' for i in issues) else 'WARN' if issues else 'PASS'
+    rows = []
+    for stem in stems:
+        command = commands.get(stem, {})
+        # output_excerpt is set for every MCTP invocation (see run_mctp_stressor),
+        # so the report parses the real SUMMARY/iteration text, not a re-read file.
+        verdict = parse_mctp_stressor(command.get('output_excerpt', ''))
+        label = _check_label(stem)
+        is_stress = '_stress_' in stem
+        if is_stress and verdict['kind'] == 'stress':
+            summary = f"passed={verdict['passed']} · failed={verdict['failed']} of {verdict['attempted']}"
+        elif is_stress:
+            summary = 'Stress run did not complete (no SUMMARY)'
+        elif command.get('valid'):
+            summary = 'Preflight passed'
+        else:
+            summary = 'Preflight did not pass'
+        status = 'PASS' if command.get('valid') else 'FAIL'
+        rows.append(f'<tr><td>{esc(label)}</td><td>{badge(status)}</td><td>{esc(summary)}</td><td>{_record_evidence(record, command.get("evidence", ""))}</td></tr>')
+    usb_detail = ''
+    if bmc_usb:
+        endpoints = record.get('bmc_usb') or {}
+        drift = [i for i in issues if i.get('code') == 'BMC_USB_DRIFT']
+        usb_detail = (f'<p class="muted">BMC USB (MCTP) endpoints seen by the BMC: <strong>{len(endpoints)}</strong>. '
+                      f'Identity is port path + vid:pid; a PRE-present endpoint missing after a loop is reported as BMC_USB_DRIFT '
+                      f'({len(drift)} this phase).</p>')
+    dmesg_cmd = commands.get('bmc_dmesg')
+    dmesg_block = ''
+    if dmesg_cmd:
+        dmesg_block = (f'<p class="muted">BMC dmesg (mctp/musb/USB) is retained as diagnostic evidence only and is not judged; '
+                       f'the stressor decides PASS/FAIL.</p>')
+    return (f'<details class="mctp-group"><summary><strong>MCTP / P5032 stressor</strong> {badge(result)}'
+            f'<span class="summary-meta">{esc(_check_label("mctp"))}</span></summary><div class="detail-body">'
+            f'<div class="tablewrap"><table><thead><tr><th>Check</th><th>Result</th><th>Detail</th><th>Evidence</th></tr></thead><tbody>{"".join(rows) or "<tr><td colspan=4>No MCTP stressor run in this phase.</td></tr>"}</tbody></table></div>'
+            f'{usb_detail}{dmesg_block}</div></details>')
+
+
 def record_html(record, node_index, baseline=None):
     phase = _phase_kind(record)
     loop_number = _loop_number(record)
@@ -647,7 +709,7 @@ def record_html(record, node_index, baseline=None):
     action = _render_action(record)
     sel = _render_sel(record) + _render_redfish(record)
     return f'''<details id="{phase_id}"><summary><strong>{esc(record['phase'])}</strong> {badge(record['status'])}<span class="phase-count">{esc(_finding_summary(record))} · {esc(duration(record.get('duration_seconds')))} · {esc(record.get('finished') or 'Not finished')}</span></summary><div class="detail-body">
-      {_render_summary_groups(record)}{_render_pci_group(record, baseline) if phase != 'START' or record.get('pci') or record.get('pci_devices') else ''}<h3>Findings</h3>{_finding_html(record)}{collection}{sel}<details><summary>{'START preparation and verified identities' if phase == 'START' else 'Cycle action and verified identities' if phase == 'LOOP' else 'Verified identities'}</summary>{action}{identity}</details>
+      {_render_summary_groups(record)}{_render_pci_group(record, baseline) if phase != 'START' or record.get('pci') or record.get('pci_devices') else ''}{_render_mctp_group(record)}<h3>Findings</h3>{_finding_html(record)}{collection}{sel}<details><summary>{'START preparation and verified identities' if phase == 'START' else 'Cycle action and verified identities' if phase == 'LOOP' else 'Verified identities'}</summary>{action}{identity}</details>
       <p class="muted">{esc(record.get('sel_review', ''))}</p><details><summary>Original evidence files</summary><ul class="evidence-list">{evidence or '<li>Evidence paths were not recorded.</li>'}</ul></details></div></details>'''
 
 def duration(seconds):

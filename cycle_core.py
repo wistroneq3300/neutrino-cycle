@@ -640,6 +640,124 @@ def network_issues(baseline, current):
     return found
 
 
+def parse_bmc_lsusb(text):
+    """Parse the BMC ``lsusb -tv`` tree into a ``{(port_path, vid:pid): row}`` map.
+
+    The BMC sees the CPU side as USB devices behind its virtual hub. ``-t``
+    indents each level (four spaces per depth) before ``|__ Port NNN:``, so the
+    nesting depth is the indentation, and walking it rebuilds the kernel port
+    path (bus ``1`` → ``1-1`` → ``1-1.2`` → ``1-1.2.1``). The ``ID <vid:pid>``
+    line under a port belongs to that level; interfaces of the same device share
+    one line and collapse onto the device key. Comparison identity is the port
+    path plus ``vid:pid`` because the same model (e.g. ``0955:7410``) appears at
+    several ports and only the specific endpoint disappearing matters.
+    """
+    rows = {}
+    stack = []
+    for line in text.splitlines():
+        # Bus-root line: ``Bus 001.Port 001: Dev 001, ...`` - the base of the tree.
+        bus = re.search(r"Bus\s+(\d+)\.Port\s+(\d+)", line)
+        if bus:
+            stack = [bus.group(1)]
+            continue
+        port = re.search(r"\|\s*__\s*Port\s+(\d+):", line)
+        if port:
+            depth = (len(line) - len(line.lstrip())) // 4
+            stack = stack[:depth]
+            stack.append(port.group(1).lstrip("0") or "0")
+            continue
+        if line.lstrip().startswith("ID "):
+            match = re.match(r"ID\s+([0-9a-f]{4}:[0-9a-f]{4})\s*(.*)$", line.strip(), re.I)
+            if not match or not stack:
+                continue
+            usb_id, description = match[1].lower(), match[2].strip()
+            path = stack[0] + "-" + ".".join(stack[1:]) if len(stack) > 1 else stack[0]
+            rows[f"{path} {usb_id}"] = dict(path=path, id=usb_id, raw=line.strip(),
+                                            description=description)
+    return rows
+
+
+def bmc_usb_issues(baseline, current):
+    """Report a BMC-visible USB endpoint present at PRE that is gone after a loop.
+
+    Only removals are findings (a device that appears later is ignored, matching
+    :func:`usb_issues`). Identity is ``port path + vid:pid`` from
+    :func:`parse_bmc_lsusb`.
+    """
+    found = []
+    for key in sorted(set(baseline) - set(current)):
+        old = baseline[key]
+        found.append(issue("BMC_USB_DRIFT", "bmc_usb",
+                           f"BMC USB endpoint {key} present at PRE is absent after the loop",
+                           snippet=f"PRE BMC USB {key}: {old['raw']}"))
+    return found
+
+
+def parse_mctp_stressor(text):
+    """Parse ``mctp-stressor-p5032.sh`` output into a verdict dict.
+
+    The script decides PASS/FAIL, not this harness:
+
+    * ``--check`` prints ``Preflight passed`` and exits 0.
+    * ``--stop-pldmd`` prints one ``PASS``/``FAIL iteration=N/M`` line per loop
+      and a final ``SUMMARY cpu=... eid=... attempted=A passed=P failed=F``.
+
+    Returns ``dict(kind, attempted, passed, failed, failures)`` where ``kind`` is
+    ``'stress'`` when a SUMMARY line is present, else ``'check'``.
+    """
+    attempted = passed = failed = None
+    failures = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        summary = re.match(r"SUMMARY\s+cpu=\S+\s+eid=\S+\s+attempted=(\d+)\s+passed=(\d+)\s+failed=(\d+)", stripped)
+        if summary:
+            attempted, passed, failed = (int(v) for v in summary.groups())
+        fail = re.match(r"FAIL iteration=([^:\s]+)", stripped)
+        if fail:
+            failures.append(fail.group(1))
+    if attempted is None:
+        return dict(kind="check", attempted=None, passed=None, failed=None, failures=[])
+    return dict(kind="stress", attempted=attempted, passed=passed, failed=failed, failures=failures)
+
+
+def mctp_check_issues(eid, cpu, result, exit_code):
+    """Judgement for one ``--check`` preflight run (script decides PASS/FAIL).
+
+    The preflight passes only when the script reports ``Preflight passed`` and
+    exits 0; anything else is a FAIL (the operator chose FAIL, not WARN).
+    """
+    if exit_code == 0 and "Preflight passed" in result:
+        return []
+    return [issue("MCTP_CHECK_FAIL", "mctp",
+                  f"P5032 CPU{cpu} / EID {eid} preflight failed (exit={exit_code})",
+                  snippet=f"EID {eid}: {_tail(result)}")]
+
+
+def mctp_stress_issues(eid, cpu, result, exit_code):
+    """Judgement for one ``--stop-pldmd`` stress run (script decides PASS/FAIL)."""
+    verdict = parse_mctp_stressor(result)
+    if exit_code == 0 and verdict["failed"] == 0:
+        return []
+    if verdict["kind"] == "stress":
+        detail = (f"P5032 CPU{cpu} / EID {eid} stress failed: "
+                  f"attempted={verdict['attempted']} passed={verdict['passed']} failed={verdict['failed']}")
+        if verdict["failures"]:
+            detail += f"; failing iterations: {', '.join(verdict['failures'])}"
+        snippet = f"EID {eid}: {verdict['failed']} of {verdict['attempted']} iterations failed"
+    else:
+        # No SUMMARY line: the run did not complete (baseline failure, lock,
+        # timeout, missing pldmd). Never print the None sentinels as counts.
+        detail = f"P5032 CPU{cpu} / EID {eid} stress did not complete (exit={exit_code}); no SUMMARY was produced"
+        snippet = f"EID {eid}: {_tail(result)}"
+    return [issue("MCTP_STRESS_FAIL", "mctp", detail, snippet=snippet)]
+
+
+def _tail(text):
+    """Last non-empty output line, for a snippet; a fixed placeholder when empty."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return lines[-1] if lines else "no output"
+
+
 def _check_snippet(line):
     """Turn a ``CHECK|<component>|key=value|...`` line into a one-line pointer
     to what the hardware script measured. A missing device has no offending
