@@ -1314,8 +1314,13 @@ class NodeSession:
                 elif inband:
                     command = "ipmitool power cycle"
                 else:
-                    command = "power cycle"
-                state = self.dispatch(record, "cycle_command", "os" if inband else "oob", command, sudo=inband)
+                    # Outband power_cycle via the BMC's own helper over SSH rather
+                    # than IPMI-over-LAN: the BMC SSH path has proven reliable on
+                    # this platform where the IPMI service is flaky after cycles.
+                    command = "/usr/bin/powerctrl.sh power_cycle"
+                state = self.dispatch(record, "cycle_command",
+                                      "bmc" if (not inband and mode == "power_cycle") else ("os" if inband else "oob"),
+                                      command, sudo=inband)
             if state in {"SENT", "RESPONSE_LOST"}:
                 self.stage(f"{cycle_label} sent")
                 self.stage("waiting OS boot")
