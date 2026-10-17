@@ -102,6 +102,60 @@ def _finding_html(record):
     return '<ul class="record-issues">' + ''.join(rows) + '</ul>'
 
 
+def _finding_html_compact(record):
+    """Per-loop findings with identical messages merged into one line.
+
+    Redfish events repeat the same message with a fresh Id every loop, so a
+    loop can hold hundreds of near-identical entries. Group by (component,
+    message) and list the event Ids (first few + total), with the evidence
+    link beside each line so the reader knows which file to open.
+    """
+    if not record.get('issues'):
+        return '<p class="empty">No issues recorded.</p>'
+    groups = []
+    by_key = {}
+    for item in record['issues']:
+        ident = item.get('identity') or ''
+        parts = ident.split('|')
+        if len(parts) >= 3 and item.get('code', '').startswith('REDFISH'):
+            event_id, message = parts[1], parts[2]
+        else:
+            event_id, message = '', item.get('detail', '')
+        key = (item.get('component', ''), message)
+        grp = by_key.get(key)
+        if grp is None:
+            grp = {'component': item.get('component', ''), 'detail': message,
+                   'severity': item.get('severity', 'UNKNOWN'), 'ids': [],
+                   'classification': item.get('classification', 'NEW'),
+                   'snippet': item.get('snippet', ''), 'evidence': []}
+            by_key[key] = grp
+            groups.append(grp)
+        if event_id:
+            grp['ids'].append(event_id)
+        if item['severity'] == 'FAIL':
+            grp['severity'] = 'FAIL'
+        ev = item.get('evidence')
+        if ev and ev not in grp['evidence']:
+            grp['evidence'].append(ev)
+    phase = record.get('phase')
+    rows = []
+    for grp in groups:
+        classification = 'PRE-EXISTING' if phase == 'PRE' else _norm_class(grp.get('classification', 'NEW'))
+        ids = grp['ids']
+        if ids:
+            head = ', '.join(ids[:5])
+            tail = f', ... (共 {len(ids)})' if len(ids) > 5 else ''
+            ids_txt = f' <span class="event-ids">行: {esc(head)}{tail}</span>'
+        else:
+            ids_txt = ''
+        snippet = ''
+        if grp.get('snippet') and (grp['severity'] == 'FAIL' or classification != 'KNOWN'):
+            snippet = f'<pre class="snippet">{esc(grp["snippet"])}</pre>'
+        link = f' {evidence_link(grp["evidence"][0])}' if grp['evidence'] else ''
+        rows.append(f'<li>{badge(grp["severity"])} <strong>{esc(grp["component"])}</strong> — {esc(grp["detail"])}{ids_txt} {badge(classification)}{link}{snippet}</li>')
+    return '<ul class="record-issues">' + ''.join(rows) + '</ul>'
+
+
 def _status_from_items(items, kind):
     statuses = [str(item.get('status', 'UNKNOWN')).upper() for item in items]
     if any(value in {'FAIL', 'BLOCKED'} for value in statuses):
@@ -720,12 +774,13 @@ def record_html_compact(record, node_index, baseline=None):
     file for the per-check detail.
     """
     phase = _phase_kind(record)
+    if phase in ('PRE', 'START'):
+        # PRE and START run once, so keep their full per-check tables.
+        return record_html(record, node_index, baseline)
     loop_number = _loop_number(record)
-    phase_id = f"node-{node_index}-" + ("pre" if phase == "PRE" else "start" if phase == "START" else f"loop-{loop_number or 'unknown'}")
-    evidence = ''.join('<li>' + _record_evidence(record, p) + '</li>' for p in dict.fromkeys(record.get("evidence", [])))
+    phase_id = f"node-{node_index}-loop-{loop_number or 'unknown'}"
     return f'''<details id="{phase_id}"><summary><strong>{esc(record['phase'])}</strong> {badge(record['status'])}<span class="phase-count">{esc(_finding_summary(record))} &middot; {esc(duration(record.get('duration_seconds')))} &middot; {esc(record.get('finished') or 'Not finished')}</span></summary><div class="detail-body">
-      {_finding_html(record)}
-      <details><summary>Evidence files ({len(dict.fromkeys(record.get("evidence", [])))})</summary><ul class="evidence-list">{evidence or '<li>Evidence paths were not recorded.</li>'}</ul></details></div></details>'''
+      {_finding_html_compact(record)}</div></details>'''
 
 
 def duration(seconds):
