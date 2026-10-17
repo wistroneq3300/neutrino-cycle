@@ -1,7 +1,7 @@
 # HANDOFF — Report size / generation & Samba delivery
 
-> Last updated: 2026-10-17 23:35 (+08)
-> Branch: `ts1` @ `9822dfd` (== origin/ts1, verified)
+> Last updated: 2026-10-18 00:05 (+08)
+> Branch: `ts1` @ `b5e8f2a` (== origin/ts1, pushed & verified)
 > Run: `neutrino_power_cycle_outband_20261016_233643_136f68`
 > This file supersedes the 20261017 23:25 version (kept as
 > `HANDOFF-REPORT-SIZE-20261017.md.bak_20261017_2325`), which in turn superseded
@@ -125,8 +125,9 @@ is the CIFS mount `//10.33.34.22/eq3300/samba_tmp`. Other run directories (e.g.
 > **原則：動 source bundle（`campaigns/.../`）內的檔可以；動 `/root/samba` 其他既有資料不行；交付目錄已正確，別多餘改動。**
 
 ### 0. 本輪已確認的修正（先讀，避免重複誤判）
-- **「push pending」是舊狀態**：本輪已驗證 `ts1` @ `9822dfd` == `origin/ts1`（`git fetch origin ts1` 遠端一致），且 `git push --dry-run origin ts1` 回「Everything up-to-date」。**代碼 push 已完成，不必再 push。**
-- 真正「未入版控」的是工作區 5 個已修改檔 + 一堆 untracked（見 P2）。
+- **代碼 push 已完成**：本輪已把 SEL/OOB 及相關修正 commit 為 `b5e8f2a` 並 push 到 `origin/ts1`（已 `git fetch` 驗證 local == remote）。
+- **SEL 與 `sel clear` 皆已改走 OOB**（`cycle_engine.py` 的 `sel_command` 對 `list`/`clear` 一律用 `oob`）。
+- **inband power cycle 保留不動**：`cycle_engine.py` 的 `ipmitool power cycle`（`channel=inband`）依指示不改——inband 只能這樣跑。
 
 ### P0 — 清 source bundle（純省空間，不影響交付）
 1. **外移本 run 的 436 MB journal 後，清掉 bundle 內殘留**（見 P1 第 1 步）：
@@ -147,13 +148,18 @@ is the CIFS mount `//10.33.34.22/eq3300/samba_tmp`. Other run directories (e.g.
    - 完成後可接 P0 第 1 步 `rm campaigns/.../campaign.json` 省空間。
 2. 確認 `read_journal` 對本 run 會**優先**讀 `/srv/cycletmp/<run_id>/campaign.json`（邏輯已在，跑一次 `rebuild` 驗證即可，會比讀 bundle 內 436 MB 快）。
 
-### P2 — 未 commit 的變更（需決策；目前**無 push token**）
-3. `git status` 顯示 5 個已修改、未 commit 的檔案：
-   - `cycle_engine.py`（SEL 一律走 OOB；`command` 欄位改 `'sel list'`，功能性修正——reworked platform 無 `/dev/ipmi0`），**建議隨本輪一併 commit**。
-   - `cycle_inventory_neutrino.csv`、`naboo_config.sh`、`neutrino_config.sh`（機器／網路調整，確認後再定）。
-   - `dev/tests/test_cycle.py`（對應 SEL 走 OOB 的測試，建議隨 `cycle_engine.py` 一起 commit）。
-4. **push 阻斷**：本環境 **沒有可用 push token**（`GITHUB_TOKEN` 不存在、`https://api.github.com/user` 回 401、remote 為匿名 https），故**目前無法 commit 後 push**。需使用者提供 push 憑證或改由有權限的機器執行。
-5. 決定 `HANDOFF-*.md`、`docs/SOP_cycle_zh-TW.html` 等是否要入版控（目前 untracked）。
+### P2 — commit 狀態（本輪已完成）
+3. 本輪已 commit 並 push（`b5e8f2a`）以下檔案：
+   - `cycle_engine.py`（SEL/`sel clear` 一律走 OOB）
+   - `cycle_specification.py`（規格文字改為「SEL 一律 OOB」，與程式一致）
+   - `cycle_report.py`（journal 根目錄改為每次呼叫解析 `VERA_CAMPAIGN_TMP`，預設 `/srv/cycletmp`）
+   - `dev/tests/test_cycle.py`、`test_review_regressions.py`、`test_run2_execution.py`、`test_run2_recovery.py`、`test_specification.py`、`test_stop_menu.py`（測試改讀 out-of-bundle journal；`VERA_CAMPAIGN_TMP` 導向 temp，避免污染 `/srv/cycletmp`）
+   - `naboo_config.sh`、`neutrino_config.sh`（NIC 22→17、PCIEFAB 20→17、MST 載入）
+   - `cycle_inventory_neutrino.csv`（新機房位址 10.36.66.x、hostnames）
+   - `HANDOFF-REPORT-SIZE-20261017.md`（本文件）
+   - 全測試 323 pass。
+4. **未入版控（依指示不收）**：`*.bak_*`、`*.orig.bak`、`*.md.bak_*`、`docs/SOP_cycle_zh-TW.html` 等暫存/文件檔。
+5. push 走 git credential helper 成功（`9822dfd..b5e8f2a`）；已驗證 local `ts1` == `origin/ts1`。
 
 ### P3 — 驗證／補強（選用）
 6. 之後再跑 `rebuild`／`write_reports` 時，確認**新 run** 的 journal 直接落 `/srv/cycletmp/<run_id>/`、bundle 內不再產生 400+ MB 檔（驗證瘦身邏輯對新 run 真的生效）。
@@ -174,21 +180,21 @@ is the CIFS mount `//10.33.34.22/eq3300/samba_tmp`. Other run directories (e.g.
   (= source `CYCLE_REVIEW_REPORT.html`)
 - Bilingual spec: `CYCLE_VALIDATION_SPECIFICATION.html` (present in delivery)
 - Report generator: `cycle_report.py` (`write_reports`/`_write_reports`:997/1001,
-  `rebuild`:1051, `journal_path`:26, `CAMPAIGN_TMP`:21)
+  `rebuild`:1058, `campaign_tmp`/`journal_path`:24/34)
 - Merge / grouping: `merge_issues`(:888), `issue_cards_compact`(:916),
   `issue_key` (cycle_core.py:153), `_redfish_event_key`(:873), `_loop_ranges`(:849)
-- Journal move-out: `CAMPAIGN_TMP=/srv/cycletmp` (hardcoded, Decision A)
+- Journal move-out: `VERA_CAMPAIGN_TMP` (default `/srv/cycletmp`), resolved by
+  `campaign_tmp()` / `journal_path()` at call time (Decision A)
 - Samba mount: `//10.33.34.22/eq3300/samba_tmp → /root/samba` (CIFS, user eq3300)
 - This run's source bundle: `campaigns/neutrino_power_cycle_outband_20261016_233643_136f68/`
 
 ## 7. Version Control Status
 
-- Branch `ts1`, HEAD `9822dfd` (== origin/ts1 — **verified this session via
-  `git fetch origin ts1`; code push is already complete**).
-- Uncommitted (working tree, all `M`): `cycle_engine.py`,
-  `cycle_inventory_neutrino.csv`, `dev/tests/test_cycle.py`, `naboo_config.sh`,
-  `neutrino_config.sh`.
-- Untracked: `HANDOFF-REPORT-SIZE-20261017.md` (+ its `.bak_*` copies), various
-  `*.bak_*` / `*.orig.bak`, `docs/SOP_cycle_zh-TW.html`.
-- Most recent commit: `9822dfd report: keep campaign.json outside the bundle,
+- Branch `ts1`, HEAD `b5e8f2a` (== origin/ts1 — **pushed and verified this
+  session**; `git fetch origin ts1` confirms local == remote).
+- This session's commit: `b5e8f2a sel: collect SEL over OOB on all channels;
+  refresh spec, config and tests` (13 files).
+- Intentionally NOT committed: `*.bak_*`, `*.orig.bak`, `*.md.bak_*`,
+  `docs/SOP_cycle_zh-TW.html`.
+- Previous HEAD: `9822dfd report: keep campaign.json outside the bundle,
   drop cycle_summary.json`.
