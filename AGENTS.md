@@ -9,7 +9,7 @@ AC/aux power-cycle test harness for 3 NVIDIA Vera CPU nodes (n1/n2/n3,
 aarch64 Ubuntu). It runs a PRE baseline → repeated cycles (BMC standby, or
 inband/outband reboot) → per-loop POST comparison → HTML/JSON report.
 
-Repo: `github.com/wistroneq3300/vera-cpu-rack-cycle` (local `/root/vera-cycle`).
+Repo: `github.com/wistroneq3300/vera-cpu-rack-cycle` (local `/root/vera-cycle-eb1`).
 Nodes: OS `root/password`, BMC `root/0penBmc`.
 
 ## Running
@@ -86,6 +86,6 @@ Nodes: OS `root/password`, BMC `root/0penBmc`.
   rebased onto origin/main (865e5be). 170/170 tests pass.
 - Branch keeps **soft-WARN hostname** behavior (engine+tests+AGENTS), per 0c27941 note that
   soft-WARN lives only in the sheng branch; main/vera-cycle keep hard block.
-- `/root/vera-cycle` (main) = 865e5be pushed: PRE dmesg -C wipe, hide clean dmesg/eventlog
+- `/root/vera-cycle-eb1` (main) = 865e5be pushed: PRE dmesg -C wipe, hide clean dmesg/eventlog
   lines, evidence links. 164/164 tests pass.
 - sheng extra (stop_cycle.sh +182, neutrino_config.sh) bundled in the branch snapshot.
