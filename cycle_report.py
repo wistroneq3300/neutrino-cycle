@@ -5,6 +5,7 @@ from datetime import datetime
 import copy
 import html
 import json
+import os
 import re
 from collections import Counter
 from pathlib import Path
@@ -18,12 +19,20 @@ ASSETS = Path(__file__).parent
 # The compiled campaign journal is kept out of the campaign bundle so the
 # bundle stays small (log evidence + report only). Each run gets its own
 # sub-directory keyed by run id to avoid collisions between campaigns.
-CAMPAIGN_TMP = Path('/srv/cycletmp')
+
+
+def campaign_tmp():
+    """Root directory for campaign journals.
+
+    Resolved from VERA_CAMPAIGN_TMP on every call (default /srv/cycletmp) so
+    tests and ops can redirect it without import-order dependence.
+    """
+    return Path(os.environ.get('VERA_CAMPAIGN_TMP', '/srv/cycletmp'))
 
 
 def journal_path(root):
     """Absolute path of the campaign journal for a bundle directory."""
-    return CAMPAIGN_TMP / Path(root).name / 'campaign.json'
+    return campaign_tmp() / Path(root).name / 'campaign.json'
 
 
 def read_journal(root):

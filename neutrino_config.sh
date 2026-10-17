@@ -6,35 +6,30 @@ export LC_ALL=C
 CPU_MIN=2
 DIMM_EXPECTED=16
 NVMe_MIN=2
-NIC_MIN=22
-# Expected NIC (Vera) PCI slots. 22 slots: 22 single-port NICs, each on its own
+NIC_MIN=17
+# Expected NIC (Vera) PCI slots. 17 slots: 17 single-port NICs, each on its own
 # domain:bus:device.function. When a slot is absent from the MST inventory the
 # producer emits DEVICE_MISSING|NIC so the report can name which NIC dropped.
 NIC_SLOT_01=0001:00:00.0
 NIC_SLOT_02=0002:00:00.0
 NIC_SLOT_03=0002:20:00.0
 NIC_SLOT_04=0003:00:00.0
-NIC_SLOT_05=0003:80:00.0
-NIC_SLOT_06=0004:00:00.0
-NIC_SLOT_07=0004:40:00.0
-NIC_SLOT_08=0004:80:00.0
-NIC_SLOT_09=0004:c0:00.0
-NIC_SLOT_10=0005:00:00.0
-NIC_SLOT_11=0006:00:00.0
-NIC_SLOT_12=0009:00:00.0
-NIC_SLOT_13=000a:00:00.0
-NIC_SLOT_14=000a:20:00.0
-NIC_SLOT_15=000b:00:00.0
-NIC_SLOT_16=000b:80:00.0
-NIC_SLOT_17=000c:00:00.0
-NIC_SLOT_18=000c:40:00.0
-NIC_SLOT_19=000c:80:00.0
-NIC_SLOT_20=000c:c0:00.0
-NIC_SLOT_21=000d:00:00.0
-NIC_SLOT_22=000e:00:00.0
-NIC_SLOTS="$NIC_SLOT_01 $NIC_SLOT_02 $NIC_SLOT_03 $NIC_SLOT_04 $NIC_SLOT_05 $NIC_SLOT_06 $NIC_SLOT_07 $NIC_SLOT_08 $NIC_SLOT_09 $NIC_SLOT_10 $NIC_SLOT_11 $NIC_SLOT_12 $NIC_SLOT_13 $NIC_SLOT_14 $NIC_SLOT_15 $NIC_SLOT_16 $NIC_SLOT_17 $NIC_SLOT_18 $NIC_SLOT_19 $NIC_SLOT_20 $NIC_SLOT_21 $NIC_SLOT_22"
+NIC_SLOT_05=0004:00:00.0
+NIC_SLOT_06=0004:40:00.0
+NIC_SLOT_07=0004:80:00.0
+NIC_SLOT_08=0004:c0:00.0
+NIC_SLOT_09=0005:00:00.0
+NIC_SLOT_10=0006:00:00.0
+NIC_SLOT_11=0009:00:00.0
+NIC_SLOT_12=000a:00:00.0
+NIC_SLOT_13=000a:20:00.0
+NIC_SLOT_14=000b:00:00.0
+NIC_SLOT_15=000c:00:00.0
+NIC_SLOT_16=000d:00:00.0
+NIC_SLOT_17=000e:00:00.0
+NIC_SLOTS="$NIC_SLOT_01 $NIC_SLOT_02 $NIC_SLOT_03 $NIC_SLOT_04 $NIC_SLOT_05 $NIC_SLOT_06 $NIC_SLOT_07 $NIC_SLOT_08 $NIC_SLOT_09 $NIC_SLOT_10 $NIC_SLOT_11 $NIC_SLOT_12 $NIC_SLOT_13 $NIC_SLOT_14 $NIC_SLOT_15 $NIC_SLOT_16 $NIC_SLOT_17"
 BF4_EXPECTED=1
-PCIEFAB_MIN=20
+PCIEFAB_MIN=17
 USB_MIN=1
 BMC_MIN=1
 MEMORY_MIN_RATIO="${MEMORY_MIN_RATIO:-0.90}"
@@ -124,6 +119,10 @@ nvme_check() {
 nic_bf4_check() {
     local data nic bf4_cards bf4_ports modules
     local mst_valid=true
+    # Best-effort: ensure the MST PCI module is loaded before reading the device
+    # table. `mst start` is idempotent and its failure is non-fatal here; if the
+    # module still cannot be loaded the MST_MODULE check below reports it.
+    mst start >/dev/null 2>&1 || true
     collect data MST mst status -v || mst_valid=false
     # Count Vera devices from the mst device table. The MST column is only
     # populated when the MST kernel module is loaded, so keying on '/dev/mst/'

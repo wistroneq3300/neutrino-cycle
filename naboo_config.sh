@@ -81,6 +81,10 @@ nvme_check() {
 nic_bf4_check() {
     local data nic bf4_cards bf4_ports modules
     local mst_valid=true
+    # Best-effort: ensure the MST PCI module is loaded before reading the device
+    # table. `mst start` is idempotent and its failure is non-fatal here; if the
+    # module still cannot be loaded the MST_MODULE check below reports it.
+    mst start >/dev/null 2>&1 || true
     collect data MST mst status -v || mst_valid=false
     # Count Vera devices from the mst device table. The MST column is only
     # populated when the MST kernel module is loaded, so keying on '/dev/mst/'

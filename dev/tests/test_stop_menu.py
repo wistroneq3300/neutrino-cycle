@@ -2,11 +2,16 @@
 import contextlib
 import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+# Keep the campaign journal out of the real /srv/cycletmp during tests.
+os.environ.setdefault('VERA_CAMPAIGN_TMP', tempfile.mkdtemp(prefix='vera-campaign-tmp-'))
+
+from cycle_report import journal_path
 from cycle_runtime import RunRegistry, list_running, process_running, request_stop
 from neutrino_cycle import main, stop_menu
 
@@ -65,7 +70,9 @@ class StopMenuTests(unittest.TestCase):
         path.write_text(json.dumps(data))
         output = Path(data['output'])
         output.mkdir()
-        (output/'campaign.json').write_text(json.dumps(dict(project='naboo', cycle_mode='reboot',
+        journal = journal_path(output)
+        journal.parent.mkdir(parents=True, exist_ok=True)
+        journal.write_text(json.dumps(dict(project='naboo', cycle_mode='reboot',
             channel='outband', nodes=[dict(key='tray_n9', blocked=[])])))
         run = list_running(self.root)[0]
         self.assertEqual(run['nodes'], ['tray_n9'])

@@ -1,13 +1,17 @@
 """Offline contract tests for the formal validation specification."""
 from __future__ import annotations
 
+import os
 import re
 import tempfile
 import unittest
 from pathlib import Path
 
+# Keep the campaign journal out of the real /srv/cycletmp during tests.
+os.environ.setdefault('VERA_CAMPAIGN_TMP', tempfile.mkdtemp(prefix='vera-campaign-tmp-'))
+
 from cycle_engine import new_record
-from cycle_report import render_html, write_reports
+from cycle_report import journal_path, render_html, write_reports
 from cycle_specification import ITEMS, render_specification, write_specification
 
 
@@ -121,7 +125,9 @@ class SpecificationTests(unittest.TestCase):
             spec = (root / "CYCLE_VALIDATION_SPECIFICATION.html").read_text(encoding="utf-8")
             self.assertIn('href="CYCLE_VALIDATION_SPECIFICATION.html"', report)
             self.assertIn('href="CYCLE_REVIEW_REPORT.html"', spec)
-            self.assertTrue((root / "campaign.json").is_file())
+            # The journal lives outside the bundle (Decision A).
+            self.assertTrue(journal_path(root).is_file())
+            self.assertFalse((root / "campaign.json").exists())
 
 
 if __name__ == "__main__":

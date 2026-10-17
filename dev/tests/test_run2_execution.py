@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import test_cycle as fixtures
 from cycle_core import aggregate_issues, health
+from cycle_report import journal_path
 from cycle_transport import Command
 from neutrino_cycle import campaign, show_result
 
@@ -112,7 +113,7 @@ class ExecutionTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 code = campaign(self.options, targets, {}, confirm=lambda _: 'yes',
                                 transport_factory=lambda *_: self.fake, runtime_root=self.root/'runtime')
-        data = json.loads(next(self.options.output.glob('*/campaign.json')).read_text())
+        data = json.loads(journal_path(next(self.options.output.iterdir())).read_text())
         first, second = data['nodes']
         self.assertEqual(code, 1)
         self.assertEqual(first['attempts'], 1)

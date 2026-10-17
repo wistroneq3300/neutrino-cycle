@@ -12,9 +12,12 @@ import threading
 import unittest
 from unittest.mock import patch
 
+# Keep the campaign journal out of the real /srv/cycletmp during tests.
+os.environ.setdefault('VERA_CAMPAIGN_TMP', tempfile.mkdtemp(prefix='vera-campaign-tmp-'))
+
 from cycle_core import issue, now, write_json
 from cycle_engine import new_record
-from cycle_report import rebuild, status, write_reports
+from cycle_report import journal_path, rebuild, status, write_reports
 from cycle_runtime import RunRegistry
 from neutrino_cycle import main
 from test_cycle import target
@@ -55,7 +58,7 @@ class RecoveryTests(unittest.TestCase):
         self.assertIn('SENSOR_CRITICAL', [i['code'] for i in result['nodes'][0]['loops'][0]['issues']])
         self.assertTrue(result['nodes'][0]['recovery_notes'])
         self.assertEqual(result['state'], 'INCOMPLETE')
-        self.assertEqual(json.loads((self.root/'campaign.json').read_text())['nodes'][0]['completed'], 1)
+        self.assertEqual(json.loads(journal_path(self.root).read_text())['nodes'][0]['completed'], 1)
 
     def test_journal_only_and_repeat_rebuild_is_idempotent(self):
         (self.root/'tray1_n1/loop0001/report.json').unlink()
@@ -125,11 +128,11 @@ class RecoveryTests(unittest.TestCase):
         write_reports(self.root, self.data)
         registry = RunRegistry(self.data['run_id'], self.runtime)
         registry.register(self.root)
-        before = (self.root/'campaign.json').read_bytes()
+        before = journal_path(self.root).read_bytes()
         with patch.dict(os.environ, {'VERA_RUNTIME_DIR': str(self.runtime)}), contextlib.redirect_stderr(io.StringIO()):
             code = main(['--report', str(self.root)])
         self.assertEqual(code, 2)
-        self.assertEqual((self.root/'campaign.json').read_bytes(), before)
+        self.assertEqual(journal_path(self.root).read_bytes(), before)
         self.assertEqual(json.loads((registry.path/'owner.json').read_text())['state'], 'RUNNING')
 
     def test_dead_real_owner_allows_recovery(self):
@@ -137,9 +140,10 @@ class RecoveryTests(unittest.TestCase):
 import json, sys
 from pathlib import Path
 from cycle_runtime import RunRegistry
+from cycle_report import journal_path
 from cycle_storage import writer_identity
 from cycle_core import write_json
-root=Path(sys.argv[1]); path=root/'campaign.json'
+root=Path(sys.argv[1]); path=journal_path(root)
 data=json.loads(path.read_text()); data['state']='RUNNING'; data['writer_owner']=writer_identity()
 write_json(path,data)
 RunRegistry(data['run_id'],sys.argv[2]).register(root)
@@ -181,7 +185,7 @@ RunRegistry(data['run_id'],sys.argv[2]).register(root)
                 thread.join(15)
         self.assertFalse(thread.is_alive())
         self.assertFalse(errors, errors)
-        self.assertEqual(json.loads((self.root/'campaign.json').read_text())['state'], 'RUNNING')
+        self.assertEqual(json.loads(journal_path(self.root).read_text())['state'], 'RUNNING')
 
     def test_writer_lock_is_cross_process(self):
         code = '''
@@ -212,10 +216,10 @@ with report_writer_lock(sys.argv[1]):
         from cycle_storage import writer_identity
         self.data.update(state='RUNNING', writer_owner={**writer_identity(), 'host': 'another-controller.invalid'})
         write_reports(self.root, self.data)
-        before = (self.root/'campaign.json').read_bytes()
+        before = journal_path(self.root).read_bytes()
         with self.assertRaisesRegex(RuntimeError, 'another controller'):
             rebuild(self.root, runtime_root=self.runtime)
-        self.assertEqual((self.root/'campaign.json').read_bytes(), before)
+        self.assertEqual(journal_path(self.root).read_bytes(), before)
 
     def test_malformed_completion_flags_cannot_create_valid_cycles(self):
         record = copy.deepcopy(self.data['nodes'][0]['loops'][0])

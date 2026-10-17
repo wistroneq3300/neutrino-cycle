@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from cycle_core import (aggregate_issues, classify_against_pre, dmesg_issues, health,
                         issue_baseline, parse_pci, parse_sensors, pci_issues, sensor_issues)
-from cycle_report import record_html
+from cycle_report import journal_path, record_html
 from cycle_transport import Command, Transport
 from neutrino_cycle import show_result
 import test_cycle
@@ -232,7 +232,7 @@ class EngineReviewTests(unittest.TestCase):
             clock[0] += 2
         with patch('neutrino_cycle.time.monotonic', side_effect=lambda: clock[0]), patch.object(test_cycle.NodeSession, 'start', slow_start):
             self.run_campaign()
-        path = next(self.options.output.glob('*/campaign.json'))
+        path = journal_path(next(self.options.output.iterdir()))
         data = json.loads(path.read_text())
         self.assertEqual(data['nodes'][0]['attempts'], 1)
         self.assertEqual(data['nodes'][0]['valid_cycles'], 1)

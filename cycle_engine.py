@@ -697,16 +697,16 @@ class NodeSession:
         event_count = sum(1 for line in lines if '|' in line and re.match(r'^[0-9a-f]+\s*\|', line, re.I))
         valid = bool(command.get('valid'))
         return dict(phase=phase, status='COLLECTED' if valid else 'FAILED', valid=valid,
-                    command=command.get('command', ('ipmitool sel list' if self.options.channel == 'inband' else 'sel list')),
+                    command=command.get('command', 'sel list'),
                     state=command.get('state', 'UNKNOWN'), code=command.get('code'),
                     evidence=command.get('evidence', ''), event_count=event_count if valid else None,
                     reason='' if valid else 'SEL command failed or returned an unrecognized format')
 
     def sel_command(self, record, stem, action, **kwargs):
-        inband = self.options.channel == 'inband'
-        result = self.command(record, stem, 'os' if inband else 'oob',
-                              ('ipmitool sel ' if inband else 'sel ') + action,
-                              sudo=inband, **kwargs)
+        # SEL is always collected over OOB (ipmitool -I lanplus to the BMC), even
+        # for the inband power channel: the OS-side ipmitool path needs /dev/ipmi0,
+        # which is absent on this reworked platform and returned no entries.
+        result = self.command(record, stem, 'oob', 'sel ' + action, **kwargs)
         if action == 'list' and record['commands'][stem]['valid']:
             lines = [line.strip() for line in result.output.splitlines() if line.strip()]
             empty = len(lines) == 1 and lines[0].lower().rstrip('.') == 'sel has no entries'

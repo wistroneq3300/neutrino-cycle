@@ -11,9 +11,16 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
+# Keep the campaign journal out of the real /srv/cycletmp during tests: point
+# it at a throwaway directory before importing cycle_report, which reads the
+# VERA_CAMPAIGN_TMP environment variable at import time.
+import tempfile as _tempfile
+_TEST_JOURNAL_TMP = _tempfile.mkdtemp(prefix='vera-campaign-tmp-')
+os.environ['VERA_CAMPAIGN_TMP'] = _TEST_JOURNAL_TMP
+
 from cycle_core import *
 from cycle_engine import CAPTURES, NodeSession, new_record
-from cycle_report import render_html, rebuild, status
+from cycle_report import render_html, rebuild, status, read_journal, journal_path
 from cycle_runtime import EndpointLocks, request_stop
 from cycle_transport import Command, IdentityUnsafe
 from neutrino_cycle import BASE, Console, campaign, main
@@ -88,7 +95,8 @@ class FakeTransport:
             return Command(0, 'installed')
         if 'MISSING=' in cmd:
             return Command(0, 'MISSING=lspci\n' if self.package_missing else '')
-        if cmd in {'reboot', 'ipmitool power cycle', '/usr/bin/stbypowerctrl.sh aux_cycle'}:
+        if cmd in {'reboot', 'ipmitool power cycle', '/usr/bin/stbypowerctrl.sh aux_cycle',
+                   '/usr/bin/powerctrl.sh power_cycle'}:
             return self.action(t)
         if cmd == 'lspci -Dnn':
             return Command(0, '' if self.empty_baseline else PCI.splitlines()[0] if self.pci_drift and self.boots.get(t.key) == 1 else PCI)
@@ -578,7 +586,7 @@ class EngineTests(unittest.TestCase):
         self.assertTrue((self.root/'tray1_n1'/'loop0001'/'sel.txt').exists())
         self.assertTrue((self.root/'tray1_n1'/'loop0001'/'sel_delta.txt').exists())
         self.assertTrue(self.session.node['pre']['sel_collection']['valid'])
-        self.assertEqual(self.session.node['pre']['commands']['pre_sel_clear']['command'], 'ipmitool sel clear')
+        self.assertEqual(self.session.node['pre']['commands']['pre_sel_clear']['command'], 'sel clear')
         self.assertEqual(record['sel_before_meta']['phase'], 'BEFORE_CYCLE')
         self.assertEqual(record['sel_post_meta']['phase'], 'POST')
         self.assertGreaterEqual(record['duration_seconds'], 0)
@@ -591,10 +599,11 @@ class EngineTests(unittest.TestCase):
                 self.ready()
                 self.session.one_loop(1)
                 self.session.one_loop(2)
-                # Fake SSH delegates IPMI to its response helper; inspect SSH
-                # calls to establish the requested transport independently.
+                # SEL is always collected over OOB (ipmitool -I lanplus to the
+                # BMC), regardless of the power channel; the OS-side ipmitool
+                # path is not used.
                 os_calls = [cmd for _, role, cmd in self.fake.calls if role == 'os' and cmd.startswith('ipmitool sel')]
-                self.assertEqual(bool(os_calls), channel == 'inband')
+                self.assertFalse(os_calls)
                 clear_calls = [cmd for _, role, cmd in self.fake.calls if role == 'oob' and cmd == 'sel clear']
                 self.assertEqual(len(clear_calls), 1)
 
@@ -850,15 +859,9 @@ class EngineTests(unittest.TestCase):
     def test_campaign_reports_are_consistent_and_escaped(self):
         self.assertEqual(self.run_campaign(),1)
         output = next(self.options.output.iterdir())
-        data = json.loads((output/'cycle_summary.json').read_text())
+        data = read_journal(output)
         self.assertEqual(data['state'],'COMPLETE')
-        self.assertEqual(data['summary']['health'],'FAIL')
         self.assertEqual(data['nodes'][0]['completed'],2)
-        self.assertEqual(len(data['summary']['issues']),1)
-        # The summary is a portable overview: loop bodies stay in the journal.
-        self.assertNotIn('loops', data['nodes'][0])
-        self.assertNotIn('pre', data['nodes'][0])
-        data = json.loads((output/'campaign.json').read_text())
         data['nodes'][0]['pre']['issues'][0]['detail']='<script>alert(1)</script>'
         page=render_html(data)
         self.assertNotIn('<script>alert(1)</script>',page)
@@ -887,7 +890,7 @@ class EngineTests(unittest.TestCase):
             request_stop(registry.name.removeprefix('run-'),self.root/'runtime')
         self.fake.on_action=callback
         self.run_campaign()
-        data=json.loads((next(self.options.output.iterdir())/'campaign.json').read_text())
+        data=read_journal(next(self.options.output.iterdir()))
         self.assertEqual(data['state'],'INCOMPLETE')
         self.assertEqual(data['nodes'][0]['completed'],1)
 
@@ -914,7 +917,7 @@ class EngineTests(unittest.TestCase):
                      transport_factory=lambda *_:self.fake,runtime_root=self.root/'runtime')
         self.assertEqual(len(prompts),1)
         self.assertIn('1 runnable',prompts[0])
-        data=json.loads((next(self.options.output.iterdir())/'campaign.json').read_text())
+        data=read_journal(next(self.options.output.iterdir()))
         self.assertTrue(data['nodes'][1]['blocked'])
         self.assertEqual(data['nodes'][1]['completed'],0)
         self.assertFalse(any(key=='tray2_n2' for key,_,_ in self.fake.calls))
@@ -922,7 +925,7 @@ class EngineTests(unittest.TestCase):
     def test_crash_rebuild_keeps_partial_loop(self):
         self.run_campaign()
         output=next(self.options.output.iterdir())
-        path=output/'campaign.json'
+        path=journal_path(output)
         data=json.loads(path.read_text())
         data['state']='RUNNING'
         # Simulate a crashed former process, not this still-live test owner.

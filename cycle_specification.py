@@ -279,7 +279,7 @@ ITEMS = [
     ),
     item(
         "17", "ipmi-sel", t("IPMI SEL", "IPMI SEL"), PRE_POST,
-        t("inband：`ipmitool sel list`；outband：authenticated LANPlus `sel list`；PRE clean-start 使用對應的 `sel clear`。", "Inband: `ipmitool sel list`; outband: authenticated LANPlus `sel list`; PRE clean-start uses the corresponding `sel clear`."),
+        t("SEL 一律透過 authenticated OOB LANPlus 收集（`sel list` / `sel clear`）；即使 power channel 為 inband 亦然，因為 OS 端 `ipmitool` 需要 `/dev/ipmi0`，本平台不存在。", "SEL is always collected over authenticated OOB LANPlus (`sel list` / `sel clear`), even for the inband power channel: the OS-side `ipmitool` path needs `/dev/ipmi0`, which is absent on this platform."),
         t("確認 SEL collection 可用，並在每個 loop 比較 action 前與 POST 的新增 records。", "Confirm that SEL collection is usable and compare records added between before-action and POST for each loop."),
         t("empty `SEL has no entries` 是 valid empty result；其他 output 必須是可解析的 SEL rows。Loop 不清除 SEL。", "Empty `SEL has no entries` is a valid empty result; other output must be parseable SEL rows. Loops do not clear SEL."),
         t("command valid 且格式正確；delta comparison 完成時標示 `COMPARED`，不代表 event content 已被 health evaluator 判 PASS。", "The command is valid and correctly formatted; a completed delta is marked `COMPARED`, which does not mean event content was health-evaluated as PASS."),
