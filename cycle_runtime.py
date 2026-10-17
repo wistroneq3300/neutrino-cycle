@@ -162,12 +162,13 @@ def list_running(root=None):
             # Older registrations stored display metadata only in the journal.
             if 'nodes' not in data:
                 try:
-                    campaign = json.loads((Path(data['output']) / 'campaign.json').read_text(encoding='utf-8'))
+                    from cycle_report import read_journal
+                    campaign = read_journal(data['output'])
                     data.update(project=campaign.get('project', 'Unknown'),
                                 cycle_mode=campaign.get('cycle_mode', 'Unknown'),
                                 channel=campaign.get('channel', 'Unknown'),
                                 nodes=[n['key'] for n in campaign.get('nodes', []) if not n.get('blocked')])
-                except (OSError, ValueError, KeyError, TypeError):
+                except (OSError, ValueError, KeyError, TypeError, ImportError, ModuleNotFoundError):
                     pass
             data['stop_requested'] = (path / 'stop.request').exists()
             if not isinstance(data.get('nodes', []), list) or not all(isinstance(n, str) for n in data.get('nodes', [])):

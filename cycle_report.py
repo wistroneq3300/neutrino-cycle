@@ -15,6 +15,24 @@ from cycle_storage import report_writer_lock, reject_live_rebuild
 
 ASSETS = Path(__file__).parent
 
+# The compiled campaign journal is kept out of the campaign bundle so the
+# bundle stays small (log evidence + report only). Each run gets its own
+# sub-directory keyed by run id to avoid collisions between campaigns.
+CAMPAIGN_TMP = Path('/srv/cycletmp')
+
+
+def journal_path(root):
+    """Absolute path of the campaign journal for a bundle directory."""
+    return CAMPAIGN_TMP / Path(root).name / 'campaign.json'
+
+
+def read_journal(root):
+    """Read the campaign journal, falling back to a legacy in-bundle copy."""
+    path = journal_path(root)
+    if not path.is_file():
+        path = Path(root) / 'campaign.json'
+    return json.loads(path.read_text(encoding='utf-8'))
+
 
 def _wistron_logo():
     """Return the official two-colour Wistron wordmark for the self-contained report."""
@@ -144,8 +162,8 @@ def _finding_html_compact(record):
         ids = grp['ids']
         if ids:
             head = ', '.join(ids[:5])
-            tail = f', ... (共 {len(ids)})' if len(ids) > 5 else ''
-            ids_txt = f' <span class="event-ids">行: {esc(head)}{tail}</span>'
+            tail = f', ... ({len(ids)} total)' if len(ids) > 5 else ''
+            ids_txt = f' <span class="event-ids">line: {esc(head)}{tail}</span>'
         else:
             ids_txt = ''
         snippet = ''
@@ -973,7 +991,7 @@ def render_html(campaign, console_log=''):
     logo = _wistron_logo()
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>{esc(campaign['run_id'])} | Cycle review</title><style>{css}</style></head><body>
     <a class="skip" href="#main">Skip to report</a>{'<div class="sample">SYNTHETIC DEMONSTRATION — no hardware was operated</div>' if campaign.get('synthetic') else ''}
-    <div class="brandbar"><div class="brand-lockup">{logo}<span class="brand-caption">System validation</span></div><span>Engineering / Cycle review</span></div><header><a class="spec-link" href="CYCLE_VALIDATION_SPECIFICATION.html">Validation Specification<br><span>驗證規範</span></a><button id="print-report" class="print-button">Print report</button><h1>Cycle review</h1><div class="runline"><code>{esc(campaign['run_id'])}</code><span class="muted">Started {esc(campaign['started'])}</span></div><nav class="tabs" role="tablist" aria-label="Campaign views">{tab_html}</nav></header>
+    <div class="brandbar"><div class="brand-lockup">{logo}<span class="brand-caption">System validation</span></div><span>Engineering / Cycle review</span></div><header><a class="spec-link" href="CYCLE_VALIDATION_SPECIFICATION.html">Validation Specification</a><button id="print-report" class="print-button">Print report</button><h1>Cycle review</h1><div class="runline"><code>{esc(campaign['run_id'])}</code><span class="muted">Started {esc(campaign['started'])}</span></div><nav class="tabs" role="tablist" aria-label="Campaign views">{tab_html}</nav></header>
     <main id="main">{overview}{node_panel}{issues_panel}</main><footer><p>Generated {esc(now())}. Offline report. Keep this HTML with its evidence folders to use log links.</p><p>Hardware script SHA-256: <code>{esc(campaign['script_sha256'])}</code></p></footer><script>{js}</script></body></html>'''
 
 def write_reports(root, campaign):
@@ -989,18 +1007,10 @@ def _write_reports(root, campaign):
         for record in [node['pre'], *([node['start']] if node.get('start') else []), *node['loops']]:
             record['missing_evidence'] = [p for p in record['evidence'] if not (root / p).is_file()]
     result = status(campaign)
-    # The journal is independent of HTML generation and is written first.
-    write_json(root / "campaign.json", campaign)
-    # ``cycle_summary.json`` is a portable overview, not a second journal: it
-    # keeps campaign metadata and per-node counts but drops ``pre``/``start``
-    # and every ``loops`` body, which live once in campaign.json and the
-    # loop*/report.json files. ``summary`` carries the aggregated verdict.
-    summary_campaign = {k: v for k, v in campaign.items() if k != 'nodes'}
-    summary_campaign['nodes'] = [
-        {k: v for k, v in node.items() if k not in ('pre', 'start', 'loops')}
-        for node in campaign['nodes']
-    ]
-    write_json(root / "cycle_summary.json", {**summary_campaign, "summary": result})
+    # The journal is independent of HTML generation and is written first. It is
+    # kept outside the bundle (see ``journal_path``) to avoid a 400+ MB file in
+    # every campaign directory; the report carries the same verdict.
+    write_json(journal_path(root), campaign)
     lines = [f"Run ID: {campaign['run_id']}", f"Execution: {result['completion']}", f"Health: {result['health']}",
              f"Requested limits: {campaign['limits']}", f"Completed node-loops: {result['completed_node_loops']}",
              f"Attempts: {result['attempted_node_loops']}; boot confirmed: {result['boot_confirmed_node_loops']}; valid cycles: {result['valid_node_cycles']}",
@@ -1042,7 +1052,7 @@ def rebuild(root, runtime_root=None):
     # Read, ownership check, merge and publication share one writer lock.
     with report_writer_lock(root):
         root = Path(root)
-        campaign = json.loads((root / 'campaign.json').read_text(encoding='utf-8'))
+        campaign = read_journal(root)
         reject_live_rebuild(root, campaign, runtime_root)
         from cycle_recovery import recover_records
         campaign = recover_records(root, campaign)
