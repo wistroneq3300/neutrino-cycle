@@ -782,7 +782,7 @@ def _loop_ranges(phases):
     loops = []
     others = []
     for ph in phases:
-        m = re.fullmatch(r'loop\s*(\d+)', str(ph))
+        m = re.fullmatch(r'loop\s*(\d+)', str(ph), re.I)
         if m:
             loops.append(int(m.group(1)))
         elif ph not in others:
@@ -793,7 +793,7 @@ def _loop_ranges(phases):
             ranges[-1][1] = n
         else:
             ranges.append([n, n])
-    out = [str(a) if a == b else f'{a}-{b}' for a, b in ranges]
+    out = [(f'loop {a}' if a == b else f'loop {a}-{b}') for a, b in ranges]
     return ', '.join(others + out)
 
 
@@ -841,48 +841,47 @@ def merge_issues(items):
 
 
 def issue_cards_compact(items, indices):
-    """Issue cards that summarize phases as loop ranges instead of one row each."""
+    """Issue cards with compact, de-duplicated occurrences.
+
+    The summary line shows loop ranges, not every loop. The body is an
+    "All occurrences" table with two columns (phase, finding); identical
+    findings are collapsed to one row whose phase is a loop range. Evidence
+    links live on the Nodes tab, so they are not repeated here.
+    """
     rows = []
     opened = False
     for item in sorted(items, key=lambda x: (x['severity'] != 'FAIL', x['node'], x['code'])):
         i = indices[item['node']]
         events = item['occurrences']
-        occ = []
-        seen = set()
+
+        # Group occurrences by identical finding (detail + snippet) so a fault
+        # repeated every loop becomes one row with a loop-range phase.
+        groups = []
+        by_key = {}
         for event in events:
-            phase = event['phase']
-            if phase in seen:
-                continue
-            seen.add(phase)
-            loop = re.search(r'(\d+)\s*$', phase)
-            phase_id = f"node-{i}-" + (f"loop-{loop.group(1)}" if phase != 'PRE' and loop else 'start' if phase == 'START' else 'pre')
-            if phase == 'RECOVERY':
-                phase_id = f'node-{i}-recovery'
-            occ.append((phase, phase_id, event))
-        phase_links = []
-        show = occ[:60]
-        for phase, phase_id, event in show:
-            phase_links.append(f'<a href="#{phase_id}" data-panel="node-{i}">{esc(phase)}</a>')
-        if len(occ) > len(show):
-            phase_links.append(f'&hellip; +{len(occ) - len(show)} more phases')
-        ev_links = []
-        seen_ev = []
-        for phase, phase_id, event in occ:
-            ev = event.get('evidence')
-            if ev and ev not in seen_ev:
-                seen_ev.append(ev)
-        for ev in seen_ev[:40]:
-            ev_links.append(evidence_link(ev))
+            key = (event.get('detail') or item.get('detail') or '', event.get('snippet') or '')
+            grp = by_key.get(key)
+            if grp is None:
+                grp = {'detail': key[0], 'snippet': key[1], 'phases': [], 'count': 0}
+                by_key[key] = grp
+                groups.append(grp)
+            grp['phases'].append(event['phase'])
+            grp['count'] += 1
+
+        body_rows = []
+        for grp in groups:
+            phase = _loop_ranges(grp['phases'])
+            source = f'<pre class="snippet">{esc(grp["snippet"])}</pre>' if grp.get('snippet') else ''
+            count = f' <span class="muted">({grp["count"]}&times;)</span>' if grp['count'] > 1 else ''
+            body_rows.append(f'<tr><td>{esc(phase)}</td><td>{esc(grp["detail"])}{count}{source}</td></tr>')
+        table = ('<div class="tablewrap"><table><thead><tr><th>Phase</th>'
+                 '<th>Finding and source</th></tr></thead><tbody>' + ''.join(body_rows) +
+                 '</tbody></table></div>')
+
         scope = _loop_ranges(e['phase'] for e in events)
-        detail = [f'<p>{esc(item["detail"])}</p>',
-                  f'<p class="muted">Observed on <strong>{esc(item["node"])}</strong> in {esc(scope)} '
-                  f'({len(events)} occurrence(s)).</p>',
-                  '<p class="muted">Phases: ' + ', '.join(phase_links) + '</p>']
-        if ev_links:
-            detail.append('<p class="muted">Evidence: ' + ' &middot; '.join(ev_links) + '</p>')
         open_attr = ' open' if not opened and item['severity'] == 'FAIL' else ''
         opened = opened or bool(open_attr)
-        rows.append(f'''<details class="issue-row" data-severity="{esc(item['severity'])}" data-classification="{esc(item['classification'])}"{open_attr}><summary>{badge(item['severity'])}<span class="issue-title">{esc(item['node'])} / {esc(item['component'])}</span> {badge(item['classification'])}<span class="issue-meta">{esc(item['code'])} &middot; {len(events)} occurrence(s) &middot; {esc(scope)}</span></summary><div class="detail-body">{''.join(detail)}</div></details>''')
+        rows.append(f'''<details class="issue-row" data-severity="{esc(item['severity'])}" data-classification="{esc(item['classification'])}"{open_attr}><summary>{badge(item['severity'])}<span class="issue-title">{esc(item['node'])} / {esc(item['component'])}</span> {badge(item['classification'])}<span class="issue-meta">{esc(item['code'])} &middot; {len(events)} occurrence(s) &middot; {esc(scope)}</span></summary><div class="detail-body"><details><summary>All occurrences ({len(events)})</summary>{table}</details></div></details>''')
     return ''.join(rows) or '<p>No issues recorded.</p>'
 
 
