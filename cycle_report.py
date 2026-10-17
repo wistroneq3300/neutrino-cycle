@@ -712,6 +712,22 @@ def record_html(record, node_index, baseline=None):
       {_render_summary_groups(record)}{_render_pci_group(record, baseline) if phase != 'START' or record.get('pci') or record.get('pci_devices') else ''}{_render_mctp_group(record)}<h3>Findings</h3>{_finding_html(record)}{collection}{sel}<details><summary>{'START preparation and verified identities' if phase == 'START' else 'Cycle action and verified identities' if phase == 'LOOP' else 'Verified identities'}</summary>{action}{identity}</details>
       <p class="muted">{esc(record.get('sel_review', ''))}</p><details><summary>Original evidence files</summary><ul class="evidence-list">{evidence or '<li>Evidence paths were not recorded.</li>'}</ul></details></div></details>'''
 
+def record_html_compact(record, node_index, baseline=None):
+    """Per-loop entry without the full per-check tables.
+
+    Keeps the summary line, the findings and the evidence links, and drops the
+    hardware/PCI/MCTP/sensor tables that repeat every loop. Open the evidence
+    file for the per-check detail.
+    """
+    phase = _phase_kind(record)
+    loop_number = _loop_number(record)
+    phase_id = f"node-{node_index}-" + ("pre" if phase == "PRE" else "start" if phase == "START" else f"loop-{loop_number or 'unknown'}")
+    evidence = ''.join('<li>' + _record_evidence(record, p) + '</li>' for p in dict.fromkeys(record.get("evidence", [])))
+    return f'''<details id="{phase_id}"><summary><strong>{esc(record['phase'])}</strong> {badge(record['status'])}<span class="phase-count">{esc(_finding_summary(record))} &middot; {esc(duration(record.get('duration_seconds')))} &middot; {esc(record.get('finished') or 'Not finished')}</span></summary><div class="detail-body">
+      {_finding_html(record)}
+      <details><summary>Evidence files ({len(dict.fromkeys(record.get("evidence", [])))})</summary><ul class="evidence-list">{evidence or '<li>Evidence paths were not recorded.</li>'}</ul></details></div></details>'''
+
+
 def duration(seconds):
     if seconds is None:
         return "Not recorded"
@@ -885,7 +901,7 @@ def render_html(campaign, console_log=''):
         note = '; '.join(node['blocked']) or node['stop_reason'] or '; '.join(dict.fromkeys(item['component'] + ': ' + item['code'] for item in node_items)) or 'No findings'
         rows.append(f'<tr><td class="target"><a href="#node-{i}" data-panel="node-{i}">{esc(node["key"])}</a><small>{esc(node["target"]["os_ip"])}</small></td><td>{badge(health_value)}</td><td>{badge(state)}</td><td>{node["completed"]}</td><td>{esc(note)}</td></tr>')
         choices.append(f'<a class="node-choice" href="#node-{i}" data-panel="node-{i}" data-health="{health_value}">{esc(node["key"])} {badge(health_value)}<small>{node["completed"]} loops</small></a>')
-        records = record_html(node['pre'], i, node['pre']) + (record_html(node['start'], i, node['pre']) if node.get('start') else '') + ''.join(record_html(r, i, node['pre']) for r in node['loops'])
+        records = record_html_compact(node['pre'], i, node['pre']) + (record_html_compact(node['start'], i, node['pre']) if node.get('start') else '') + ''.join(record_html_compact(r, i, node['pre']) for r in node['loops'])
         if node.get('recovery_issues'):
             records += f'<details id="node-{i}-recovery"><summary>Recovery integrity {badge("FAIL")}</summary><ul>' + ''.join(f'<li>{esc(item["detail"])}</li>' for item in node['recovery_issues']) + '</ul></details>'
         last = node['loops'][-1] if node['loops'] else node['pre']
