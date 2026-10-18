@@ -17,6 +17,13 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime
 from pathlib import Path
 
+try:
+    import termios
+    import tty
+except ImportError:  # pragma: no cover - non-POSIX fallback
+    termios = None
+    tty = None
+
 from cycle_core import (
     LOG_TIMEZONE,
     ROLES,
@@ -447,28 +454,357 @@ def choose_limit(kind):
         return value
 
 
-def wizard(options):
-    """Interactive campaign setup, mirroring the rackctl prompt style."""
-    print('=' * 50)
-    print('  Vera Cycle Wizard (interactive)')
-    print('=' * 50)
-    options.project = choose('Project', [('neutrino', 'neutrino'), ('naboo', 'naboo')], 1)
-    options.inventory = options.inventory or BASE / f'cycle_inventory_{options.project}.csv'
-    targets = load_inventory(options.inventory)
-    names = sorted({t.node for t in targets})
-    print(f"\nNodes in inventory: {', '.join(names)}")
+def _read_key(stream):
+    """Translate one raw keypress into a token.
+
+    Returns 'up', 'down', 'space', 'enter', 'quit' or the literal character.
+    Reads byte-by-byte so it works inside cbreak mode; arrow keys arrive as the
+    three-byte escape sequence ESC [ A/B and are collapsed into one token.
+    """
+    char = stream.read(1)
+    if not char:
+        return 'enter'
+    if char == '\x03':  # Ctrl-C
+        raise KeyboardInterrupt
+    if char in ('\r', '\n'):
+        return 'enter'
+    if char == ' ':
+        return 'space'
+    if char in ('k',):
+        return 'up'
+    if char in ('j',):
+        return 'down'
+    if char == '\x1b':
+        seq = stream.read(1)
+        if seq == '[':
+            final = stream.read(1)
+            return {'A': 'up', 'B': 'down'}.get(final, 'other')
+        return 'other'
+    return char
+
+
+def _make_key_reader(stream=None):
+    """Return a callable that yields tokens from a raw (cbreak) terminal.
+
+    The terminal is put into cbreak mode and restored via ``close()``, which the
+    caller must invoke in a ``finally`` block so Ctrl-C never leaves the shell
+    with echo disabled.
+    """
+    stream = stream or sys.stdin
+    fd = stream.fileno()
+    original = termios.tcgetattr(fd)
+    tty.setcbreak(fd)
+
+    def read():
+        return _read_key(stream)
+
+    closed = False
+
+    def close():
+        nonlocal closed
+        if closed:
+            return
+        closed = True
+        try:
+            termios.tcsetattr(fd, termios.TCSADRAIN, original)
+        except Exception:
+            pass
+
+    read.close = close
+    return read
+
+
+def _checklist(title, items, preselected, read_key, out=sys.stdout, multi=True,
+               require=False):
+    """Arrow-key selection list. Space selects, Enter confirms.
+
+    `multi=True` toggles items independently (trays, nodes). `multi=False`
+    enforces a single choice: selecting one clears the previous one, so the
+    cursor can move freely without losing the current pick.
+
+    `read_key()` yields tokens ('up'/'down'/'space'/'enter'/'quit'); all state
+    lives here, so the interaction is testable by injecting a scripted reader.
+    Returns the list of chosen item labels (empty is allowed).
+    """
+    chosen = [bool(preselected.get(item, False)) for item in items]
+    cursor = 0
+    rendered = 0
+    warning = ''
+
+    def selected():
+        return [item for item, flag in zip(items, chosen) if flag]
+
+    def draw():
+        nonlocal rendered, warning
+        hint = _dim("  \u2191/\u2193 move  \u00b7  SPACE select  \u00b7  ENTER confirm")
+        lines = [_bold(title), hint]
+        for index, item in enumerate(items):
+            box = _green('[v]') if chosen[index] else '[ ]'
+            pointer = _cyan('\u276f') if index == cursor else ' '
+            label = item if index == cursor else _dim(item)
+            lines.append(f"  {pointer} {box} {label}")
+        picked = selected()
+        summary = ', '.join(picked) if picked else _dim('(nothing selected yet)')
+        lines.append(f"  {_yellow('\u2192')} {_bold(summary)}")
+        if warning:
+            lines.append(f"  {_yellow('\u26a0 ' + warning)}")
+        out.write('\r' + '\x1b[K' + '\n'.join(lines) + '\n')
+        rendered = len(lines)
+        out.flush()
+
+    def clear():
+        if rendered:
+            out.write('\x1b[F' * rendered + '\x1b[J')
+            out.flush()
+
+    draw()
+    while True:
+        token = read_key()
+        if token == 'up':
+            cursor = (cursor - 1) % len(items)
+        elif token == 'down':
+            cursor = (cursor + 1) % len(items)
+        elif token == 'space':
+            if multi:
+                chosen[cursor] = not chosen[cursor]
+            else:
+                # Single choice: selecting one clears the rest.
+                picked = not chosen[cursor]
+                chosen = [False] * len(items)
+                chosen[cursor] = picked
+        elif token == 'enter':
+            if require and not selected():
+                warning = 'Select at least one item, then press ENTER'
+                clear()
+                draw()
+                continue
+            clear()
+            return selected()
+        elif token == 'quit':
+            clear()
+            raise KeyboardInterrupt
+        else:
+            continue
+        warning = ''
+        clear()
+        draw()
+
+
+def _menu(title, options, read_key, out=sys.stdout, default=None):
+    """Single-choice TUI menu over (key, label) pairs; returns the chosen key.
+
+    With ``default=None`` nothing is preselected, so the user must make a
+    deliberate choice; otherwise the item at ``default`` starts checked.
+    """
+    labels = [label for _, label in options]
+    preselected = {labels[default]: True} if default is not None and 0 <= default < len(labels) else {}
+    picked = _checklist(title, labels, preselected, read_key, out, multi=False,
+                        require=default is None)
+    if not picked:
+        return options[default][0] if default is not None else None
+    chosen_label = picked[0]
+    for key, label in options:
+        if label == chosen_label:
+            return key
+    return options[default][0] if default is not None else None
+
+
+def _supports_color():
+    """ANSI is used only on a real terminal (never pollutes piped output)."""
+    return sys.stdout.isatty() and os.environ.get('NO_COLOR') is None
+
+
+def _c(text, code):
+    return f'\x1b[{code}m{text}\x1b[0m' if _supports_color() else str(text)
+
+
+def _bold(text):
+    return _c(text, '1')
+
+
+def _dim(text):
+    return _c(text, '2')
+
+
+def _green(text):
+    return _c(text, '32')
+
+
+def _cyan(text):
+    return _c(text, '36')
+
+
+def _yellow(text):
+    return _c(text, '33')
+
+
+def _echo(message):
+    print(f"  {_green('\u2714')} {message}")
+
+
+def _echo_kv(label, value):
+    """'✔ Label: value' with the chosen value highlighted so it stands out."""
+    print(f"  {_green('\u2714')} {label}: {_cyan(_bold(value))}")
+
+
+def cycle_command(mode, channel):
+    """The real action command for (cycle_mode, channel), mirroring cycle_engine.
+
+    Returns ``(role, command)`` where role is the transport ('os'/'oob'/'bmc').
+
+    The ``command`` is shown the way the runner actually issues it:
+      * role 'os'  -> the literal argv sent over SSH (e.g. 'ipmitool power cycle')
+      * role 'oob' -> the IPMI sub-command; transport.oob() wraps it as
+        ``ipmitool -I lanplus ... -E <command>``, so 'power reset' runs as
+        ``ipmitool ... power reset`` (the ipmitool prefix is added by the
+        transport, not carried in the string).
+      * role 'bmc' -> the helper path run over SSH on the BMC.
+    """
+    if mode == 'aux_cycle':
+        return 'bmc', '/usr/bin/stbypowerctrl.sh aux_cycle'
+    if mode == 'reboot' and channel == 'outband':
+        return 'oob', 'power reset'
+    if mode == 'reboot':
+        return 'os', 'reboot'
+    if channel == 'inband':
+        return 'os', 'ipmitool power cycle'
+    return 'bmc', '/usr/bin/powerctrl.sh power_cycle'
+
+
+def display_command(role, command):
+    """Full command line as it truly reaches the target, for the preview."""
+    if role == 'oob':
+        # transport.oob() prepends the ipmitool argv; show that, so the operator
+        # recognises this as IPMI rather than a bare 'power reset'.
+        return f'ipmitool -I lanplus ... -H <bmc_ip> -E {command}'
+    return command
+
+
+def build_command(options):
+    """Real per-target command lines the runner will send, one per node."""
+    role, command = cycle_command(options.cycle_mode, options.channel)
+    shown = display_command(role, command)
+    targets = options.node or ['<all nodes>']
+    lines = []
+    for node in targets:
+        lines.append(f'[{role}] {node}: {shown}')
+    if getattr(options, 'loops', 0):
+        limit = f'{options.loops} loops'
+    elif getattr(options, 'hours', 0):
+        limit = f'{options.hours} hours'
+    else:
+        limit = 'continuous'
+    return lines, limit
+
+
+def show_command(options):
+    """Print the assembled per-target commands with a little colour."""
+    lines, limit = build_command(options)
+    print(f"  {_bold('Will run')} {_dim('(cycle action per target)')}")
+    for line in lines:
+        print(f"    {_cyan(line)}")
+    print(f"  {_bold('Repeat')} {_yellow(limit)}")
+
+
+def _group_by_tray(targets):
+    """Ordered tray -> [node] map, preserving inventory (CSV) order."""
+    trays = []
+    nodes = {}
+    for target in targets:
+        if target.tray not in nodes:
+            nodes[target.tray] = []
+            trays.append(target.tray)
+        nodes[target.tray].append(target.node)
+    return trays, nodes
+
+
+def _tui_select_targets(targets, read_key, out=sys.stdout):
+    """Full-screen selection: pick trays, then per-tray nodes.
+
+    Returns a list of '<tray>/<node>' selections. Feeds select_targets(), which
+    already accepts tray/node, so the core stays untouched.
+    """
+    trays, nodes = _group_by_tray(targets)
+    if len(trays) == 1:
+        # Single tray: skip the tray step, only ask which nodes.
+        chosen_trays = trays
+        _echo(f'Only one tray present ({trays[0]}); selecting its nodes.')
+    else:
+        chosen_trays = _checklist('Select trays', trays, {}, read_key, out,
+                                  require=True)
+        _echo(f'Trays: {", ".join(chosen_trays)}')
+    selected = []
+    for tray in chosen_trays:
+        # require=True: Enter with nothing picked re-prompts, so a node must be
+        # chosen explicitly instead of defaulting to every node.
+        picked = _checklist(f'Select nodes in {tray}', nodes[tray], {}, read_key, out,
+                            require=True)
+        _echo(f'{tray}: {", ".join(picked)}')
+        selected.extend(f'{tray}/{node}' for node in picked)
+    return selected
+
+
+def _plain_node_prompt(names):
+    """Legacy text prompt, kept as the non-interactive (non-TTY) fallback."""
     while True:
         reply = input("Which nodes? (all / comma-sep, e.g. n1,n2) [all]: ").strip()
         if not reply or reply.lower() == 'all':
-            options.node = None
-            break
+            return None
         parts = [p for p in reply.replace(',', ' ').split() if p]
         bad = [p for p in parts if p not in names]
         if bad:
             print(f"  INVALID: {', '.join(bad)} — valid: {', '.join(names)}")
             continue
-        options.node = parts
-        break
+        return parts
+
+
+def _menu_wizard(options):
+    """Interactive (TTY) wizard using the shared TUI reader for every choice."""
+    reader = _make_key_reader()
+    try:
+        options.project = _menu('Project', [('neutrino', 'neutrino'), ('naboo', 'naboo')],
+                                reader, default=None)
+        _echo_kv('Project', options.project)
+        options.inventory = options.inventory or BASE / f'cycle_inventory_{options.project}.csv'
+        targets = load_inventory(options.inventory)
+        options.node = _tui_select_targets(targets, reader)
+        _echo_kv('Targets', ', '.join(options.node))
+        options.cycle_mode = _menu('Cycle mode', [
+            ('power_cycle', 'power_cycle'), ('reboot', 'reboot'), ('aux_cycle', 'aux_cycle')], reader)
+        _echo_kv('Cycle mode', options.cycle_mode)
+        options.channel = _menu('Channel', [('inband', 'inband'), ('outband', 'outband')], reader)
+        _echo_kv('Channel', options.channel)
+        duration = _menu('Duration type', [
+            ('loops', 'Loops (number of cycles)'), ('hours', 'Hours (time limit)')], reader)
+        # Leave cbreak before prompting: choose_limit() needs line-buffered stdin.
+        reader.close()
+        options.loops, options.hours = 0, 0.0
+        if duration == 'loops':
+            options.loops = choose_limit('loops')
+            _echo_kv('Duration', f'{options.loops} loops')
+        else:
+            options.hours = choose_limit('hours')
+            _echo_kv('Duration', f'{options.hours} hours')
+        show_command(options)
+    finally:
+        reader.close()
+    options.cycle = True
+    return targets
+
+
+def wizard(options):
+    """Interactive campaign setup, mirroring the rackctl prompt style."""
+    print('=' * 50)
+    print('  Vera Cycle Wizard (interactive)')
+    print('=' * 50)
+    if sys.stdin.isatty() and termios is not None:
+        return _menu_wizard(options)
+    options.project = choose('Project', [('neutrino', 'neutrino'), ('naboo', 'naboo')], 1)
+    options.inventory = options.inventory or BASE / f'cycle_inventory_{options.project}.csv'
+    targets = load_inventory(options.inventory)
+    names = sorted({t.node for t in targets})
+    print(f"\nNodes in inventory: {', '.join(names)}")
+    options.node = _plain_node_prompt(names)
     options.cycle_mode = choose('Cycle mode', [
         ('power_cycle', 'power_cycle'), ('reboot', 'reboot'), ('aux_cycle', 'aux_cycle')], 1)
     options.channel = choose('Channel', [('inband', 'inband'), ('outband', 'outband')], 1)
