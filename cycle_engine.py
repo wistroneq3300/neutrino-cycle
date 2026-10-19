@@ -315,12 +315,14 @@ class NodeSession:
         # read cite that retained file instead.
         #
         # ``wipe_only`` uses ``dmesg -C`` to discard the buffer without reading
-        # its contents, so the pre-clear backlog never becomes a finding.
+        # its contents, so the pre-clear backlog never becomes a finding. It
+        # still writes an execution certificate (output suppressed) so the
+        # operator can confirm the wipe ran and its exit status.
         if save_evidence is None:
-            save_evidence = clear and not wipe_only
+            save_evidence = clear or wipe_only
         command = 'dmesg -C' if wipe_only else 'dmesg -c' if clear else 'dmesg'
         result = self.command(record, stem, 'os', command, sudo=True,
-                              save_evidence=save_evidence)
+                              save_evidence=save_evidence, include_output=not wipe_only)
         if result.code:
             return
         if wipe_only:
@@ -627,10 +629,12 @@ class NodeSession:
         if not record['commands']['pre_dmesg_clear']['valid']:
             self.add(record, 'CLEAR_SKIPPED', 'dmesg', 'PRE dmesg could not be cleared', severity='WARN')
         # IPMI SEL: read first; `sel clear` returns no contents, so a broken SEL
-        # must be left intact rather than wiped blind.
-        self.sel_command(record, "pre_sel_probe", "list", save_evidence=False)
+        # must be left intact rather than wiped blind. The probe keeps its
+        # output (the pre-clear SEL contents); the clear keeps an execution
+        # certificate so the operator can confirm it ran.
+        self.sel_command(record, "pre_sel_probe", "list", save_evidence=True)
         if record['commands']['pre_sel_probe']['valid']:
-            self.sel_command(record, "pre_sel_clear", "clear", save_evidence=False)
+            self.sel_command(record, "pre_sel_clear", "clear", save_evidence=True, include_output=False)
         else:
             self.add(record, 'CLEAR_SKIPPED', 'sel', 'PRE SEL read failed; original was not cleared', severity='WARN')
         # Redfish EventLog/SEL: collect_redfish(clear=True, history=True) reads
