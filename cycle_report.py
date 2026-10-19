@@ -125,7 +125,8 @@ def _finding_html(record):
                 snippet = f'<details class="known-raw"><summary>Raw snippet</summary>{raw}</details>'
             else:
                 snippet = raw
-        rows.append(f'<li>{badge(item.get("severity", "UNKNOWN"))} <strong>{esc(item.get("component", "unknown"))}</strong> — {esc(item.get("detail", ""))} {badge(classification)}{snippet}</li>')
+        link = f' {evidence_link(item["evidence"])}' if item.get('evidence') else ''
+        rows.append(f'<li>{badge(item.get("severity", "UNKNOWN"))} <strong>{esc(item.get("component", "unknown"))}</strong> — {esc(item.get("detail", ""))} {badge(classification)}{link}{snippet}</li>')
     return '<ul class="record-issues">' + ''.join(rows) + '</ul>'
 
 
