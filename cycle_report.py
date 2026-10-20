@@ -112,11 +112,79 @@ def _finding_summary(record):
     return ' · '.join(parts)
 
 
+def _dmesg_block(item):
+    """Render a DMESG finding as one compact line per distinct message.
+
+    A capture can hold dozens of near-identical boot lines (e.g. 46 PCI
+    io-window ``failed to assign``). Listing them verbatim bloats the report
+    until it will not open, so each distinct message is shown once with its
+    occurrence count instead.
+    """
+    rows = []
+    if item.get('code') == 'DMESG_APEI':
+        line = item.get('raw_lines') or []
+        label = f"dmesg line {line[0]}" if line else 'APEI'
+        rows.append(f'<li><code>{esc(item.get("detail", ""))}</code>'
+                    f' <span class="occurrences">{esc(label)}</span></li>')
+    for entry in item.get('entries', []):
+        count = entry.get('count', 1)
+        tally = f' <span class="occurrences">×{count}</span>' if count > 1 else ''
+        rows.append(f'<li><code>{esc(entry.get("text", ""))}</code>{tally}</li>')
+    return '<ul class="dmesg-bundle">' + ''.join(rows) + '</ul>'
+
+
+# dmesg findings are shown to the operator as ONE package: the generic bundle
+# plus any APEI events. They stay separate findings internally so an APEI
+# ``info`` event still reads as PASS -- only the display is merged.
+DMESG_CODES = {'DMESG_BUNDLE', 'DMESG_APEI'}
+
+
+def _visible_issues(record):
+    """Findings to show in the HTML.
+
+    The dmesg bundles are the operator-facing dmesg signal. The older
+    per-family DMESG_* findings are hidden from the report for now -- their
+    events are still parsed and still fold into the health verdict, they are
+    just not rendered as separate lines.
+    """
+    return [item for item in record.get('issues', [])
+            if not item.get('code', '').startswith('DMESG_') or item.get('code') in DMESG_CODES]
+
+
+def _dmesg_severity(issues):
+    order = {'FAIL': 3, 'WARN': 2, 'UNKNOWN': 1, 'PASS': 0}
+    worst = 'PASS'
+    for item in issues:
+        if order.get(item.get('severity'), 0) > order[worst]:
+            worst = item['severity']
+    return worst
+
+
+def _dmesg_package_html(bundle, apei):
+    """One dmesg package: the bundle rows followed by APEI event rows."""
+    severity = _dmesg_severity([bundle] + apei)
+    count = sum(len(i.get('entries', [])) for i in [bundle] + apei) + len(apei)
+    occurrences = sum(e.get('count', 1) for i in [bundle] + apei for e in i.get('entries', []))
+    headline = f'DMESG: {count} distinct error/fail line(s), {occurrences} occurrence(s)'
+    body = _dmesg_block(bundle) if bundle else ''
+    if apei:
+        body += ' '.join(_dmesg_block(i) for i in apei)
+    return (f'<li>{badge(severity)} <strong>dmesg</strong> — {esc(headline)} '
+            f'<span class="badge new">NEW</span>{body}</li>')
+
+
 def _finding_html(record):
-    if not record.get('issues'):
+    issues = _visible_issues(record)
+    if not issues:
         return '<p class="empty">No issues recorded.</p>'
     rows = []
-    for item in record['issues']:
+    bundle = next((i for i in issues if i.get('code') == 'DMESG_BUNDLE'), None)
+    apei = [i for i in issues if i.get('code') == 'DMESG_APEI']
+    if bundle or apei:
+        rows.append(_dmesg_package_html(bundle, apei))
+    for item in issues:
+        if item.get('code') in DMESG_CODES:
+            continue
         classification = 'PRE-EXISTING' if record.get('phase') == 'PRE' else _norm_class(item.get('classification', 'NEW'))
         snippet = ''
         if item.get('snippet'):
@@ -142,7 +210,11 @@ def _finding_html_compact(record):
         return '<p class="empty">No issues recorded.</p>'
     groups = []
     by_key = {}
-    for item in record['issues']:
+    bundle = next((i for i in _visible_issues(record) if i.get('code') == 'DMESG_BUNDLE'), None)
+    apei = [i for i in _visible_issues(record) if i.get('code') == 'DMESG_APEI']
+    for item in _visible_issues(record):
+        if item.get('code') in DMESG_CODES:
+            continue
         ident = item.get('identity') or ''
         parts = ident.split('|')
         if len(parts) >= 3 and item.get('code', '').startswith('REDFISH'):
@@ -181,6 +253,8 @@ def _finding_html_compact(record):
             snippet = f'<pre class="snippet">{esc(grp["snippet"])}</pre>'
         link = f' {evidence_link(grp["evidence"][0])}' if grp['evidence'] else ''
         rows.append(f'<li>{badge(grp["severity"])} <strong>{esc(grp["component"])}</strong> — {esc(grp["detail"])}{ids_txt} {badge(classification)}{link}{snippet}</li>')
+    if bundle or apei:
+        rows.insert(0, _dmesg_package_html(bundle, apei))
     return '<ul class="record-issues">' + ''.join(rows) + '</ul>'
 
 

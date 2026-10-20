@@ -21,6 +21,71 @@ PATTERNS = [
 ]
 PATTERNS = [(family, subtype, re.compile(pattern, re.I)) for family, subtype, pattern in PATTERNS]
 
+# Fallback sweep. Any line that greps as an error/failure and is NOT claimed by
+# a family above would otherwise be dropped silently -- and the drop was real:
+# on the Vera CPU rack 92 of 103 error/fail lines were invisible (PCI io-window
+# ``failed to assign``, ipmi_ssif probe failures, tegra-bpmp debugfs, ...).
+# Rather than one finding per line, unclassified lines are collapsed into ONE
+# ``DMESG_BUNDLE`` finding per capture. Everything is FAIL for now: the operator
+# refines a per-project allowlist of known-benign lines later, rather than the
+# parser guessing up-front.
+BUNDLE_KEYWORDS = re.compile(
+    r'\b(?:error|errors|failed|failure|failing|fail|fault|faulty|unable|refused|'
+    r'denied|timeout|timed out|corrupt|corrupted|invalid|cannot)\b', re.I)
+# Announces an error word but is a normal capability/init message.
+BUNDLE_BENIGN = [
+    re.compile(r'\berror reporting\b', re.I),
+    re.compile(r'\bOS supports\b.*\[.*\]', re.I),
+    re.compile(r'\bdoes not support\b.*\[.*ErrorReporting.*\]', re.I),
+    re.compile(r'Error Record Serialization Table.*initialized', re.I),
+    re.compile(r'Error INJection is initialized', re.I),
+    re.compile(r'\b(?:0|no)\s+errors?\b', re.I),
+    re.compile(r'\bfeatures: detected:.*timeout\b', re.I),
+    re.compile(r'\bInitialized with .*timeout\b', re.I),
+    re.compile(r'\btimeout set to\b', re.I),
+    re.compile(r'\bset to \d+\s*seconds?\b', re.I),
+    # Anchors of a family above: a continuation line that the strict family
+    # pattern did not itself claim still belongs to that event, so the fallback
+    # must not re-report it as unclassified.
+    re.compile(r'\bAER:|\bPCIe Bus Error:|\bnvme\S*\b|\bmlx5\S*\b|\bNVRM:|\bEDAC\b', re.I),
+]
+# IPMI/SSIF transport failures are functional, not noise: a broken SSIF leaves
+# /dev/ipmi0 present but unusable, so ``ipmitool`` fails outright. They are not
+# special-cased -- they flow into the one bundle like every other stray line --
+# but they are why a bundle containing them must be treated as real, not noise.
+BUNDLE_TS = re.compile(r'^\s*(?:<\d+>)?\s*\[\s*\d+(?:\.\d+)?\]\s*')
+
+
+def _bundle_event(lines, code, family, severity):
+    """One finding carrying a group of error/fail lines, deduped by message.
+
+    Identical messages collapse into a single entry with a count and the line
+    number of their first occurrence, so a repeated boot-time complaint is one
+    row in the report rather than dozens.
+    """
+    counts, first, order = {}, {}, []
+    for number, line in lines:
+        key = BUNDLE_TS.sub('', line).strip()
+        key = re.sub(r'\b[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]\b', '<bdf>', key, flags=re.I)
+        key = re.sub(r'\b0x[0-9a-f]+\b', '<hex>', key, flags=re.I)
+        if key not in counts:
+            first[key] = number
+            order.append(key)
+        counts[key] = counts.get(key, 0) + 1
+    entries = [dict(line=first[k], count=counts[k], text=k) for k in order]
+    signature = '\n'.join(sorted(counts))
+    fingerprint = hashlib.sha256((family + '||errors|' + signature).encode()).hexdigest()
+    detail = (f'{family}: {len(order)} distinct error/fail line(s), '
+              f'{sum(counts.values())} occurrence(s)')
+    return dict(code=code, component=family.lower(), family=family,
+                subtype='errors', device=[], source='', native_severity='unknown',
+                native_severities=['unknown'], severity=severity,
+                fingerprint=fingerprint, detail=detail, evidence='',
+                snippet=f'dmesg line {entries[0]["line"]}: {entries[0]["text"]}',
+                raw_start=entries[0]['line'], raw_end=entries[-1]['line'],
+                raw_lines=[e['line'] for e in entries], raw=signature,
+                occurrence_count=1, entries=entries)
+
 
 def _message(line):
     return re.sub(r'^\s*(?:<\d+>)?\s*\[\s*\d+(?:\.\d+)?\]\s*', '', line).strip()
@@ -87,6 +152,7 @@ def dmesg_issues(text):
     """
     groups, active, found = [], {}, []
     aer_groups, aer_active = [], {}
+    consumed = set()
     for number, line in enumerate(text.splitlines(), 1):
         if HW.search(line):
             token = TOKEN.search(line)
@@ -97,6 +163,7 @@ def dmesg_issues(text):
                 groups.append(group)
                 active[key] = group
             active[key][1].append((number, line))
+            consumed.add(number)
             continue
         device = re.search(BDF.pattern + r'(?=\s*:)', line, re.I)
         device = device[0].lower() if device else None
@@ -105,6 +172,7 @@ def dmesg_issues(text):
             continuation = re.search(r'(?:device \[[0-9a-f:]+\] error status/mask=|:\s*\[\s*\d+\]\s+[A-Za-z]|TLP Header:)', line, re.I)
             if continuation and number - group[-1][0] <= 32:
                 group.append((number, line))
+                consumed.add(number)
                 continue
             # A different message from this function ends the bounded event.
             del aer_active[device]
@@ -117,10 +185,18 @@ def dmesg_issues(text):
                         aer_active[device] = group
                 else:
                     found.append(_event(family, subtype, [(number, line)]))
+                consumed.add(number)
                 break
     found.extend(_event('PCIE', 'aer', group) for group in aer_groups)
+    for group in aer_groups:
+        consumed.update(number for number, _ in group)
     for source, block in groups:
         event = _event('APEI', 'cper', block, source)
         if event:
             found.append(event)
+    stray = [(number, line) for number, line in enumerate(text.splitlines(), 1)
+             if number not in consumed and BUNDLE_KEYWORDS.search(line)
+             and not any(b.search(line) for b in BUNDLE_BENIGN)]
+    if stray:
+        found.append(_bundle_event(stray, 'DMESG_BUNDLE', 'BUNDLE', 'FAIL'))
     return sorted(found, key=lambda item: item['raw_start'])
