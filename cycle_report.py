@@ -139,6 +139,31 @@ def _dmesg_block(item):
 DMESG_CODES = {'DMESG_BUNDLE', 'DMESG_APEI'}
 
 
+def _issue_title(item):
+    """Issue card title: '<node> / <component>'.
+
+    Kernel-log findings carry a code of ``DMESG_*`` and a component that is the
+    parser family (``kernel``, ``mce``, ``pcie``, ...), which reads as a bare
+    device name in the report. Prefix those with ``Dmesg-`` so the source is
+    obvious to whoever reads the HTML, e.g. ``node / Dmesg-kernel``.
+    """
+    node = esc(item.get('node', ''))
+    component = item.get('component', '')
+    code = str(item.get('code', ''))
+    if code == 'DMESG_APEI':
+        # The APEI component is the failing device's BDF (or DIMM/nvme locator),
+        # not a family name. Keep the locator but label it as APEI so the title
+        # says where the source is, e.g. "node / Dmesg-apei:0001:00:00.0".
+        component = f'Dmesg-apei:{component}'
+    elif code.startswith('DMESG_'):
+        # "bundle" is the parser's internal name for the unclassified sweep; show
+        # it as "fail/error" so the operator knows it is the catch-all group of
+        # error/fail lines no family pattern claimed.
+        label = 'fail/error' if component == 'bundle' else component
+        component = 'Dmesg-' + label
+    return f'{node} / {esc(component)}'
+
+
 def _visible_issues(record):
     """Findings to show in the HTML.
 
@@ -926,7 +951,7 @@ def issue_cards(items, indices):
         scope = ', '.join(phases) or 'Unknown phase'
         open_attr = ' open' if not opened and item['severity'] == 'FAIL' else ''
         opened = opened or bool(open_attr)
-        rows.append(f'''<details class="issue-row" data-severity="{esc(item['severity'])}" data-classification="{esc(item['classification'])}"{open_attr}><summary>{badge(item['severity'])}<span class="issue-title">{esc(item['node'])} / {esc(item['component'])}</span> {badge(item['classification'])}<span class="issue-meta">{esc(item['code'])} · {len(item['occurrences'])} occurrence(s) · {scope}</span></summary><div class="detail-body"><p>{esc(item['detail'])}</p><details><summary>All occurrences ({len(item['occurrences'])})</summary><div class="tablewrap"><table><thead><tr><th>Phase</th><th>Finding and source</th><th>Evidence</th></tr></thead><tbody>{''.join(occurrences)}</tbody></table></div></details></div></details>''')
+        rows.append(f'''<details class="issue-row" data-severity="{esc(item['severity'])}" data-classification="{esc(item['classification'])}"{open_attr}><summary>{badge(item['severity'])}<span class="issue-title">{_issue_title(item)}</span> {badge(item['classification'])}<span class="issue-meta">{esc(item['code'])} · {len(item['occurrences'])} occurrence(s) · {scope}</span></summary><div class="detail-body"><p>{esc(item['detail'])}</p><details><summary>All occurrences ({len(item['occurrences'])})</summary><div class="tablewrap"><table><thead><tr><th>Phase</th><th>Finding and source</th><th>Evidence</th></tr></thead><tbody>{''.join(occurrences)}</tbody></table></div></details></div></details>''')
     return ''.join(rows) or '<p>No issues recorded.</p>'
 
 
@@ -1038,7 +1063,7 @@ def issue_cards_compact(items, indices):
         scope = _loop_ranges(e['phase'] for e in events)
         open_attr = ' open' if not opened and item['severity'] == 'FAIL' else ''
         opened = opened or bool(open_attr)
-        rows.append(f'''<details class="issue-row" data-severity="{esc(item['severity'])}" data-classification="{esc(item['classification'])}"{open_attr}><summary>{badge(item['severity'])}<span class="issue-title">{esc(item['node'])} / {esc(item['component'])}</span> {badge(item['classification'])}<span class="issue-meta">{esc(item['code'])} &middot; {len(events)} occurrence(s) &middot; {esc(scope)}</span></summary><div class="detail-body"><details><summary>All occurrences ({len(events)})</summary>{table}</details></div></details>''')
+        rows.append(f'''<details class="issue-row" data-severity="{esc(item['severity'])}" data-classification="{esc(item['classification'])}"{open_attr}><summary>{badge(item['severity'])}<span class="issue-title">{_issue_title(item)}</span> {badge(item['classification'])}<span class="issue-meta">{esc(item['code'])} &middot; {len(events)} occurrence(s) &middot; {esc(scope)}</span></summary><div class="detail-body"><details><summary>All occurrences ({len(events)})</summary>{table}</details></div></details>''')
     return ''.join(rows) or '<p>No issues recorded.</p>'
 
 
