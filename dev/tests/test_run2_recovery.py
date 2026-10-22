@@ -15,11 +15,11 @@ from unittest.mock import patch
 # Keep the campaign journal out of the real /srv/cycletmp during tests.
 os.environ.setdefault('VERA_CAMPAIGN_TMP', tempfile.mkdtemp(prefix='vera-campaign-tmp-'))
 
-from cycle_core import issue, now, write_json
-from cycle_engine import new_record
-from cycle_report import journal_path, rebuild, status, write_reports
-from cycle_runtime import RunRegistry
-from neutrino_cycle import main
+from vera_cycle.core.cycle_core import issue, now, write_json
+from vera_cycle.engine.cycle_engine import new_record
+from vera_cycle.reporting.cycle_report import journal_path, rebuild, status, write_reports
+from vera_cycle.engine.cycle_runtime import RunRegistry
+from vera_cycle.cli import main
 from test_cycle import target
 
 
@@ -139,10 +139,10 @@ class RecoveryTests(unittest.TestCase):
         code = '''
 import json, sys
 from pathlib import Path
-from cycle_runtime import RunRegistry
-from cycle_report import journal_path
-from cycle_storage import writer_identity
-from cycle_core import write_json
+from vera_cycle.engine.cycle_runtime import RunRegistry
+from vera_cycle.reporting.cycle_report import journal_path
+from vera_cycle.core.cycle_storage import writer_identity
+from vera_cycle.core.cycle_core import write_json
 root=Path(sys.argv[1]); path=journal_path(root)
 data=json.loads(path.read_text()); data['state']='RUNNING'; data['writer_owner']=writer_identity()
 write_json(path,data)
@@ -190,7 +190,7 @@ RunRegistry(data['run_id'],sys.argv[2]).register(root)
     def test_writer_lock_is_cross_process(self):
         code = '''
 import sys
-from cycle_storage import report_writer_lock
+from vera_cycle.core.cycle_storage import report_writer_lock
 with report_writer_lock(sys.argv[1]):
     print('READY', flush=True)
     sys.stdin.readline()
@@ -206,14 +206,14 @@ with report_writer_lock(sys.argv[1]):
         self.assertEqual(proc.returncode, 0)
 
     def test_pid_token_mismatch_is_not_live_owner(self):
-        from cycle_storage import owner_alive, writer_identity
+        from vera_cycle.core.cycle_storage import owner_alive, writer_identity
         identity = writer_identity()
         self.assertTrue(owner_alive(identity))
         identity['process_token'] = 'different-start-token'
         self.assertFalse(owner_alive(identity))
 
     def test_foreign_running_owner_is_not_assumed_dead(self):
-        from cycle_storage import writer_identity
+        from vera_cycle.core.cycle_storage import writer_identity
         self.data.update(state='RUNNING', writer_owner={**writer_identity(), 'host': 'another-controller.invalid'})
         write_reports(self.root, self.data)
         before = journal_path(self.root).read_bytes()

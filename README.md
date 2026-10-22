@@ -6,7 +6,7 @@ Run reboot, DC power-cycle and auxiliary AC-cycle campaigns from one **external 
 
 ```bash
 python3 -m pip install -r requirements.txt
-chmod +x neutrino_config.sh naboo_config.sh stop_cycle.sh
+chmod +x projects/neutrino/neutrino_config.sh projects/naboo/naboo_config.sh stop_cycle.sh
 python3 neutrino_cycle.py
 ```
 
@@ -150,7 +150,7 @@ For a Chinese operator-facing walkthrough of inputs, PRE, OS checks, Cycle/POST,
 
 ```bash
 python3 -m unittest discover -s dev/tests -v
-for script in neutrino_config.sh naboo_config.sh stop_cycle.sh; do bash -n "$script" || exit; done
+for script in projects/neutrino/neutrino_config.sh projects/naboo/naboo_config.sh stop_cycle.sh; do bash -n "$script" || exit; done
 python3 dev/tests/make_demo.py
 ```
 

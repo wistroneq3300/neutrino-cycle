@@ -3,7 +3,7 @@ import copy
 import json
 from datetime import datetime
 
-from cycle_core import classify_against_pre, health, issue, issue_baseline, now
+from vera_cycle.core.cycle_core import classify_against_pre, health, issue, issue_baseline, now
 
 
 def _clean(record):

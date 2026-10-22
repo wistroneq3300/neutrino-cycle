@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from vera_cycle import paths
+
 BASE=Path(__file__).resolve().parents[2]
 SHELL=os.environ.get('VERA_TEST_SHELL') or shutil.which('bash')
 
@@ -64,7 +66,7 @@ class HardwareTests(unittest.TestCase):
                 file.write_text('#!/usr/bin/env sh\n'+content+'\n',encoding='utf-8',newline='\n')
                 file.chmod(0o755)
             env={**os.environ,'MEMORY_MIN_RATIO':ratio,'PATH':str(root)+os.pathsep+str(Path(SHELL).parent)+os.pathsep+os.environ.get('PATH','')}
-            argv=[SHELL,str(BASE/f'{project}_config.sh')]+([mode] if mode else [])
+            argv=[SHELL,str(paths.project_config_path(project))]+([mode] if mode else [])
             result=subprocess.run(argv,env=env,capture_output=True,text=True,encoding='utf-8',timeout=45,check=False)
             return result
 

@@ -18,8 +18,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import cycle_report as base
-from cycle_core import atomic_write, health, now
+import vera_cycle.reporting.cycle_report as base
+from vera_cycle.core.cycle_core import atomic_write, health, now
 elapsed = base.elapsed
 
 esc = base.esc
@@ -106,7 +106,7 @@ def render_html(campaign, console_log=''):
 
 def write(root):
     root = Path(root)
-    from cycle_report import read_journal
+    from vera_cycle.reporting.cycle_report import read_journal
     campaign = read_journal(root)
     console_path = root / 'console.log'
     console_log = console_path.read_text(encoding='utf-8') if console_path.is_file() else ''

@@ -16,7 +16,8 @@ from unittest.mock import patch, Mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-import neutrino_cycle as nc
+from vera_cycle import paths
+from vera_cycle import cli as nc
 
 with patch.dict(os.environ, {"BMC_PASSWORD": "offline-only", "OS_PASSWORD": "offline-only"}):
     import dryrun_sim as ds
@@ -33,7 +34,7 @@ def confirm(name, condition, detail):
 
 
 def shell_probe(body):
-    definitions = (ROOT / "neutrino_config.sh").read_text(encoding="utf-8").split("### Start ###")[0]
+    definitions = (paths.project_config_path("neutrino")).read_text(encoding="utf-8").split("### Start ###")[0]
     env = dict(os.environ)
     env["PATH"] = str(Path(args.shell).resolve().parent) + os.pathsep + env.get("PATH", "")
     return subprocess.run([args.shell], input=definitions + "\n" + body,
@@ -150,7 +151,7 @@ echo "BF4_COUNT=$BF4_Qty"
     from contextlib import ExitStack
     from unittest.mock import MagicMock
     loop_args = SimpleNamespace(output=out / "mock_campaign", cycle_mode="power_cycle", channel="inband",
-                                config_script=ROOT / "neutrino_config.sh", boot_timeout=1)
+                                config_script=paths.project_config_path("neutrino"), boot_timeout=1)
     loop_target = nc.Target("t", "n1", "192.0.2.1", "192.0.2.2")
     fake_client = MagicMock()
     fake_loop_ssh = Mock()

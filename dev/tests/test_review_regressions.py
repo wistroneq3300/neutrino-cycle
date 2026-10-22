@@ -7,11 +7,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from cycle_core import (aggregate_issues, classify_against_pre, dmesg_issues, health,
+from vera_cycle.core.cycle_core import (aggregate_issues, classify_against_pre, dmesg_issues, health,
                         issue_baseline, parse_pci, parse_sensors, pci_issues, sensor_issues)
-from cycle_report import journal_path, record_html
-from cycle_transport import Command, Transport
-from neutrino_cycle import show_result
+from vera_cycle.reporting.cycle_report import journal_path, record_html
+from vera_cycle.core.cycle_transport import Command, Transport
+from vera_cycle.cli import show_result
 import test_cycle
 
 
@@ -230,7 +230,7 @@ class EngineReviewTests(unittest.TestCase):
         def slow_start(session):
             start(session)
             clock[0] += 2
-        with patch('neutrino_cycle.time.monotonic', side_effect=lambda: clock[0]), patch.object(test_cycle.NodeSession, 'start', slow_start):
+        with patch('vera_cycle.cli.time.monotonic', side_effect=lambda: clock[0]), patch.object(test_cycle.NodeSession, 'start', slow_start):
             self.run_campaign()
         path = journal_path(next(self.options.output.iterdir()))
         data = json.loads(path.read_text())

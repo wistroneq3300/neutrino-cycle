@@ -10,7 +10,7 @@ import re
 import stat
 from pathlib import Path
 
-from cycle_core import now, write_json
+from vera_cycle.core.cycle_core import now, write_json
 
 
 def shared_root():
@@ -102,7 +102,7 @@ class RunRegistry:
         self.run_id = run_id
 
     def register(self, output, **metadata):
-        from cycle_storage import writer_identity
+        from vera_cycle.core.cycle_storage import writer_identity
         write_json(self.path / "owner.json", dict(**metadata, run_id=self.run_id, **writer_identity(),
                    output=str(output), state="RUNNING", utc=now()))
 
@@ -162,7 +162,7 @@ def list_running(root=None):
             # Older registrations stored display metadata only in the journal.
             if 'nodes' not in data:
                 try:
-                    from cycle_report import read_journal
+                    from vera_cycle.reporting.cycle_report import read_journal
                     campaign = read_journal(data['output'])
                     data.update(project=campaign.get('project', 'Unknown'),
                                 cycle_mode=campaign.get('cycle_mode', 'Unknown'),

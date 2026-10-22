@@ -10,9 +10,10 @@ from pathlib import Path
 # Keep the campaign journal out of the real /srv/cycletmp during tests.
 os.environ.setdefault('VERA_CAMPAIGN_TMP', tempfile.mkdtemp(prefix='vera-campaign-tmp-'))
 
-from cycle_engine import new_record
-from cycle_report import journal_path, render_html, write_reports
-from cycle_specification import ITEMS, render_specification, write_specification
+from vera_cycle import paths
+from vera_cycle.engine.cycle_engine import new_record
+from vera_cycle.reporting.cycle_report import journal_path, render_html, write_reports
+from vera_cycle.reporting.cycle_specification import ITEMS, render_specification, write_specification
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,7 +27,7 @@ class SpecificationTests(unittest.TestCase):
             self.assertIn("Vera Cycle Validation Specification", path.read_text(encoding="utf-8"))
 
     def test_uses_repository_logo_asset_without_redrawing_it(self):
-        source = (ROOT / "wistron-logo.svg").read_text(encoding="utf-8")
+        source = paths.WISTRON_LOGO.read_text(encoding="utf-8")
         page = render_specification()
         self.assertIn('viewBox="-1.18218396 -1.18218396 214.57440792 41.77049992"', source)
         self.assertIn('viewBox="-1.18218396 -1.18218396 214.57440792 41.77049992"', page)

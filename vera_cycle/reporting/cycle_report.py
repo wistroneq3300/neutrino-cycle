@@ -11,10 +11,11 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import quote
 
-from cycle_core import aggregate_issues, atomic_write, health, now, parse_mctp_stressor, write_json
-from cycle_storage import report_writer_lock, reject_live_rebuild
+from vera_cycle import paths
+from vera_cycle.core.cycle_core import aggregate_issues, atomic_write, health, now, parse_mctp_stressor, write_json
+from vera_cycle.core.cycle_storage import report_writer_lock, reject_live_rebuild
 
-ASSETS = Path(__file__).parent
+ASSETS = paths.REPORTING_ASSETS
 
 # The compiled campaign journal is kept out of the campaign bundle so the
 # bundle stays small (log evidence + report only). Each run gets its own
@@ -1154,7 +1155,7 @@ def _write_reports(root, campaign):
     atomic_write(root / "CYCLE_REVIEW_REPORT.html", render_html(campaign, console_log))
     # The specification is generic and self-contained, but ships beside every
     # campaign report so the two formal documents can use relative links.
-    from cycle_specification import write_specification
+    from vera_cycle.reporting.cycle_specification import write_specification
     write_specification(root)
 
 def rebuild(root, runtime_root=None):
@@ -1163,7 +1164,7 @@ def rebuild(root, runtime_root=None):
         root = Path(root)
         campaign = read_journal(root)
         reject_live_rebuild(root, campaign, runtime_root)
-        from cycle_recovery import recover_records
+        from vera_cycle.engine.cycle_recovery import recover_records
         campaign = recover_records(root, campaign)
         _write_reports(root, campaign)
         return campaign

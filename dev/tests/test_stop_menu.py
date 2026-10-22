@@ -11,9 +11,9 @@ from unittest.mock import patch
 # Keep the campaign journal out of the real /srv/cycletmp during tests.
 os.environ.setdefault('VERA_CAMPAIGN_TMP', tempfile.mkdtemp(prefix='vera-campaign-tmp-'))
 
-from cycle_report import journal_path
-from cycle_runtime import RunRegistry, list_running, process_running, request_stop
-from neutrino_cycle import main, stop_menu
+from vera_cycle.reporting.cycle_report import journal_path
+from vera_cycle.engine.cycle_runtime import RunRegistry, list_running, process_running, request_stop
+from vera_cycle.cli import main, stop_menu
 
 
 class StopMenuTests(unittest.TestCase):
@@ -49,13 +49,13 @@ class StopMenuTests(unittest.TestCase):
 
     def test_finished_and_stale_runs_are_excluded(self):
         self.runs[0].finish('COMPLETE')
-        with patch('cycle_runtime.process_running', return_value=False):
+        with patch('vera_cycle.engine.cycle_runtime.process_running', return_value=False):
             self.assertEqual(list_running(self.root), [])
             with self.assertRaisesRegex(ValueError, 'no longer running'):
                 request_stop('run2', self.root)
 
     def test_linux_reused_pid_is_not_the_original_campaign(self):
-        with patch('cycle_runtime.os.name', 'posix'), patch('cycle_runtime.os.kill'), patch('cycle_runtime.process_token', return_value='boot:200'):
+        with patch('vera_cycle.engine.cycle_runtime.os.name', 'posix'), patch('vera_cycle.engine.cycle_runtime.os.kill'), patch('vera_cycle.engine.cycle_runtime.process_token', return_value='boot:200'):
             self.assertFalse(process_running(dict(pid=123, process_token='boot:100')))
             self.assertTrue(process_running(dict(pid=123, process_token='boot:200')))
 
@@ -79,7 +79,7 @@ class StopMenuTests(unittest.TestCase):
         self.assertEqual(run['project'], 'naboo')
 
     def test_cli_stop_without_id_opens_menu(self):
-        with patch('neutrino_cycle.stop_menu', return_value=0) as menu:
+        with patch('vera_cycle.cli.stop_menu', return_value=0) as menu:
             self.assertEqual(main(['--stop']), 0)
         menu.assert_called_once_with()
 

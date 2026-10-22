@@ -1,7 +1,7 @@
 """Offline tests for the P5032 MCTP / BMC USB parsing and judgement."""
 import unittest
 
-from cycle_core import (
+from vera_cycle.core.cycle_core import (
     bmc_usb_issues,
     mctp_check_issues,
     mctp_stress_issues,

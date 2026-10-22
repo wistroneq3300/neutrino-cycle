@@ -33,13 +33,13 @@ def windows_process(pid):
 
 
 def writer_identity():
-    from cycle_runtime import process_token
+    from vera_cycle.engine.cycle_runtime import process_token
     token = windows_process(os.getpid())[1] if os.name == 'nt' else process_token(os.getpid())
     return dict(pid=os.getpid(), process_token=token, host=socket.gethostname())
 
 
 def owner_alive(owner):
-    from cycle_runtime import process_token
+    from vera_cycle.engine.cycle_runtime import process_token
     if owner.get('host', socket.gethostname()) != socket.gethostname():
         raise RuntimeError('Cannot verify a RUNNING owner on another controller; rebuild on the source controller after it stops')
     pid = int(owner['pid'])
@@ -98,7 +98,7 @@ def report_writer_lock(root, wait=False):
 
 
 def reject_live_rebuild(root, campaign, runtime_root=None):
-    from cycle_runtime import shared_root
+    from vera_cycle.engine.cycle_runtime import shared_root
     root = Path(root).resolve()
     if campaign.get('state') == 'RUNNING' and campaign.get('writer_owner') and owner_alive(campaign['writer_owner']):
         raise RuntimeError('Live campaign owner is still running; rebuild refused')

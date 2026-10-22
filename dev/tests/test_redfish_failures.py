@@ -15,10 +15,11 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from cycle_core import classify_against_pre, digest, issue_baseline, parse_policy
-from cycle_engine import NodeSession
-from cycle_report import status
-from cycle_transport import Command
+from vera_cycle import paths
+from vera_cycle.core.cycle_core import classify_against_pre, digest, issue_baseline, parse_policy
+from vera_cycle.engine.cycle_engine import NodeSession
+from vera_cycle.reporting.cycle_report import status
+from vera_cycle.core.cycle_transport import Command
 
 import test_cycle as base
 
@@ -137,8 +138,8 @@ class RedfishSessionCase(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.options = SimpleNamespace(project='neutrino', cycle_mode='power_cycle', channel='inband',
                                        boot_timeout=.03, poll_interval=.001, loops=1, hours=0, cycle=True,
-                                       config_script=base.BASE/'neutrino_config.sh',
-                                       issue_policy=base.BASE/'issue_policy.md',
+                                       config_script=paths.project_config_path('neutrino'),
+                                       issue_policy=paths.ISSUE_POLICY,
                                        output=self.root/'output', sensor_retry_delay=0)
         self.fake = FakeRedfish({}, self.root/'ssh')
         self.session = NodeSession(base.target(), self.fake, self.root, 'test', b'script', digest(b'script'),
@@ -925,7 +926,7 @@ class HttpGateTests(unittest.TestCase):
         import os
         import stat
         import tempfile
-        from cycle_transport import Transport
+        from vera_cycle.core.cycle_transport import Transport
         tmpd = tempfile.mkdtemp()
         p = Path(tmpd) / 'curl'
         p.write_text("#!/usr/bin/env sh\ncat <<'B'\n" + body + "\nB\nprintf '\\n__VERA_HTTP_STATUS__:" + status_text + "'\nexit " + str(exit_code) + "\n")
@@ -948,7 +949,7 @@ class HttpGateTests(unittest.TestCase):
         import os
         import stat
         import tempfile
-        from cycle_transport import Transport
+        from vera_cycle.core.cycle_transport import Transport
         tmpd = tempfile.mkdtemp()
         p = Path(tmpd) / 'curl'
         p.write_text("#!/usr/bin/env sh\necho 'connection refused'\nexit 0\n")

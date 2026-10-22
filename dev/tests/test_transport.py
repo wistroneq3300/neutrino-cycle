@@ -7,8 +7,8 @@ import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from cycle_core import Target
-from cycle_transport import Transport
+from vera_cycle.core.cycle_core import Target
+from vera_cycle.core.cycle_transport import Transport
 
 
 def _fake_curl(directory, status, body='{"Members": []}', exit_code=0):
@@ -76,7 +76,7 @@ class RedfishHTTPStatusTests(unittest.TestCase):
             transport = Transport({}, Path(temp) / 'known')
             def timeout(*args, **kwargs):
                 raise subprocess_timeout()
-            from cycle_transport import subprocess as tp_subprocess
+            from vera_cycle.core.cycle_transport import subprocess as tp_subprocess
             with patch.object(tp_subprocess, 'run', side_effect=timeout):
                 result = transport._redfish(['https://bmc/redfish/v1/Systems'], 5)
             self.assertEqual(result.code, 124)
@@ -109,7 +109,7 @@ class TransportTests(unittest.TestCase):
             return MagicMock(returncode=1,stdout='',stderr='Authentication failed')
         with tempfile.TemporaryDirectory() as temp:
             transport=Transport({'bmc':None},Path(temp))
-            with patch('cycle_transport.subprocess.run',side_effect=execute):
+            with patch('vera_cycle.core.cycle_transport.subprocess.run',side_effect=execute):
                 result=transport.oob(Target('tray','n1','192.0.2.1','192.0.2.2'),'power status')
             self.assertEqual(result.code,1)
 
@@ -192,8 +192,8 @@ class TransportTests(unittest.TestCase):
             return MagicMock(returncode=0,stdout='\n__VERA_HTTP_STATUS__:200',stderr='')
         with tempfile.TemporaryDirectory() as temp:
             transport=Transport({'bmc':'pw'},Path(temp))
-            with patch('cycle_transport.shutil.which',return_value='/usr/bin/curl'), \
-                 patch('cycle_transport.subprocess.run',side_effect=fake_run):
+            with patch('vera_cycle.core.cycle_transport.shutil.which',return_value='/usr/bin/curl'), \
+                 patch('vera_cycle.core.cycle_transport.subprocess.run',side_effect=fake_run):
                 token=transport.redfish_login(Target('tray','n1','192.0.2.1','192.0.2.2'))
                 self.assertEqual(token,'TOK123')
                 self.assertEqual(transport._redfish_sessions.get('TOK123'),
@@ -215,8 +215,8 @@ class TransportTests(unittest.TestCase):
                      '__VERA_HTTP_STATUS__:201')
                 return MagicMock(returncode=0,stdout=out,stderr='')
             return MagicMock(returncode=0,stdout=delete_marker,stderr='')
-        with patch('cycle_transport.shutil.which',return_value='/usr/bin/curl'), \
-             patch('cycle_transport.subprocess.run',side_effect=fake_run):
+        with patch('vera_cycle.core.cycle_transport.shutil.which',return_value='/usr/bin/curl'), \
+             patch('vera_cycle.core.cycle_transport.subprocess.run',side_effect=fake_run):
             return transport.redfish_login(Target('tray','n1',bmc,'192.0.2.2'))
 
     def test_unconfirmed_logout_keeps_session_tracking(self):
@@ -226,8 +226,8 @@ class TransportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             transport=Transport({'bmc':'pw'},Path(temp))
             token=self._login_with(transport,None,'\n__VERA_HTTP_STATUS__:500')
-            with patch('cycle_transport.shutil.which',return_value='/usr/bin/curl'), \
-                 patch('cycle_transport.subprocess.run',return_value=MagicMock(returncode=0,stdout='\n__VERA_HTTP_STATUS__:500',stderr='')):
+            with patch('vera_cycle.core.cycle_transport.shutil.which',return_value='/usr/bin/curl'), \
+                 patch('vera_cycle.core.cycle_transport.subprocess.run',return_value=MagicMock(returncode=0,stdout='\n__VERA_HTTP_STATUS__:500',stderr='')):
                 result=transport.redfish_logout(Target('tray','n1','192.0.2.1','192.0.2.2'),token)
             self.assertNotEqual(result.code,0)
             self.assertIn(token,transport._redfish_sessions)
@@ -242,8 +242,8 @@ class TransportTests(unittest.TestCase):
             def fake_run(argv,**kwargs):
                 calls.append(argv)
                 return MagicMock(returncode=0,stdout='\n__VERA_HTTP_STATUS__:200',stderr='')
-            with patch('cycle_transport.shutil.which',return_value='/usr/bin/curl'), \
-                 patch('cycle_transport.subprocess.run',side_effect=fake_run):
+            with patch('vera_cycle.core.cycle_transport.shutil.which',return_value='/usr/bin/curl'), \
+                 patch('vera_cycle.core.cycle_transport.subprocess.run',side_effect=fake_run):
                 result=transport.redfish_logout(Target('tray','n2','192.0.2.9','192.0.2.10'),token)
             self.assertNotEqual(result.code,0)
             self.assertEqual(calls,[],'no DELETE may be issued to a foreign BMC')
@@ -255,7 +255,7 @@ class TransportTests(unittest.TestCase):
         # success on behalf of a session it never tracked.
         with tempfile.TemporaryDirectory() as temp:
             transport=Transport({'bmc':'pw'},Path(temp))
-            with patch('cycle_transport.shutil.which',return_value='/usr/bin/curl'):
+            with patch('vera_cycle.core.cycle_transport.shutil.which',return_value='/usr/bin/curl'):
                 self.assertIsNone(transport.redfish_logout(Target('tray','n1','192.0.2.1','192.0.2.2'),'NOPE'))
 
 if __name__=='__main__':

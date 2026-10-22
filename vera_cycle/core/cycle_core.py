@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from cycle_dmesg import dmesg_issues
+from vera_cycle.core.cycle_dmesg import dmesg_issues
 
 ROLES = ("bmc", "os", "lily_bmc", "lily_os")
 

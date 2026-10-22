@@ -18,12 +18,13 @@ import tempfile as _tempfile
 _TEST_JOURNAL_TMP = _tempfile.mkdtemp(prefix='vera-campaign-tmp-')
 os.environ['VERA_CAMPAIGN_TMP'] = _TEST_JOURNAL_TMP
 
-from cycle_core import *
-from cycle_engine import CAPTURES, NodeSession, new_record
-from cycle_report import render_html, rebuild, status, read_journal, journal_path
-from cycle_runtime import EndpointLocks, request_stop
-from cycle_transport import Command, IdentityUnsafe
-from neutrino_cycle import BASE, Console, campaign, main
+from vera_cycle import paths
+from vera_cycle.core.cycle_core import *
+from vera_cycle.engine.cycle_engine import CAPTURES, NodeSession, new_record
+from vera_cycle.reporting.cycle_report import render_html, rebuild, status, read_journal, journal_path
+from vera_cycle.engine.cycle_runtime import EndpointLocks, request_stop
+from vera_cycle.core.cycle_transport import Command, IdentityUnsafe
+from vera_cycle.cli import BASE, Console, campaign, main
 
 PCI = '0000:01:00.0 Ethernet controller [0200]: Example [1234:5678]\n0001:01:00.0 PCI bridge [0604]: Fabric [10de:2f95]\n'
 SENSORS = 'Temp | 30 | degrees C | ok | na\nFan | 12000 | RPM | ok | na\n'
@@ -542,7 +543,7 @@ class PureTests(unittest.TestCase):
             path = Path(temp)/'inventory.csv'
             path.write_text('os_hostname,node,os_ip,tray,bmc_hostname,bmc_ip\nos,n1,192.0.2.2,tray,bmc,192.0.2.1\n')
             self.assertFalse(inventory_blocks(load_inventory(path)))
-        shipped=load_inventory(BASE/'cycle_inventory_neutrino.csv')
+        shipped=load_inventory(paths.inventory_path('neutrino'))
         self.assertTrue(shipped)
         # All four rows are provisioned now (n0 included), so every node runs.
         blocked=inventory_blocks(shipped)
@@ -554,7 +555,7 @@ class EngineTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.options = SimpleNamespace(project='neutrino',cycle_mode='power_cycle',channel='inband',
                                        boot_timeout=.03,poll_interval=.001,loops=2,hours=0,cycle=True,
-                                       config_script=BASE/'neutrino_config.sh',issue_policy=BASE/'issue_policy.md',output=self.root/'output',
+                                       config_script=paths.project_config_path('neutrino'),issue_policy=paths.ISSUE_POLICY,output=self.root/'output',
                                        sensor_retry_delay=0)
         self.fake = FakeTransport({}, self.root/'ssh')
         self.session = NodeSession(target(),self.fake,self.root,'test',b'script',digest(b'script'),self.options,
@@ -737,7 +738,7 @@ class EngineTests(unittest.TestCase):
             return original(t, cmd, timeout)
         self.fake.oob = oob
         self.options.sensor_retry_delay = 10
-        with patch('cycle_engine.time.sleep') as wait:
+        with patch('vera_cycle.engine.cycle_engine.time.sleep') as wait:
             self.session.precheck()
         record = self.session.node['pre']
         self.assertEqual(reads['count'], 2)
@@ -773,7 +774,7 @@ class EngineTests(unittest.TestCase):
         self.fake.sensor_drop = True
         self.ready()
         self.options.sensor_retry_delay = 10
-        with patch('cycle_engine.time.sleep') as wait:
+        with patch('vera_cycle.engine.cycle_engine.time.sleep') as wait:
             result = self.session.one_loop(1)
         self.assertIn('SENSOR_RECOVERED',[i['code'] for i in result['issues']])
         self.assertTrue((self.root/'tray1_n1'/'loop0001'/'sensor_confirm.txt').exists())
@@ -877,7 +878,7 @@ class EngineTests(unittest.TestCase):
         fixed=datetime(2026,9,29,8,0,0,tzinfo=timezone.utc)
         def clock(tz=None):
             return fixed.astimezone(tz) if tz is not None else (fixed+timedelta(hours=8)).replace(tzinfo=None)
-        with patch('neutrino_cycle.datetime') as mocked_clock:
+        with patch('vera_cycle.cli.datetime') as mocked_clock:
             mocked_clock.now.side_effect=clock
             self.run_campaign()
         output=next(self.options.output.iterdir())
@@ -992,7 +993,7 @@ class LockTests(unittest.TestCase):
 class ConsolePaintTests(unittest.TestCase):
     def paint(self, line):
         console = Console()
-        with patch('neutrino_cycle.COLOUR_ON', True):
+        with patch('vera_cycle.cli.COLOUR_ON', True):
             return console.paint(line)
 
     def test_system_and_phase_slots_are_coloured(self):
@@ -1030,7 +1031,7 @@ class ConsolePaintTests(unittest.TestCase):
 
     def test_colour_off_returns_plain_text(self):
         console = Console()
-        with patch('neutrino_cycle.COLOUR_ON', False):
+        with patch('vera_cycle.cli.COLOUR_ON', False):
             line = 'T L105-21R_n1 | PRE | FAIL'
             self.assertEqual(console.paint(line), line)
 

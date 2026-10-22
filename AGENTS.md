@@ -14,7 +14,7 @@ Nodes: OS `root/password`, BMC `root/0penBmc`.
 
 ## Running
 
-- Tests: `python3 -m unittest discover -s dev/tests -p 'test_*.py'` (169 tests).
+- Tests: `python3 -m unittest discover -s dev/tests -p 'test_*.py'` (373 tests, 1 skipped).
   Single test: `python3 -m unittest dev.tests.test_cycle.ClassName.method` from repo root.
 - Cycles: `python3 neutrino_cycle.py` (interactive wizard), or non-interactively:
   `CD` to repo root and use **`/usr/bin/python3`** — the system Python is the one
@@ -25,18 +25,36 @@ Nodes: OS `root/password`, BMC `root/0penBmc`.
 - Output lands in `campaigns/<run_id>/` (gitignored).
 - `campaigns/` is gitignored; do not `git add` run output into the repo.
 
-## Layout (root keeps only operator-facing files)
+## Layout (package reorganised 2026-10-23)
 
-- `neutrino_cycle.py` — CLI/wizard, campaign orchestrator, console output.
-- `cycle_engine.py` — `NodeSession`: precheck/start/one_loop, capture, Redfish.
-- `cycle_core.py` — parsing + issue/delta/verdict logic (pure functions).
-- `cycle_report.py` — HTML report renderer (reads `report.css`/`report.js` from
-  the same directory; do NOT move those assets).
-- `cycle_transport.py` — SSH/paramiko + OOB ipmitool + Redfish (curl) transport.
-- `<project>_config.sh` — per-project node-side hardware check (`neutrino_config.sh`,
-  `naboo_config.sh`). New project = copy one, adjust the expected-count
-  constants, add to `--project` choices. Do not guess counts; inspect real hardware.
-- `dev/tests/` — offline regression suite.
+`neutrino_cycle.py` stays at the repo root as the operator entry point; the
+implementation lives in the `vera_cycle/` package.
+
+- `neutrino_cycle.py` — thin root entry; calls `vera_cycle.cli.main`.
+- `vera_cycle/cli.py` — CLI/wizard, campaign orchestrator, console output.
+- `vera_cycle/paths.py` — **single source of truth** for every repo-relative
+  path (`REPO_ROOT`, `CAMPAIGNS_DIR`, `ISSUE_POLICY`, `project_config_path()`,
+  `inventory_path()`, `mctp_stressor_path()`, `REPORTING_ASSETS`). Do not derive
+  a repo path from `__file__` anywhere else.
+- `vera_cycle/core/` — `cycle_core.py` (parsing + issue/delta/verdict, pure
+  functions), `cycle_dmesg.py`, `cycle_transport.py` (SSH/paramiko + OOB
+  ipmitool + Redfish/curl), `cycle_storage.py`.
+- `vera_cycle/engine/` — `cycle_engine.py` (`NodeSession`: precheck/start/
+  one_loop, capture, Redfish), `cycle_runtime.py`, `cycle_recovery.py`.
+- `vera_cycle/reporting/` — `cycle_report.py` (HTML report renderer),
+  `cycle_specification.py`, and `assets/` (`report.css`, `report.js`,
+  `wistron-logo.svg`). Assets are read via `paths.REPORTING_ASSETS`.
+- `projects/<project>/` — per-project node-side hardware check
+  (`neutrino_config.sh`, `naboo_config.sh`, `cycle_inventory_*.csv`,
+  `mctp-stressor-p5032.sh`). New project = add a directory, adjust the
+  expected-count constants, add to `--project` choices. Do not guess counts;
+  inspect real hardware.
+- `config/` — shared settings (`issue_policy.md`).
+- `docs/` — documentation (incl. `CYCLE_VALIDATION_SPECIFICATION.html`).
+- `dev/tests/` — offline regression suite; imports use package paths
+  (`from vera_cycle.core import cycle_core`, `from vera_cycle.cli import main`).
+- `campaigns/` — run output (gitignored, read-only history).
+
 
 ## Key design rules (do not regress)
 

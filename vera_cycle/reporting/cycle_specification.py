@@ -10,11 +10,12 @@ from __future__ import annotations
 import html
 from pathlib import Path
 
-from cycle_core import atomic_write, now
-from cycle_report import _wistron_logo
+from vera_cycle import paths
+from vera_cycle.core.cycle_core import atomic_write, now
+from vera_cycle.reporting.cycle_report import _wistron_logo
 
 
-BASE = Path(__file__).resolve().parent
+BASE = paths.REPO_ROOT
 LANGS = ("zh-TW", "en")
 
 

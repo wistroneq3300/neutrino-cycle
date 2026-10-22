@@ -17,7 +17,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from cycle_report import read_journal, render_html  # noqa: E402
+from vera_cycle.reporting.cycle_report import read_journal, render_html  # noqa: E402
 
 NIC_SLOTS = [
     '0001:00:00.0', '0002:00:00.0', '0002:20:00.0', '0003:00:00.0',

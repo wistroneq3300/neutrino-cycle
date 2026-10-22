@@ -8,7 +8,8 @@ import shlex
 import time
 from pathlib import Path
 
-from cycle_core import (
+from vera_cycle import paths
+from vera_cycle.core.cycle_core import (
     atomic_write,
     bmc_usb_issues,
     classify_against_pre,
@@ -44,7 +45,7 @@ from cycle_core import (
     sensor_issues,
     write_json,
 )
-from cycle_transport import Command, IdentityUnsafe
+from vera_cycle.core.cycle_transport import Command, IdentityUnsafe
 
 # P5032 MCTP stressor: BMC-side PLDM GetFirmwareParameters stressor. EID 16/17
 # are CPU0/CPU1 on the saved P5032 BMC configuration.
@@ -374,7 +375,7 @@ class NodeSession:
         if probe.code == 0:
             record['mctp_stressor_present'] = True
             return
-        local = Path(__file__).with_name('mctp-stressor-p5032.sh')
+        local = paths.mctp_stressor_path()
         try:
             data = local.read_bytes()
             self.transport.upload_replace(self.target, 'bmc', data,

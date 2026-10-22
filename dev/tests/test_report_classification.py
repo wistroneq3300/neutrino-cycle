@@ -10,7 +10,7 @@ Offline only. No SSH, network, apt, IPMI or hardware access.
 """
 import unittest
 
-from cycle_core import (
+from vera_cycle.core.cycle_core import (
     aggregate_issues,
     classify_against_pre,
     compare_sensors,
@@ -19,8 +19,8 @@ from cycle_core import (
     parse_sensors,
     redfish_delta,
 )
-from cycle_engine import new_record
-from cycle_report import render_html
+from vera_cycle.engine.cycle_engine import new_record
+from vera_cycle.reporting.cycle_report import render_html
 
 
 def ev(i, severity, message, created='2026-10-06T00:00:00+00:00'):
@@ -188,7 +188,7 @@ class EventIdWrapTests(unittest.TestCase):
 
 class ConsoleSummaryTests(unittest.TestCase):
     def _render(self, record):
-        from neutrino_cycle import show_result
+        from vera_cycle.cli import show_result
         output = []
         node = dict(key='n1', pre=new_record('PRE'), loops=[record], blocked=[])
         show_result(output.append, node, record)

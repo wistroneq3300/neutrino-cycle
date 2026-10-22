@@ -11,3 +11,5 @@ campaigns/
 test-results/
 .venv/
 .openhands/
+ux-bak/
+.agent_notes/

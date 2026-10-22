@@ -9,7 +9,7 @@ reported as FAIL because a broken SSIF makes ``ipmitool`` unusable.
 """
 import unittest
 
-from cycle_core import dmesg_issues, health
+from vera_cycle.core.cycle_core import dmesg_issues, health
 
 BOOT = '\n'.join([
     '[   11.87] pci 0001:00:00.0: bridge window [io  size 0x1000]: failed to assign',

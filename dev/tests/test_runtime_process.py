@@ -7,8 +7,8 @@ import sys
 import tempfile
 import unittest
 
-from cycle_core import Target
-from cycle_runtime import EndpointLocks
+from vera_cycle.core.cycle_core import Target
+from vera_cycle.engine.cycle_runtime import EndpointLocks
 
 
 class ProcessLocks(unittest.TestCase):
@@ -20,8 +20,8 @@ class ProcessLocks(unittest.TestCase):
             locks.acquire(held, 'owner-campaign')
             code = '''
 import sys
-from cycle_core import Target
-from cycle_runtime import EndpointLocks
+from vera_cycle.core.cycle_core import Target
+from vera_cycle.engine.cycle_runtime import EndpointLocks
 locks = EndpointLocks(sys.argv[1])
 t = Target('other-tray', 'different-label', sys.argv[2], sys.argv[3], 'bmc', 'os')
 try:

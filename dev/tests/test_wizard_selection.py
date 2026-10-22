@@ -13,8 +13,8 @@ import tempfile
 import time
 import unittest
 
-from cycle_core import Target, select_targets
-from neutrino_cycle import (
+from vera_cycle.core.cycle_core import Target, select_targets
+from vera_cycle.cli import (
     _checklist, _group_by_tray, _make_key_reader, _menu, _tui_select_targets,
     build_command, cycle_command, display_command, show_command,
 )

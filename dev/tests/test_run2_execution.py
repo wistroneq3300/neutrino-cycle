@@ -6,10 +6,10 @@ import unittest
 from unittest.mock import patch
 
 import test_cycle as fixtures
-from cycle_core import aggregate_issues, health
-from cycle_report import journal_path
-from cycle_transport import Command
-from neutrino_cycle import campaign, show_result
+from vera_cycle.core.cycle_core import aggregate_issues, health
+from vera_cycle.reporting.cycle_report import journal_path
+from vera_cycle.core.cycle_transport import Command
+from vera_cycle.cli import campaign, show_result
 
 
 INCOMPLETE = [

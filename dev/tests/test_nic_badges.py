@@ -21,11 +21,12 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from cycle_core import digest, parse_policy
-from cycle_engine import NodeSession
-from cycle_report import record_html
-from cycle_transport import Command
+from vera_cycle.core.cycle_core import digest, parse_policy
+from vera_cycle.engine.cycle_engine import NodeSession
+from vera_cycle.reporting.cycle_report import record_html
+from vera_cycle.core.cycle_transport import Command
 
+from vera_cycle import paths
 import test_cycle as base
 
 
@@ -64,8 +65,8 @@ class NicBadgeCase(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.options = SimpleNamespace(project='neutrino', cycle_mode='power_cycle', channel='inband',
                                        boot_timeout=.03, poll_interval=.001, loops=1, hours=0, cycle=True,
-                                       config_script=base.BASE/'neutrino_config.sh',
-                                       issue_policy=base.BASE/'issue_policy.md',
+                                       config_script=paths.project_config_path('neutrino'),
+                                       issue_policy=paths.ISSUE_POLICY,
                                        output=self.root/'output', sensor_retry_delay=0)
         self.fake = base.FakeTransport({}, self.root/'ssh')
         self.session = NodeSession(base.target(), self.fake, self.root, 'test', b'script', digest(b'script'),

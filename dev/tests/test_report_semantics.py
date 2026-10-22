@@ -1,9 +1,9 @@
 """Offline regressions for report grouping, phase semantics and evidence links."""
 import unittest
 
-from cycle_core import merge_pci_devices, parse_pci, parse_pci_verbose, issue
-from cycle_engine import new_record
-from cycle_report import (_pci_summary, _render_pci_group, _render_sel, _render_summary_groups,
+from vera_cycle.core.cycle_core import merge_pci_devices, parse_pci, parse_pci_verbose, issue
+from vera_cycle.engine.cycle_engine import new_record
+from vera_cycle.reporting.cycle_report import (_pci_summary, _render_pci_group, _render_sel, _render_summary_groups,
                           _finding_summary, issue_cards, record_html, render_html)
 
 
