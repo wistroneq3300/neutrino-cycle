@@ -30,7 +30,7 @@ def _validate(record, phase, number=None):
     for finding in record['issues']:
         if not isinstance(finding, dict) or not all(k in finding for k in ('code', 'component', 'detail', 'severity')):
             raise ValueError('Malformed finding')
-        if finding['severity'] not in {'WARN', 'FAIL'}:
+        if finding['severity'] not in {'WARN', 'FAIL', 'INFO'}:
             raise ValueError('Invalid finding severity')
     if not all(isinstance(e, str) for e in record['evidence']):
         raise ValueError('Invalid evidence paths')

@@ -71,7 +71,12 @@ class BundleTests(unittest.TestCase):
             'AER: enabled error reporting',
             '0 errors',
         ])
-        self.assertEqual(dmesg_issues(text), [])
+        # Benign lines must not become a FAIL bundle; they now surface as an
+        # INFO DMESG_NOISE finding instead of being dropped silently.
+        codes = [item['code'] for item in dmesg_issues(text)]
+        self.assertEqual(codes, ['DMESG_NOISE'])
+        noise = next(item for item in dmesg_issues(text) if item['code'] == 'DMESG_NOISE')
+        self.assertEqual(noise['severity'], 'INFO')
 
     def test_known_family_lines_are_not_double_counted(self):
         aer = ('[ 1.0] PCIe Bus Error: severity=Uncorrected (Fatal), type=Physical\n'
@@ -91,8 +96,11 @@ class BundleTests(unittest.TestCase):
             with self.subTest(line=line):
                 codes = [item['code'] for item in dmesg_issues(line)]
                 self.assertIn(code, codes)
-        # The benign normal-initialisation line is still dropped.
-        self.assertEqual(dmesg_issues('nvme nvme0: Shutdown timeout set to 10 seconds'), [])
+        # The benign normal-initialisation line is surfaced as DMESG_NOISE, never
+        # as a FAIL bundle.
+        benign = dmesg_issues('nvme nvme0: Shutdown timeout set to 10 seconds')
+        self.assertEqual([i['code'] for i in benign], ['DMESG_NOISE'])
+        self.assertEqual(benign[0]['severity'], 'INFO')
 
     def test_bundle_keeps_distinct_device_addresses(self):
         # Two cards logging the same failure text are two findings. Masking the
@@ -145,3 +153,72 @@ class BundleTests(unittest.TestCase):
                 for rendered in (_finding_html(record), _finding_html_compact(record)):
                     # No issues is a benign empty card, not a crash and not a claim.
                     self.assertTrue('record-issues' in rendered or 'No issues recorded' in rendered)
+
+
+BENIGN = ('CPU features: detected: WFx with timeout\n'
+          'ERST: Error Record Serialization Table (ERST) support is initialized.\n'
+          'EINJ: Error INjection is initialized.\n'
+          'sbsa-gwdt sbsa-gwdt.0: Initialized with 10s timeout @ 1000000000 Hz, action=0.')
+REAL = '[ 11.87] ipmi_ssif dmi-ipmi-ssif.1: probe with driver ipmi_ssif failed with error -17'
+
+
+class BenignNoiseTests(unittest.TestCase):
+    """The benign allowlist surfaces as INFO noise, never dropped, never FAIL."""
+
+    def test_benign_lines_become_one_info_noise_finding(self):
+        items = dmesg_issues(BENIGN)
+        self.assertEqual([i['code'] for i in items], ['DMESG_NOISE'])
+        self.assertEqual(items[0]['severity'], 'INFO')
+        self.assertNotIn('DMESG_BUNDLE', [i['code'] for i in items])
+
+    def test_noise_does_not_change_health(self):
+        self.assertEqual(health(dmesg_issues(BENIGN)), 'PASS')
+        # A genuine error alongside benign lines still fails, via the bundle.
+        mixed = dmesg_issues(BENIGN + '\n' + REAL)
+        self.assertEqual(health(mixed), 'FAIL')
+        self.assertEqual([i['code'] for i in mixed if i['severity'] == 'INFO'], ['DMESG_NOISE'])
+
+    def test_noise_is_separate_from_fail_bundle(self):
+        items = dmesg_issues(BENIGN + '\n' + REAL)
+        bundle = by_code(items)['DMESG_BUNDLE']
+        noise = by_code(items)['DMESG_NOISE']
+        self.assertEqual(bundle['severity'], 'FAIL')
+        self.assertEqual(noise['severity'], 'INFO')
+        # The real error must never leak into the benign noise, or vice versa.
+        self.assertNotIn('ipmi_ssif', '\n'.join(e['text'] for e in noise['entries']))
+        self.assertNotIn('WFx', '\n'.join(e['text'] for e in bundle['entries']))
+
+    def test_noise_renders_in_package_with_evidence_link(self):
+        items = dmesg_issues(BENIGN + '\n' + REAL)
+        for i in items:
+            i['evidence'] = 'Neutrino0_n0/loop0001/dmesg_clear.txt'
+        bundle = by_code(items)['DMESG_BUNDLE']
+        noise = by_code(items)['DMESG_NOISE']
+        html = _dmesg_package_html(bundle, [], noise)
+        # Benign rows are visible (review only), collapsed, and carry a link.
+        self.assertIn('Known-benign dmesg lines', html)
+        self.assertIn('dmesg_clear.txt', html)
+        self.assertIn('WFx', html)
+
+    def test_package_and_compact_both_link_evidence(self):
+        for renderer in (_finding_html, _finding_html_compact):
+            items = dmesg_issues(REAL)
+            items[0]['evidence'] = 'Neutrino0_n0/loop0001/dmesg_clear.txt'
+            html = renderer(dict(phase='LOOP 1', issues=items))
+            # Regression: the dmesg card used to omit the evidence link that
+            # every other finding carries.
+            self.assertIn('dmesg_clear.txt', html)
+
+    def test_noise_is_shown_in_loop_and_summary_views(self):
+        from vera_cycle.reporting.cycle_report import aggregate_issues
+        items = dmesg_issues(BENIGN)
+        for i in items:
+            i['evidence'] = 'Neutrino0_n0/loop0001/dmesg_clear.txt'
+        # Per-loop view.
+        loop_html = _finding_html_compact(dict(phase='LOOP 1', issues=items))
+        self.assertIn('Known-benign dmesg lines', loop_html)
+        # Whole-campaign summary aggregation keeps the noise finding.
+        node = dict(key='n1', pre=dict(phase='PRE', issues=[]), loops=[dict(phase='LOOP 1', issues=items)], blocked=[])
+        merged = aggregate_issues(dict(nodes=[node]))
+        self.assertIn('DMESG_NOISE', [i['code'] for i in merged])
+        self.assertTrue(all(i['severity'] == 'INFO' for i in merged if i['code'] == 'DMESG_NOISE'))

@@ -217,7 +217,7 @@ def _dmesg_block(item):
 # dmesg findings are shown to the operator as ONE package: the generic bundle
 # plus any APEI events. They stay separate findings internally so an APEI
 # ``info`` event still reads as PASS -- only the display is merged.
-DMESG_CODES = {'DMESG_BUNDLE', 'DMESG_APEI'}
+DMESG_CODES = {'DMESG_BUNDLE', 'DMESG_APEI', 'DMESG_NOISE'}
 
 
 def _issue_title(item):
@@ -270,8 +270,13 @@ def _dmesg_severity(issues):
     return worst
 
 
-def _dmesg_package_html(bundle, apei):
-    """One dmesg package: the bundle rows followed by APEI event rows."""
+def _dmesg_package_html(bundle, apei, noise=None):
+    """One dmesg package: the bundle rows, APEI events, then the benign noise.
+
+    All three share one card so the operator sees the whole kernel-log picture
+    in place. The noise rows are INFO (known-benign) and never affect health,
+    but they stay visible because the allowlist is only a heuristic.
+    """
     packages = [i for i in [bundle, *apei] if i]
     severity = _dmesg_severity(packages)
     count = sum(len(i.get('entries', [])) for i in packages) + len(apei)
@@ -280,8 +285,22 @@ def _dmesg_package_html(bundle, apei):
     body = _dmesg_block(bundle) if bundle else ''
     if apei:
         body += ' '.join(_dmesg_block(i) for i in apei)
+    # Evidence is the file that actually holds these lines (the loop's retained
+    # dmesg_clear.txt / PRE's dmesg.txt); without it the findings are unreadable.
+    src = bundle or (apei[0] if apei else None)
+    link = f' {evidence_link(src["evidence"])}' if src and src.get('evidence') else ''
+    noise_html = ''
+    if noise:
+        n_entries = len(noise.get('entries', []))
+        n_occ = sum(e.get('count', 1) for e in noise.get('entries', []))
+        n_link = f' {evidence_link(noise["evidence"])}' if noise.get('evidence') else ''
+        noise_html = (
+            '<details class="dmesg-noise"><summary>'
+            f'Known-benign dmesg lines (review only): {n_entries} distinct, '
+            f'{n_occ} occurrence(s)</summary>{n_link}{_dmesg_block(noise)}</details>')
     return (f'<li>{badge(severity)} <strong>dmesg</strong> — {esc(headline)} '
-            f'<span class="badge new">NEW</span>{body}</li>')
+            f'<span class="badge new">NEW</span>{link}{body}</li>'
+            + (f'<li class="dmesg-noise-row">{noise_html}</li>' if noise_html else ''))
 
 
 def _finding_html(record):
@@ -291,8 +310,9 @@ def _finding_html(record):
     rows = []
     bundle = next((i for i in issues if i.get('code') == 'DMESG_BUNDLE'), None)
     apei = [i for i in issues if i.get('code') == 'DMESG_APEI']
-    if bundle or apei:
-        rows.append(_dmesg_package_html(bundle, apei))
+    noise = next((i for i in issues if i.get('code') == 'DMESG_NOISE'), None)
+    if bundle or apei or noise:
+        rows.append(_dmesg_package_html(bundle, apei, noise))
     for item in issues:
         if item.get('code') in DMESG_CODES:
             continue
@@ -324,6 +344,7 @@ def _finding_html_compact(record):
     by_key = {}
     bundle = next((i for i in _visible_issues(record) if i.get('code') == 'DMESG_BUNDLE'), None)
     apei = [i for i in _visible_issues(record) if i.get('code') == 'DMESG_APEI']
+    noise = next((i for i in _visible_issues(record) if i.get('code') == 'DMESG_NOISE'), None)
     for item in _visible_issues(record):
         if item.get('code') in DMESG_CODES:
             continue
@@ -371,8 +392,8 @@ def _finding_html_compact(record):
             snippet = f'<pre class="snippet">{esc(grp["snippet"])}</pre>'
         link = f' {evidence_link(grp["evidence"][0])}' if grp['evidence'] else ''
         rows.append(f'<li>{badge(grp["severity"])} <strong>{esc(grp["component"])}</strong> — {esc(grp["detail"])}{ids_txt} {badge(classification)}{link}{snippet}</li>')
-    if bundle or apei:
-        rows.insert(0, _dmesg_package_html(bundle, apei))
+    if bundle or apei or noise:
+        rows.insert(0, _dmesg_package_html(bundle, apei, noise))
     return '<ul class="record-issues">' + ''.join(rows) + '</ul>'
 
 

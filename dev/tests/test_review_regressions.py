@@ -57,7 +57,8 @@ class EventTests(unittest.TestCase):
                              ('NVRM: Xid (PCI:0000:01:00): 79, GPU has fallen off the bus', 'GPU')]:
             with self.subTest(line=line):
                 self.assertEqual(dmesg_issues(line)[0]['family'], family)
-        self.assertFalse(dmesg_issues('AER: enabled error reporting\nnvme nvme0: 32 queues\nEDAC initialized\n0 errors'))
+        benign = dmesg_issues('AER: enabled error reporting\nnvme nvme0: 32 queues\nEDAC initialized\n0 errors')
+        self.assertNotIn('DMESG_BUNDLE', [i['code'] for i in benign])
 
     def test_real_parser_classification_console_and_aggregation(self):
         pre = dmesg_issues(apei('corrected'))

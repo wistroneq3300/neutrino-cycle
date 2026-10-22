@@ -146,7 +146,10 @@ def display_component(item):
     return component
 
 def health(issues):
-    return "FAIL" if any(i["severity"] == "FAIL" for i in issues) else "WARN" if issues else "PASS"
+    # INFO findings (e.g. known-benign dmesg noise) are shown for transparency but
+    # must not raise the verdict: only FAIL/WARN/UNKNOWN/other severities count.
+    graded = [i for i in issues if i.get("severity") != "INFO"]
+    return "FAIL" if any(i["severity"] == "FAIL" for i in graded) else "WARN" if graded else "PASS"
 
 def parse_policy(text):
     rules = []

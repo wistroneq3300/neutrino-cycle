@@ -208,9 +208,18 @@ def dmesg_issues(text):
         event = _event('APEI', 'cper', block, source)
         if event:
             found.append(event)
-    stray = [(number, line) for number, line in enumerate(text.splitlines(), 1)
-             if number not in consumed and BUNDLE_KEYWORDS.search(line)
-             and not any(b.search(line) for b in BUNDLE_BENIGN)]
+    candidates = [(number, line) for number, line in enumerate(text.splitlines(), 1)
+                  if number not in consumed and BUNDLE_KEYWORDS.search(line)]
+    stray = [(n, line) for n, line in candidates
+             if not any(b.search(line) for b in BUNDLE_BENIGN)]
     if stray:
         found.append(_bundle_event(stray, 'DMESG_BUNDLE', 'BUNDLE', 'FAIL'))
+    # Benign-looking error lines (matched by BUNDLE_BENIGN) are NOT dropped: the
+    # allowlist is a heuristic, so the operator keeps them visible as an INFO
+    # ``DMESG_NOISE`` finding instead of losing them silently. They never affect
+    # the health verdict -- only the FAIL bundle does.
+    noise = [(n, line) for n, line in candidates
+             if any(b.search(line) for b in BUNDLE_BENIGN)]
+    if noise:
+        found.append(_bundle_event(noise, 'DMESG_NOISE', 'BUNDLE', 'INFO'))
     return sorted(found, key=lambda item: item['raw_start'])

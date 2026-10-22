@@ -523,7 +523,11 @@ class PureTests(unittest.TestCase):
         self.assertEqual(sel_delta(old,current), '1 | today | boot\n')
 
     def test_dmesg_specific_not_every_error_word(self):
-        self.assertFalse(dmesg_issues('AER: enabled error reporting\n0 errors'))
+        # Benign init lines must not raise a FAIL bundle; they are surfaced as an
+        # INFO DMESG_NOISE finding instead of being dropped.
+        benign = dmesg_issues('AER: enabled error reporting\n0 errors')
+        self.assertNotIn('DMESG_BUNDLE', [i['code'] for i in benign])
+        self.assertEqual(health(benign), 'PASS')
         self.assertEqual(health(dmesg_issues('AER: Uncorrected (Fatal) error received')), 'FAIL')
 
     def test_inventory_selection_duplicates(self):
