@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from vera_cycle import paths
-from vera_cycle.core.cycle_core import aggregate_issues, atomic_write, health, now, parse_mctp_stressor, write_json
+from vera_cycle.core.cycle_core import aggregate_issues, atomic_write, display_component, health, now, parse_mctp_stressor, write_json
 from vera_cycle.core.cycle_storage import report_writer_lock, reject_live_rebuild
 
 ASSETS = paths.REPORTING_ASSETS
@@ -36,12 +36,92 @@ def journal_path(root):
     return campaign_tmp() / Path(root).name / 'campaign.json'
 
 
-def read_journal(root):
-    """Read the campaign journal, falling back to a legacy in-bundle copy."""
-    path = journal_path(root)
-    if not path.is_file():
-        path = Path(root) / 'campaign.json'
-    return json.loads(path.read_text(encoding='utf-8'))
+def _run_id_from_bundle(root):
+    """Best-effort recovery of a bundle's Run ID from its own summary line.
+
+    A journal lives outside the bundle and is normally located by the bundle's
+    directory *name*. If the directory was renamed (or only copied) the name no
+    longer matches, but ``cycle_summary.txt`` still records the original Run ID,
+    which is the journal directory's real key.
+    """
+    root = Path(root)
+    for name in ('cycle_summary.txt', 'CYCLE_REVIEW_REPORT.md'):
+        path = root / name
+        try:
+            text = path.read_text(encoding='utf-8')
+        except OSError:
+            continue
+        match = re.search(r'^Run ID:\s*(\S+)\s*$', text, re.M)
+        if match:
+            return match.group(1).strip()
+    return None
+
+
+def _journal_by_run_id(run_id):
+    """Find a campaign journal by scanning the tmp root for its Run ID.
+
+    A bundle directory that was renamed, or a journal moved with its Run ID,
+    can lose the name->directory correspondence, so fall back to reading each
+    journal's own ``run_id``. Bounded to the campaign tmp root and tolerant of
+    unreadable/foreign entries.
+    """
+    if not run_id:
+        return None
+    root = campaign_tmp()
+    try:
+        entries = sorted(root.iterdir())
+    except OSError:
+        return None
+    for entry in entries:
+        candidate = entry / 'campaign.json'
+        try:
+            data = json.loads(candidate.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict) and data.get('run_id') == run_id:
+            return candidate
+    return None
+
+
+def journal_candidates(root, override=None):
+    """Ordered journal locations to try, so a renamed/copied bundle still reads.
+
+    1. an explicit override (``--journal`` / caller argument),
+    2. the canonical external location keyed by the current directory name,
+    3. a legacy in-bundle copy,
+    4. the external location keyed by the Run ID recovered from the bundle text
+       (recovers after a directory rename).
+    """
+    root = Path(root)
+    candidates = []
+    if override is not None:
+        candidates.append(Path(override))
+    candidates.append(campaign_tmp() / root.name / 'campaign.json')
+    candidates.append(root / 'campaign.json')
+    run_id = _run_id_from_bundle(root)
+    if run_id:
+        candidates.append(campaign_tmp() / run_id / 'campaign.json')
+        # The directory name may be the only thing that changed; a scan by the
+        # journal's own run_id still finds a copy or a rename.
+        candidates.append(_journal_by_run_id(run_id))
+    unique = []
+    for path in candidates:
+        if path is None or path in unique:
+            continue
+        unique.append(path)
+    return unique
+
+
+def read_journal(root, override=None):
+    """Read the campaign journal from the first location that exists."""
+    candidates = journal_candidates(root, override)
+    for path in candidates:
+        if path.is_file():
+            return json.loads(path.read_text(encoding='utf-8'))
+    tried = '\n  '.join(str(p) for p in candidates)
+    raise FileNotFoundError(
+        'Campaign journal not found. Looked in:\n  ' + tried +
+        '\nPass --journal <path> to point at the campaign.json explicitly.')
 
 
 def _wistron_logo():
@@ -181,6 +261,10 @@ def _dmesg_severity(issues):
     order = {'FAIL': 3, 'WARN': 2, 'UNKNOWN': 1, 'PASS': 0}
     worst = 'PASS'
     for item in issues:
+        if not item:
+            # An APEI-only capture has no bundle; the absent slot must not be
+            # dereferenced. Skipping empty entries keeps this safe for any caller.
+            continue
         if order.get(item.get('severity'), 0) > order[worst]:
             worst = item['severity']
     return worst
@@ -188,9 +272,10 @@ def _dmesg_severity(issues):
 
 def _dmesg_package_html(bundle, apei):
     """One dmesg package: the bundle rows followed by APEI event rows."""
-    severity = _dmesg_severity([bundle] + apei)
-    count = sum(len(i.get('entries', [])) for i in [bundle] + apei) + len(apei)
-    occurrences = sum(e.get('count', 1) for i in [bundle] + apei for e in i.get('entries', []))
+    packages = [i for i in [bundle, *apei] if i]
+    severity = _dmesg_severity(packages)
+    count = sum(len(i.get('entries', [])) for i in packages) + len(apei)
+    occurrences = sum(e.get('count', 1) for i in packages for e in i.get('entries', []))
     headline = f'DMESG: {count} distinct error/fail line(s), {occurrences} occurrence(s)'
     body = _dmesg_block(bundle) if bundle else ''
     if apei:
@@ -220,7 +305,8 @@ def _finding_html(record):
             else:
                 snippet = raw
         link = f' {evidence_link(item["evidence"])}' if item.get('evidence') else ''
-        rows.append(f'<li>{badge(item.get("severity", "UNKNOWN"))} <strong>{esc(item.get("component", "unknown"))}</strong> — {esc(item.get("detail", ""))} {badge(classification)}{link}{snippet}</li>')
+        component = display_component(item) or 'unknown'
+        rows.append(f'<li>{badge(item.get("severity", "UNKNOWN"))} <strong>{esc(component)}</strong> — {esc(item.get("detail", ""))} {badge(classification)}{link}{snippet}</li>')
     return '<ul class="record-issues">' + ''.join(rows) + '</ul>'
 
 
@@ -242,15 +328,21 @@ def _finding_html_compact(record):
         if item.get('code') in DMESG_CODES:
             continue
         ident = item.get('identity') or ''
-        parts = ident.split('|')
+        # Redfish identities are '<name>|<id>|<message>'; the message itself can
+        # contain '|', so split only twice -- an unbounded split would truncate a
+        # message at its first pipe and merge every such event into one group.
+        parts = ident.split('|', 2)
         if len(parts) >= 3 and item.get('code', '').startswith('REDFISH'):
             event_id, message = parts[1], parts[2]
         else:
             event_id, message = '', item.get('detail', '')
-        key = (item.get('component', ''), message)
+        # The displayed component follows the same operator-facing label as the
+        # card titles (a dmesg bundle reads as 'fail/error', not 'bundle').
+        component = display_component(item)
+        key = (component, message)
         grp = by_key.get(key)
         if grp is None:
-            grp = {'component': item.get('component', ''), 'detail': message,
+            grp = {'component': component, 'detail': message,
                    'severity': item.get('severity', 'UNKNOWN'), 'ids': [],
                    'classification': item.get('classification', 'NEW'),
                    'snippet': item.get('snippet', ''), 'evidence': []}
@@ -422,7 +514,14 @@ def _pci_devices(record):
         devices = record.get('pci') or {}
     rows = []
     for bdf, value in sorted(devices.items()):
-        item = dict(value)
+        # Older campaigns stored ``pci`` as a ``{bdf: "vendor:device"}`` string
+        # map rather than the current ``{bdf: {...}}`` dict. A report rebuilt
+        # from such a journal must still render, so a legacy string is wrapped
+        # as a minimal device instead of crashing ``dict(value)``.
+        if isinstance(value, dict):
+            item = dict(value)
+        else:
+            item = {'ids': str(value)}
         item['bdf'] = bdf
         raw = str(item.get('raw', '')).lower()
         if (str(item.get('class_id', '')).startswith('06') or
@@ -989,7 +1088,9 @@ def _redfish_event_key(item):
     the full identity/code+component so nothing else is merged.
     """
     ident = item.get('identity') or ''
-    parts = ident.split('|')
+    # Split at most twice: a vendor message may itself contain '|', and an
+    # unbounded split would keep a truncated message as the merge key.
+    parts = ident.split('|', 2)
     if len(parts) >= 3 and item['code'] in ('REDFISH_CRITICAL', 'REDFISH_WARNING'):
         return ('redfish', item['node'], item['code'], parts[2])
     return ('other', item['node'], item['code'], item.get('component', ''), ident or item.get('detail', ''))
@@ -1109,6 +1210,18 @@ def write_reports(root, campaign):
         _write_reports(root, campaign)
 
 
+def write_journal(root, campaign):
+    """Persist only the campaign journal, independent of HTML rendering.
+
+    The execution verdict must survive a report-rendering failure, so the
+    orchestration layer calls this at the terminal state before (and separately
+    from) generating the HTML. ``_write_reports`` re-writes the same journal as
+    part of a full render, so calling both is idempotent.
+    """
+    with report_writer_lock(root, wait=True):
+        write_json(journal_path(root), copy.deepcopy(campaign))
+
+
 def _write_reports(root, campaign):
     root = Path(root)
     # Missing-file annotations belong to the rendered snapshot, not reviewed PRE.
@@ -1141,7 +1254,7 @@ def _write_reports(root, campaign):
         for item in result['issues']:
             if item['classification'] != classification:
                 continue
-            markdown += [f"## {item['node']} / {item['code']} / {item['component']}", '',
+            markdown += [f"## {item['node']} / {item['code']} / {display_component(item)}", '',
                          f"Severity: {item['severity']}", '', item.get('known_reason', ''), '']
             for event in item['occurrences']:
                 markdown.append(f"- {event['phase']}: {event['detail']} ({event['evidence'] or 'No evidence file'})")
@@ -1158,11 +1271,11 @@ def _write_reports(root, campaign):
     from vera_cycle.reporting.cycle_specification import write_specification
     write_specification(root)
 
-def rebuild(root, runtime_root=None):
+def rebuild(root, runtime_root=None, journal=None):
     # Read, ownership check, merge and publication share one writer lock.
     with report_writer_lock(root):
         root = Path(root)
-        campaign = read_journal(root)
+        campaign = read_journal(root, journal)
         reject_live_rebuild(root, campaign, runtime_root)
         from vera_cycle.engine.cycle_recovery import recover_records
         campaign = recover_records(root, campaign)

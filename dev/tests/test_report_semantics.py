@@ -3,7 +3,7 @@ import unittest
 
 from vera_cycle.core.cycle_core import merge_pci_devices, parse_pci, parse_pci_verbose, issue
 from vera_cycle.engine.cycle_engine import new_record
-from vera_cycle.reporting.cycle_report import (_pci_summary, _render_pci_group, _render_sel, _render_summary_groups,
+from vera_cycle.reporting.cycle_report import (_pci_devices, _pci_summary, _render_pci_group, _render_sel, _render_summary_groups,
                           _finding_summary, issue_cards, record_html, render_html)
 
 
@@ -60,6 +60,19 @@ class ReportSemanticsTests(unittest.TestCase):
         self.assertIn('#016c8c', page)
         self.assertIn('#9acd66', page)
         self.assertNotIn('brand">Wistron', page)
+
+    def test_legacy_string_pci_map_still_renders(self):
+        # Older campaigns stored ``pci`` as {bdf: "vendor:device"}; a rebuild
+        # from such a journal must not crash dict() on the string value.
+        record = new_record('LOOP 1')
+        record['pci'] = {'0001:00:00.0': '10de:2f95', '0004:01:00.0': '1e0f:002e'}
+        devices = _pci_devices(record)
+        bdfs = {d['bdf'] for d in devices}
+        self.assertEqual(bdfs, {'0001:00:00.0', '0004:01:00.0'})
+        # The summary path (used by record_html) must also survive.
+        record.update(status='PASS', finished='2026-10-01T10:00:03+08:00')
+        _devices, _counts, _evaluated, status = _pci_summary(record)
+        self.assertIn(status, {'PASS', 'WARN', 'FAIL', 'UNKNOWN', 'N/A', 'UNSUPPORTED'})
 
     def test_pci_devices_are_data_driven_and_grouped(self):
         devices = merge_pci_devices(parse_pci(PCI), parse_pci_verbose(VERBOSE))

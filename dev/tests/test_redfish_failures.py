@@ -15,12 +15,12 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from vera_cycle import paths
 from vera_cycle.core.cycle_core import classify_against_pre, digest, issue_baseline, parse_policy
 from vera_cycle.engine.cycle_engine import NodeSession
 from vera_cycle.reporting.cycle_report import status
 from vera_cycle.core.cycle_transport import Command
 
+from vera_cycle import paths
 import test_cycle as base
 
 
@@ -1070,6 +1070,80 @@ class ReferencedEntryIntegrityTests(RedfishSessionCase):
         record = self.collect()
         self.assertEqual(record['eventlog_meta']['status'], 'FAILED')
         self.assertNotEqual(record['status'], 'PASS')
+
+
+class MessageWithPipeTests(RedfishSessionCase):
+    """A vendor message may itself contain '|'; splitting the identity must not
+    truncate it, or every such event collapses into one group and the detail is
+    cut mid-message."""
+
+    def test_message_containing_pipe_is_not_truncated(self):
+        from vera_cycle.reporting.cycle_report import _finding_html_compact
+        self.fake.eventlog_pages = [{"Members": [
+            entry(1, "Critical", "PSC boot | CPU0 | SYS_RESET_N"),
+            entry(2, "Critical", "PSC boot | CPU1 | SYS_RESET_N"),
+        ]}]
+        record = self.collect()
+        crit = [i for i in record['issues'] if i['code'] == 'REDFISH_CRITICAL']
+        self.assertEqual(len(crit), 2)
+        # The whole message survives the '|' split: the last field is the full
+        # message, not a fragment truncated at the first pipe.
+        for item, message in zip(crit, ('PSC boot | CPU0 | SYS_RESET_N', 'PSC boot | CPU1 | SYS_RESET_N')):
+            self.assertEqual(item['identity'].split('|', 2)[2], message)
+        # Two events with different device identity must not collapse into one
+        # card keyed on a truncated 'PSC boot ' message.
+        html = _finding_html_compact(record)
+        self.assertIn('PSC boot | CPU0 | SYS_RESET_N <span class="event-ids">line: 1</span>', html)
+        self.assertIn('PSC boot | CPU1 | SYS_RESET_N <span class="event-ids">line: 2</span>', html)
+
+    def test_same_message_from_two_ids_merges_by_message(self):
+        from vera_cycle.reporting.cycle_report import _finding_html_compact
+        self.fake.eventlog_pages = [{"Members": [
+            entry(1, "Critical", "same | text"),
+            entry(2, "Critical", "same | text"),
+        ]}]
+        record = self.collect()
+        html = _finding_html_compact(record)
+        # One card, listing both event Ids, with the full message intact.
+        self.assertEqual(html.count('<li>'), 1)
+        self.assertIn('same | text <span class="event-ids">line: 1, 2</span>', html)
+
+
+class CrossServiceDeltaIdTests(RedfishSessionCase):
+    """EventLog and SEL keep separate id spaces, so an id shared by both must
+    not cross-classify: a SEL id-5 delta must not mark an EventLog id-5 finding
+    NEW (and vice versa)."""
+
+    def test_shared_id_does_not_cross_classify(self):
+        record = self.session.node['pre']
+        self.fake.redfish_sel_present = True
+        # Before: EventLog has id 5 (already seen); SEL has id 5 (already seen).
+        self.fake.eventlog_pages = [{"Members": [entry(5, "Critical", "known eventlog")]}]
+        self.fake.sel_pages = [{"Members": [entry(5, "OK", "old sel")]}]
+        self.session._redfish_before_snapshot(record)
+        # After: EventLog id 5 is byte-identical (not new); SEL gains a fresh id 5.
+        self.fake.eventlog_pages = [{"Members": [entry(5, "Critical", "known eventlog")]}]
+        self.fake.sel_pages = [{"Members": [entry(5, "Critical", "fresh sel error")]}]
+        self.session.collect_redfish(record)
+        self.session._redfish_loop_delta(record)
+
+        delta_ids = record['redfish_delta_ids']
+        # The SEL delta is recorded under its own service name; the unchanged
+        # EventLog entry is not in any delta.
+        self.assertIn('SEL|5', delta_ids)
+        self.assertNotIn('EventLog|5', delta_ids)
+
+    def test_meta_fallback_qualifies_by_service(self):
+        from vera_cycle.core.cycle_core import _redfish_delta_ids
+        record = {'eventlog_meta': {'delta': {'status': 'COMPARED', 'new_entries': [{'id': '3'}]}},
+                  'sel_delta_meta': {'delta': {'status': 'COMPARED', 'new_entries': [{'id': '3'}]}}}
+        ids = _redfish_delta_ids(record)
+        self.assertEqual(ids, {'EventLog|3', 'SEL|3'})
+
+    def test_legacy_flat_marker_still_matches(self):
+        from vera_cycle.core.cycle_core import _redfish_delta_ids
+        # A journal written before service-qualification keeps the flat list.
+        self.assertEqual(_redfish_delta_ids({'eventlog_delta_ids': ['5']}), {'5'})
 
 
 if __name__ == '__main__':

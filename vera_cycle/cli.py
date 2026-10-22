@@ -30,6 +30,7 @@ from vera_cycle.core.cycle_core import (
     ROLES,
     atomic_write,
     digest,
+    display_component,
     inventory_blocks,
     issue,
     load_inventory,
@@ -41,7 +42,9 @@ from vera_cycle.core.cycle_transport import Transport
 from vera_cycle.core.cycle_storage import writer_identity
 from vera_cycle.engine.cycle_engine import NodeSession
 from vera_cycle.engine.cycle_runtime import EndpointLocks, RunRegistry, list_running, request_stop
-from vera_cycle.reporting.cycle_report import duration, elapsed, rebuild, status, write_reports
+from vera_cycle.reporting.cycle_report import (
+    duration, elapsed, rebuild, status, write_journal, write_reports,
+)
 
 # Repository root, kept for callers that derive sibling paths from it.
 BASE = paths.REPO_ROOT
@@ -173,7 +176,8 @@ def show_result(console, node, record):
                                             if (item['severity'], item['code'], item['component'], item['detail']) == (severity, _code, component, detail)):
             continue
         text = ' '.join(detail.split())[:300]
-        console(f"  {severity} {component}: {text}" + (f" (repeated {count} times)" if count > 1 else ''))
+        label = display_component(dict(code=_code, component=component))
+        console(f"  {severity} {label}: {text}" + (f" (repeated {count} times)" if count > 1 else ''))
     for reason in node['blocked']:
         console(f"  BLOCKED: {reason}")
 
@@ -209,6 +213,21 @@ def parallel(function, sessions, console, label, display_result=True):
                 elif label == 'Start log clearing':
                     console(f"{session.node['key']} | log clearing | {record['status']}")
 
+def safe_write_reports(output, data, console):
+    """Generate the report without ever letting its failure change the run.
+
+    Report generation is an output step; a rendering bug, a full disk or a
+    missing asset must not abort the cycles or rewrite the execution verdict.
+    The caller persists the verdict separately (``write_journal``); here the
+    HTML/Markdown failure is reported and the run continues.
+    """
+    try:
+        write_reports(output, data)
+        return True
+    except Exception as exc:
+        console(f"Report generation failed: {exc}. Execution continues; rebuild later with --report {output}")
+        return False
+
 def campaign(options, targets, credentials, confirm=input, transport_factory=Transport, runtime_root=None):
     console = Console()
     console.node_names = [t.key for t in targets]
@@ -219,7 +238,7 @@ def campaign(options, targets, credentials, confirm=input, transport_factory=Tra
     prior_handlers = {}
     registry = None
     data = None
-    finalized = False
+    verdict_fixed = False
     sessions = []
     # Both keyboard interrupt and TERM are graceful: finish current POST.
     if threading.current_thread() is threading.main_thread():
@@ -300,15 +319,15 @@ def campaign(options, targets, credentials, confirm=input, transport_factory=Tra
             atomic_write(output / 'issue_policy.snapshot.md', policy_text)
             data = dict(run_id=run_id, project=options.project, started=now(), finished=None,
                         writer_owner=writer_identity(),
-                        tool_version=(BASE / 'VERSION').read_text().strip(),
+                        tool_version=paths.VERSION_FILE.read_text().strip(),
                         state='RUNNING', stop_reason='', cycle_mode=options.cycle_mode, channel=options.channel,
                         limits=dict(loops=options.loops, hours=options.hours), script_sha256=digest(script),
                         nodes=[s.node for s in sessions])
-            write_reports(output, data)
+            safe_write_reports(output, data, console)
             console(f"Campaign started. Output: {output}")
             console(f"Stop after the current POST: ./stop_cycle.sh {run_id}")
             parallel(lambda s: s.start(), runnable, console, 'Start log clearing', display_result=False)
-            write_reports(output, data)
+            safe_write_reports(output, data, console)
             start = time.monotonic()
             number = 0
             while True:
@@ -334,11 +353,18 @@ def campaign(options, targets, credentials, confirm=input, transport_factory=Tra
                 parallel(lambda s, n=number: s.one_loop(n), active, console, f'Loop {number}')
                 for session in active:
                     session.progress = None
-                write_reports(output, data)
+                safe_write_reports(output, data, console)
             data['finished'] = now()
-            write_reports(output, data)
+            verdict_fixed = True
+            # The execution verdict is persisted on its own first: a later HTML
+            # failure must never rewrite COMPLETE to INCOMPLETE. The full report
+            # is then attempted without letting a rendering error change the run.
+            try:
+                write_journal(output, data)
+            except Exception as exc:
+                console(f"Journal could not be written: {exc}. Recover with --report {output}")
+            safe_write_reports(output, data, console)
             registry.finish(data['state'])
-            finalized = True
             result = status(data)
             console("=" * 60)
             console(f"FINISHED: {result['completion']} | Health: {result['health']} | Completed node-loops: {result['completed_node_loops']}")
@@ -347,14 +373,20 @@ def campaign(options, targets, credentials, confirm=input, transport_factory=Tra
             console("=" * 60)
             return 0 if result['completion'] == 'COMPLETE' and result['health'] != 'FAIL' else 1
     finally:
-        if data and not finalized:
+        if data and not verdict_fixed:
+            # Only an abnormal unwind (an exception before any terminal verdict)
+            # marks the campaign INCOMPLETE. A report-generation failure happens
+            # after the verdict is fixed, so it never reaches here.
             data.update(state='INCOMPLETE', finished=now(), stop_reason='Orchestrator interrupted by an unexpected error; retained all available evidence')
             try:
-                write_reports(output, data)
+                write_journal(output, data)
+            except Exception as exc:
+                console(f"Journal could not be written: {exc}. Recover with --report {output}")
+            try:
                 if registry:
                     registry.finish('INCOMPLETE')
             except Exception as exc:
-                console(f"Final report could not be written: {exc}. Recover with --report {output}")
+                console(f"Stop request could not be recorded: {exc}")
         for session in sessions:
             session.cleanup_remote()
         locks.close()
@@ -834,12 +866,14 @@ def parser():
     p.add_argument('--memory-min-ratio', type=float, default=0.90, help='Minimum OS MemTotal / installed SMBIOS capacity (0 < ratio <= 1)')
     p.add_argument('--config-script', type=Path,
                    help='Override the selected project config script')
-    p.add_argument('--issue-policy', type=Path, default=BASE / 'issue_policy.md')
-    p.add_argument('--output', type=Path, default=BASE / 'campaigns')
+    p.add_argument('--issue-policy', type=Path, default=paths.ISSUE_POLICY)
+    p.add_argument('--output', type=Path, default=paths.CAMPAIGNS_DIR)
     p.add_argument('--cycle', action='store_true', help='Run cycles after PRE and explicit confirmation; wizard enables this')
     p.add_argument('--keep-going', action='store_true', help=argparse.SUPPRESS)
     p.add_argument('--stop', metavar='RUN_ID', nargs='?', const='', help='Open numbered stop menu, or stop the specified Run ID')
     p.add_argument('--report', type=Path, metavar='CAMPAIGN_DIR', help='Rebuild a stopped campaign report from its journal; do not use during a live run')
+    p.add_argument('--journal', type=Path, metavar='CAMPAIGN_JSON',
+                   help='Journal to rebuild from; defaults to the campaign journal for CAMPAIGN_DIR')
     return p
 
 def main(argv=None):
@@ -854,7 +888,7 @@ def main(argv=None):
             print(f"Stop requested for {options.stop}. Current POST will finish. Output: {info['output']}")
             return 0
         if options.report:
-            info = rebuild(options.report)
+            info = rebuild(options.report, journal=options.journal)
             print(f"Report rebuilt: {options.report / 'CYCLE_REVIEW_REPORT.html'} ({info['state']})")
             return 0
         interactive = not arguments

@@ -135,6 +135,60 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(journal_path(self.root).read_bytes(), before)
         self.assertEqual(json.loads((registry.path/'owner.json').read_text())['state'], 'RUNNING')
 
+    def test_cli_rebuild_accepts_an_explicit_journal_override(self):
+        # A journal copied out of its Run-ID directory must be reachable through
+        # --journal; without the flag the CLI used to crash on an unknown option.
+        self.save()
+        (self.root/'tray1_n1/loop0001/report.json').unlink()
+        moved = self.root/'moved.json'
+        moved.write_bytes(journal_path(self.root).read_bytes())
+        journal_path(self.root).unlink()
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = main(['--report', str(self.root), '--journal', str(moved)])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(journal_path(self.root).read_text())['state'], 'INCOMPLETE')
+
+    def test_journal_recovers_after_bundle_directory_rename(self):
+        # The journal is keyed by the bundle directory name. After a rename the
+        # Run ID in the bundle text still finds it, so an offline copy rebuilds
+        # instead of failing with "journal not found".
+        self.save()
+        (self.root/'tray1_n1/loop0001/report.json').unlink()
+        (self.root/'cycle_summary.txt').write_text(f"Run ID: {self.data['run_id']}\n", encoding='utf-8')
+        moved_journal = self.root.parent/'moved-journal.json'
+        moved_journal.write_bytes(journal_path(self.root).read_bytes())
+        journal_path(self.root).unlink()
+        renamed = self.root.parent/'renamed-bundle'
+        self.root.rename(renamed)
+        previous = os.environ.get('VERA_CAMPAIGN_TMP')
+        try:
+            # Point the journal root at a directory whose child name no longer
+            # matches the bundle; only the run_id scan can find it.
+            scan_root = self.root.parent/'scan-root'
+            (scan_root/self.data['run_id']).mkdir(parents=True)
+            (scan_root/self.data['run_id']/'campaign.json').write_bytes(moved_journal.read_bytes())
+            os.environ['VERA_CAMPAIGN_TMP'] = str(scan_root)
+            result = rebuild(renamed, runtime_root=self.runtime)
+        finally:
+            renamed.rename(self.root)
+            if previous is None:
+                os.environ.pop('VERA_CAMPAIGN_TMP', None)
+            else:
+                os.environ['VERA_CAMPAIGN_TMP'] = previous
+        self.assertEqual(result['state'], 'INCOMPLETE')
+        self.assertEqual(result['nodes'][0]['completed'], 1)
+
+    def test_missing_journal_failure_names_every_candidate(self):
+        from vera_cycle.reporting.cycle_report import journal_candidates, read_journal
+        absent = self.root.parent/'no-such-bundle'
+        absent.mkdir()
+        with self.assertRaises(FileNotFoundError) as caught:
+            read_journal(absent)
+        message = str(caught.exception)
+        for candidate in journal_candidates(absent):
+            self.assertIn(str(candidate), message)
+        self.assertIn('--journal', message)
+
     def test_dead_real_owner_allows_recovery(self):
         code = '''
 import json, sys

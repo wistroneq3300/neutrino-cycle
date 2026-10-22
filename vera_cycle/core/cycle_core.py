@@ -130,6 +130,21 @@ def issue(code, component, detail, severity="FAIL", evidence="", snippet=""):
     return dict(code=code, component=component, detail=detail, severity=severity, evidence=evidence,
                 snippet=snippet)
 
+def display_component(item):
+    """Operator-facing component label for one finding.
+
+    The dmesg fallback sweep stores its component as the internal name
+    ``bundle``; that reads as opaque in the console and text reports. Every
+    surface (console, cycle_summary.txt, Markdown, HTML) shows the same
+    ``fail/error`` label instead, so the catch-all group is recognisable
+    wherever it appears.
+    """
+    component = str(item.get('component', ''))
+    code = str(item.get('code', ''))
+    if code.startswith('DMESG_') and component == 'bundle':
+        return 'fail/error'
+    return component
+
 def health(issues):
     return "FAIL" if any(i["severity"] == "FAIL" for i in issues) else "WARN" if issues else "PASS"
 
@@ -979,19 +994,28 @@ def redfish_delta(previous, current):
     return result
 
 def _redfish_delta_ids(record):
-    """Ids introduced this record's before->POST delta, or None if unavailable.
+    """New-event keys introduced this record's before->POST delta, or None.
+
+    Keys are service-qualified (``<service>|<id>``, where service is the
+    ``EventLog``/``SEL`` name) because the two logs are separate id spaces: the
+    same numeric id can appear in both, and an unqualified key would let a SEL
+    delta mark an EventLog finding NEW (or vice versa).
 
     Prefers the explicit top-level marker written at capture time; falls back to
     the per-service meta so records captured before the marker existed still
     classify Redfish findings against their loop delta. ``None`` means no
     comparable delta, so the caller keeps the PRE baseline.
     """
-    marker = record.get('eventlog_delta_ids')
+    marker = record.get('redfish_delta_ids')
     if marker is not None:
         return {str(i) for i in marker}
+    if record.get('eventlog_delta_ids') is not None:
+        # Legacy flat marker (pre service-qualification): the id alone is all
+        # that was kept, so callers match on the bare id.
+        return {str(i) for i in record['eventlog_delta_ids']}
     ids = set()
     seen_meta = False
-    for stem in ('eventlog_meta', 'sel_delta_meta'):
+    for name, stem in (('EventLog', 'eventlog_meta'), ('SEL', 'sel_delta_meta')):
         meta = record.get(stem)
         if not meta:
             continue
@@ -1000,7 +1024,7 @@ def _redfish_delta_ids(record):
         if delta.get('status') == 'UNAVAILABLE':
             return None
         for entry in delta.get('new_entries', []):
-            ids.add(str(entry.get('id', '')))
+            ids.add(f'{name}|{entry.get("id", "")}')
     return ids if seen_meta else None
 
 def aggregate_issues(campaign):
@@ -1018,8 +1042,15 @@ def aggregate_issues(campaign):
                 # on the loop that introduced it. An UNAVAILABLE delta leaves the
                 # marker absent, so the PRE baseline still applies.
                 if delta_ids is not None and item.get('identity'):
-                    event_id = item['identity'].split('|')[1] if '|' in item['identity'] else ''
-                    item['per_loop_new'] = event_id in delta_ids
+                    # Identity is '<service>|<id>|<message>'; split only twice so
+                    # a message containing '|' is not truncated. The delta key is
+                    # service-qualified so an id shared by EventLog and SEL does
+                    # not cross-classify; legacy flat markers match on the bare id.
+                    parts = item['identity'].split('|', 2)
+                    event_id = parts[1] if len(parts) >= 2 else ''
+                    service = parts[0] if len(parts) >= 3 else ''
+                    qualified = f'{service}|{event_id}'
+                    item['per_loop_new'] = event_id in delta_ids or qualified in delta_ids
                     item['classification'] = 'NEW' if item['per_loop_new'] else 'KNOWN'
                     item['known_reason'] = ('' if item['per_loop_new']
                                             else 'Introduced in an earlier loop of this campaign')

@@ -715,6 +715,10 @@ class NodeSession:
         if action == 'list' and record['commands'][stem]['valid']:
             lines = [line.strip() for line in result.output.splitlines() if line.strip()]
             empty = len(lines) == 1 and lines[0].lower().rstrip('.') == 'sel has no entries'
+            # One SEL entry per line. A line must be a record (leading id + pipe);
+            # any other non-empty line -- in particular a multi-role footer such
+            # as ``Root|...`` -- is a malformed capture, not an entry, so the
+            # capture is rejected as unrecognized rather than counted.
             records = bool(lines) and all(re.match(r'^[0-9a-f]+\s*\|', line, re.I) for line in lines)
             if not empty and not records:
                 record['commands'][stem].update(valid=False, output_excerpt=result.output[-2000:])
@@ -1203,9 +1207,18 @@ class NodeSession:
             # Only COMPARED deltas feed classification; an UNAVAILABLE delta
             # leaves the marker unset so nothing is mislabelled NEW. A sorted
             # list keeps the record JSON-serialisable.
+            #
+            # Ids are qualified with the service name (``<name>|<id>``): the
+            # EventLog and SEL are separate id spaces, so an unqualified id
+            # shared by both sources would mark a finding NEW against the wrong
+            # service's delta. ``eventlog_delta_ids`` keeps the legacy flat list
+            # so previously written journals still read.
             ids = {str(e.get('id', '')) for e in new}
             merged_ids = set(record.get('eventlog_delta_ids', [])) | ids
             record['eventlog_delta_ids'] = sorted(merged_ids)
+            qualified = {f'{name}|{str(e.get("id", ""))}' for e in new}
+            merged_qualified = set(record.get('redfish_delta_ids', [])) | qualified
+            record['redfish_delta_ids'] = sorted(merged_qualified)
             if new:
                 path = self.folder(record) / f"{stem}_delta.txt"
                 atomic_write(path, "\n".join(

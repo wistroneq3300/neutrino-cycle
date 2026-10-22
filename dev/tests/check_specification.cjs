@@ -7,7 +7,7 @@ const assert = require('assert');
   const browser=await chromium.launch({headless:true,...(process.env.VERA_TEST_BROWSER?{channel:process.env.VERA_TEST_BROWSER}:{})});
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
   const errors=[]; page.on('pageerror',e=>errors.push(String(e)));
-  const spec=path.resolve(process.argv[2]||'CYCLE_VALIDATION_SPECIFICATION.html');
+  const spec=path.resolve(process.argv[2]||'docs/CYCLE_VALIDATION_SPECIFICATION.html');
   await page.goto('file:///'+spec.replaceAll('\\','/'));
   assert.equal(await page.locator('[data-lang-button="zh-TW"]').getAttribute('aria-pressed'),'true');
   assert(await page.locator('text=Vera Cycle 驗證規範').first().isVisible());

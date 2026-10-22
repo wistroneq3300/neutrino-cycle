@@ -41,7 +41,7 @@ list_registered() {
 import sys
 sys.path.insert(0, sys.argv[1])
 try:
-    import cycle_runtime
+    from vera_cycle.engine import cycle_runtime
     runs = cycle_runtime.list_running()
 except Exception as exc:  # keep the wrapper usable even if the module moved
     print(f'  (could not read registrations: {exc})')
@@ -58,11 +58,15 @@ PY
 # Pids that currently hold endpoint locks for the current user. Liveness is
 # proven from /proc, and the cmdline must still reference neutrino_cycle.py so
 # a recycled PID can never be mistaken for a live campaign.
+# An optional run_id restricts the result to that campaign's holders, so a
+# forced stop of one Run ID never terminates a sibling campaign running
+# side-by-side on the same controller.
 # Output: TAB-separated "pid run_id user nodes endpoint_count".
 lock_holders() {
-    python3 - "$RUNTIME_DIR" <<'PY'
+    python3 - "$RUNTIME_DIR" "${1:-}" <<'PY'
 import glob, json, os, sys
 root = sys.argv[1]
+want = sys.argv[2] if len(sys.argv) > 2 else ''
 uid = os.getuid()
 seen = {}
 for path in sorted(glob.glob(os.path.join(root, 'endpoint-*.lock'))):
@@ -76,6 +80,9 @@ for path in sorted(glob.glob(os.path.join(root, 'endpoint-*.lock'))):
     pid = data.get('pid')
     if not isinstance(pid, int) or pid <= 0:
         continue
+    run_id = str(data.get('run_id', '?'))
+    if want and run_id != want:
+        continue
     try:
         if os.stat(f'/proc/{pid}').st_uid != uid:
             continue
@@ -85,7 +92,7 @@ for path in sorted(glob.glob(os.path.join(root, 'endpoint-*.lock'))):
         continue
     if not any(b'neutrino_cycle.py' in part for part in cmd):
         continue
-    info = seen.setdefault(pid, {'run_id': data.get('run_id', '?'),
+    info = seen.setdefault(pid, {'run_id': run_id,
                                  'user': data.get('user', '?'),
                                  'nodes': set(), 'count': 0})
     info['nodes'].add(str(data.get('node', '?')))
@@ -98,7 +105,7 @@ PY
 
 report_holders() {
     local holders
-    holders=$(lock_holders)
+    holders=$(lock_holders "${1:-}")
     [ -z "$holders" ] && return 0
     echo 'Endpoint locks currently held by a live cycle process:'
     printf '%s\n' "$holders" | while IFS="$(printf '\t')" read -r pid run user nodes count; do
@@ -107,11 +114,16 @@ report_holders() {
 }
 
 terminate_holders() {
-    local holders pids pid remaining left
-    holders=$(lock_holders)
+    local run_id holders pids pid remaining left
+    run_id="${1:-}"
+    holders=$(lock_holders "$run_id")
     [ -z "$holders" ] && return 0
     pids=$(printf '%s\n' "$holders" | cut -f1 | sort -u)
-    echo "Terminating stuck cycle process(es): $(echo $pids | tr '\n' ' ')"
+    if [ -n "$run_id" ]; then
+        echo "Terminating stuck cycle process(es) for run $run_id: $(echo $pids | tr '\n' ' ')"
+    else
+        echo "Terminating stuck cycle process(es): $(echo $pids | tr '\n' ' ')"
+    fi
     for pid in $pids; do
         kill -TERM "$pid" 2>/dev/null || true
     done
@@ -131,7 +143,7 @@ terminate_holders() {
         fi
     done
     sleep 1
-    left=$(lock_holders)
+    left=$(lock_holders "$run_id")
     if [ -z "$left" ]; then
         echo 'All endpoint locks released.'
     else
@@ -154,11 +166,17 @@ if [ "$STATUS" = 1 ]; then
 fi
 
 if [ "$FORCE" = 1 ]; then
-    # A named Run ID first gets the graceful request, then the fallback sweep.
+    # A named Run ID first gets the graceful request, then a force sweep that is
+    # restricted to that Run ID's own holders -- a sibling campaign running at
+    # the same time must not be terminated. Without a Run ID the sweep is
+    # deliberately account-wide (every holder of the current user), which is the
+    # documented meaning of a bare ``--force``.
     if [ -n "$RUN_ID" ]; then
         python3 "$SCRIPT_DIR/neutrino_cycle.py" --stop "$RUN_ID" || true
+        terminate_holders "$RUN_ID"
+    else
+        terminate_holders
     fi
-    terminate_holders
     exit 0
 fi
 
@@ -166,15 +184,16 @@ fi
 python3 "$SCRIPT_DIR/neutrino_cycle.py" --stop "$@"
 
 # The graceful path cannot see a holder that never registered. Surface any that
-# remain and, on a terminal, offer to force-kill them.
-if [ -n "$(lock_holders)" ]; then
+# remain and, on a terminal, offer to force-kill them. When a Run ID was named,
+# only that campaign's holders are offered for termination.
+if [ -n "$(lock_holders "$RUN_ID")" ]; then
     echo
-    report_holders
+    report_holders "$RUN_ID"
     if [ -t 0 ]; then
         printf 'Force-terminate these stuck process(es)? [y/N]: '
         read -r reply
         case "$reply" in
-            y|Y|yes|YES) terminate_holders ;;
+            y|Y|yes|YES) terminate_holders "$RUN_ID" ;;
             *) echo 'Left running. Re-run with --force to terminate them.' ;;
         esac
     else

@@ -46,8 +46,13 @@ BUNDLE_BENIGN = [
     re.compile(r'\bset to \d+\s*seconds?\b', re.I),
     # Anchors of a family above: a continuation line that the strict family
     # pattern did not itself claim still belongs to that event, so the fallback
-    # must not re-report it as unclassified.
-    re.compile(r'\bAER:|\bPCIe Bus Error:|\bnvme\S*\b|\bmlx5\S*\b|\bNVRM:|\bEDAC\b', re.I),
+    # must not re-report it as unclassified. Only true AER continuation markers
+    # are listed: a bare ``nvme``/``mlx5``/``NVRM``/``EDAC`` token is NOT a
+    # continuation marker, and excluding on it silently dropped genuine device
+    # errors (e.g. ``mlx5_cmd_check timeout``, ``nvme0: Abort status``) that no
+    # strict pattern claimed. Those now flow into the bundle like any other
+    # unclassified error line.
+    re.compile(r'\bAER:|\bPCIe Bus Error:', re.I),
 ]
 # IPMI/SSIF transport failures are functional, not noise: a broken SSIF leaves
 # /dev/ipmi0 present but unusable, so ``ipmitool`` fails outright. They are not
@@ -66,14 +71,23 @@ def _bundle_event(lines, code, family, severity):
     counts, first, order = {}, {}, []
     for number, line in lines:
         key = BUNDLE_TS.sub('', line).strip()
-        key = re.sub(r'\b[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]\b', '<bdf>', key, flags=re.I)
+        # Keep the device address in the entry: two NICs or two PCIe cards that
+        # log the same failure text are two distinct findings, and collapsing
+        # them by message alone hid the second card entirely.
         key = re.sub(r'\b0x[0-9a-f]+\b', '<hex>', key, flags=re.I)
         if key not in counts:
             first[key] = number
             order.append(key)
         counts[key] = counts.get(key, 0) + 1
     entries = [dict(line=first[k], count=counts[k], text=k) for k in order]
-    signature = '\n'.join(sorted(counts))
+    # The fingerprint identifies the *group of message types*, not the device
+    # addresses: it must not change when a run's BDF enumeration differs, or a
+    # pre-existing bundle would be reclassified NEW on every boot. Device
+    # identity is carried by the entries above, not by the fingerprint.
+    def _strip_bdf(text):
+        text = re.sub(r'\b(?:[0-9a-f]{4}:)?[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]\b', '<bdf>', text, flags=re.I)
+        return re.sub(r'\b[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]\b', '<bdf>', text, flags=re.I)
+    signature = '\n'.join(sorted({_strip_bdf(text) for text in counts}))
     fingerprint = hashlib.sha256((family + '||errors|' + signature).encode()).hexdigest()
     detail = (f'{family}: {len(order)} distinct error/fail line(s), '
               f'{sum(counts.values())} occurrence(s)')
