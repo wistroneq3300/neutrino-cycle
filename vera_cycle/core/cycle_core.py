@@ -1019,7 +1019,11 @@ def _redfish_delta_ids(record):
         return {str(i) for i in record['eventlog_delta_ids']}
     ids = set()
     seen_meta = False
-    for name, stem in (('EventLog', 'eventlog_meta'), ('SEL', 'sel_delta_meta')):
+    # ``sel_delta_meta`` belongs to the independent IPMI SEL collector.  The
+    # Redfish LogService named SEL stores its delta under ``redfish_sel_meta``;
+    # mixing them would both lose real Redfish SEL IDs during legacy recovery
+    # and let an IPMI record cross-classify a Redfish event.
+    for name, stem in (('EventLog', 'eventlog_meta'), ('SEL', 'redfish_sel_meta')):
         meta = record.get(stem)
         if not meta:
             continue
@@ -1049,9 +1053,33 @@ def _issue_source(item):
         return f'hostname:{component}'
     if code.startswith('SEL_') or component == 'sel':
         return 'sel'
-    if code.startswith(('PCI', 'BF4', 'NIC_', 'CPU_', 'MEMORY_', 'DIMM_', 'NVME_')):
+    if code in {'PCI_DRIFT', 'PCI_EMPTY'}:
+        return 'pci'
+    if code == 'USB_DRIFT':
+        return 'usb'
+    if code == 'BMC_USB_DRIFT':
+        return 'bmc_usb'
+    if code == 'NET_DRIFT':
+        return 'network'
+    if code.startswith(('BF4', 'NIC_', 'CPU_', 'MEMORY_', 'DIMM_', 'NVME_', 'PCIE_')):
         return 'hardware'
     return component or code
+
+
+def _lifecycle_issue_key(item):
+    """Logical fault identity used by lifecycle state and report cards.
+
+    A Redfish event ID identifies one raw log record, not the underlying fault.
+    The BMC may assign a new ID when the same service/message fault recurs.
+    Keep the raw ID on every occurrence, while tracking recovery and recurrence
+    by the same service+message identity used by the HTML card.
+    """
+    identity = str(item.get('identity', ''))
+    parts = identity.split('|', 2)
+    if (len(parts) == 3 and parts[2].strip()
+            and item.get('code') in {'REDFISH_CRITICAL', 'REDFISH_WARNING'}):
+        return ('redfish', parts[0], parts[2])
+    return issue_key(item)
 
 
 def _observation_state(record, source):
@@ -1079,10 +1107,28 @@ def _observation_state(record, source):
     if source == 'dmesg':
         command = commands.get('dmesg_clear') or commands.get('dmesg')
         return 'AVAILABLE' if command and command.get('valid') else 'UNAVAILABLE'
+    if source in {'pci', 'network', 'usb', 'bmc_usb'}:
+        command = commands.get(source)
+        if not command or not command.get('valid'):
+            return 'UNAVAILABLE'
+        field = {'pci': 'pci', 'network': 'network_ifaces',
+                 'usb': 'usb', 'bmc_usb': 'bmc_usb'}[source]
+        content = record.get(field)
+        if source == 'pci':
+            return 'AVAILABLE' if bool(content) else 'UNAVAILABLE'
+        return 'AVAILABLE' if field in record and content is not None else 'UNAVAILABLE'
     if source == 'sensor':
+        # A failed confirmation invalidates an earlier successful read: it was
+        # requested precisely because the first dataset looked incomplete.
+        if commands.get('sensor_confirm') and not commands['sensor_confirm'].get('valid'):
+            return 'UNAVAILABLE'
         attempts = [commands.get(name) for name in ('sensor_confirm', 'sensor_retry', 'sensor')]
         attempts = [attempt for attempt in attempts if attempt]
-        return 'AVAILABLE' if any(attempt.get('valid') for attempt in attempts) else 'UNAVAILABLE'
+        rows = (record.get('sensor_confirmation')
+                if 'sensor_confirmation' in record else record.get('sensors')) or []
+        usable = bool(rows) and all(not row.get('format_error') for row in rows)
+        return ('AVAILABLE' if attempts and attempts[0].get('valid') and usable
+                else 'UNAVAILABLE')
     if source == 'sel':
         delta = record.get('sel_delta_meta') or {}
         if delta.get('status') == 'UNAVAILABLE':
@@ -1115,26 +1161,38 @@ def _split_dmesg_bundle(item):
     if item.get('code') != 'DMESG_BUNDLE' or not entries:
         yield item
         return
+    groups = {}
     for entry in entries:
-        count = int(entry.get('count', 1) or 1)
         device = entry.get('device') or ''
         observation = entry.get('observation') or f'{device or "<none>"}|{entry.get("text", "")}'
+        group = groups.setdefault(observation, dict(
+            device=device, count=0, entries=[], texts=[],
+        ))
+        group['count'] += int(entry.get('count', 1) or 1)
+        group['entries'].append(entry.copy())
+        if entry.get('text') and entry['text'] not in group['texts']:
+            group['texts'].append(entry['text'])
+    for observation, group in groups.items():
+        count = group['count']
+        device = group['device']
         split = item.copy()
         split.update(
             identity=f'dmesg|{observation}',
             observations=[observation],
             occurrence_count=count,
-            entries=[entry.copy()],
+            entries=group['entries'],
             device=[device] if device else [],
-            detail=(f'{item.get("family", "BUNDLE")}: 1 distinct error/fail line(s), '
+            detail=(f'{item.get("family", "BUNDLE")}: {len(group["entries"])} distinct error/fail line(s), '
                     f'{count} occurrence(s)'),
-            snippet=entry.get('text', ''),
+            snippet='\n'.join(group['texts']),
         )
         yield split
 
 
 def aggregate_issues(campaign):
     merged = {}
+    severity_rank = {'INFO': 0, 'WARN': 1, 'FAIL': 2}
+    lifecycle_rank = {'KNOWN': 0, 'RECURRENCE': 1, 'NEW': 2}
     for node in campaign["nodes"]:
         # Keep the PRE comparison separate from severity and causation.
         pre_items = [split for item in node['pre']['issues']
@@ -1148,28 +1206,52 @@ def aggregate_issues(campaign):
                             for split in _split_dmesg_bundle(item)]
             classified = classify_against_pre([i.copy() for i in observations], pre_keys)
             present = set()
-            for item in classified:
+            states_before = {key: value.copy() for key, value in states.items()}
+            observed_states = {}
+            logical_groups = {}
+            for raw_item in classified:
                 # Redfish findings classify against this loop's before->POST
                 # delta, not the PRE baseline, so a long-lived event is NEW only
                 # on the loop that introduced it. An UNAVAILABLE delta leaves the
                 # marker absent, so the PRE baseline still applies.
-                if delta_ids is not None and item.get('identity'):
+                if delta_ids is not None and raw_item.get('identity'):
                     # Identity is '<service>|<id>|<message>'; split only twice so
                     # a message containing '|' is not truncated. The delta key is
                     # service-qualified so an id shared by EventLog and SEL does
                     # not cross-classify; legacy flat markers match on the bare id.
-                    parts = item['identity'].split('|', 2)
+                    parts = raw_item['identity'].split('|', 2)
                     event_id = parts[1] if len(parts) >= 2 else ''
                     service = parts[0] if len(parts) >= 3 else ''
                     qualified = f'{service}|{event_id}'
-                    item['per_loop_new'] = event_id in delta_ids or qualified in delta_ids
-                    item['classification'] = 'NEW' if item['per_loop_new'] else 'KNOWN'
-                    item['known_reason'] = ('' if item['per_loop_new']
-                                            else 'Introduced in an earlier loop of this campaign')
-                item_key = issue_key(item)
+                    raw_item['per_loop_new'] = event_id in delta_ids or qualified in delta_ids
+                    raw_item['classification'] = 'NEW' if raw_item['per_loop_new'] else 'KNOWN'
+                    raw_item['known_reason'] = ('' if raw_item['per_loop_new']
+                                                else 'Introduced in an earlier loop of this campaign')
+                item_key = _lifecycle_issue_key(raw_item)
+                logical_groups.setdefault(item_key, []).append(raw_item)
+
+            for item_key, raw_items in logical_groups.items():
+                # One logical observation per source/message/loop drives the
+                # lifecycle timeline.  Raw Redfish IDs remain attached below,
+                # but a same-loop Warning+Critical pair has one worst-severity
+                # state instead of manufacturing two overlapping segments.
+                item = max(raw_items,
+                           key=lambda value: severity_rank.get(value.get('severity', 'FAIL'), 2)).copy()
+                item['severity'] = max(
+                    (value.get('severity', 'FAIL') for value in raw_items),
+                    key=lambda value: severity_rank.get(value, 2),
+                )
+                item['occurrence_count'] = sum(
+                    int(value.get('occurrence_count', 1) or 1) for value in raw_items
+                )
+                item['per_loop_new'] = any(value.get('per_loop_new', False)
+                                           for value in raw_items)
+                details = list(dict.fromkeys(value.get('detail', '') for value in raw_items
+                                              if value.get('detail')))
+                codes = list(dict.fromkeys(value.get('code', '') for value in raw_items))
                 key = (node["key"], *item_key)
                 present.add(item_key)
-                state = states.get(item_key)
+                state = states_before.get(item_key)
                 phase = record.get('phase', '')
                 if phase == 'PRE':
                     item['classification'] = 'KNOWN'
@@ -1187,10 +1269,10 @@ def aggregate_issues(campaign):
                     item['severity_changed'] = True
                     item['previous_severity'] = state.get('severity')
                     item['current_severity'] = item.get('severity')
-                states[item_key] = dict(
+                current = observed_states.setdefault(item_key, dict(
                     source=_issue_source(item), confirmed_absent=False,
                     severity=item.get('severity'),
-                )
+                ))
                 entry = merged.setdefault(key, {**item, "node": node["key"], "occurrences": []})
                 if item["severity"] == "FAIL":
                     entry["severity"] = "FAIL"
@@ -1198,7 +1280,6 @@ def aggregate_issues(campaign):
                 # each occurrence retains its own exact state. NEW means the
                 # campaign introduced it; RECURRENCE outranks a purely KNOWN
                 # pre-existing/continuous group.
-                lifecycle_rank = {'KNOWN': 0, 'RECURRENCE': 1, 'NEW': 2}
                 if lifecycle_rank.get(item['classification'], 0) > lifecycle_rank.get(entry.get('classification'), 0):
                     entry['classification'] = item['classification']
                     entry['known_reason'] = item['known_reason']
@@ -1206,13 +1287,48 @@ def aggregate_issues(campaign):
                     entry['severity_changed'] = True
                     entry['previous_severity'] = item.get('previous_severity')
                     entry['current_severity'] = item.get('current_severity')
-                entry["occurrences"].append(dict(phase=record["phase"], detail=item["detail"],
-                                                  classification=item.get("classification", ""),
-                                                  severity=item.get('severity', 'FAIL'),
-                                                  code=item.get('code', ''),
-                                                  occurrence_count=item.get('occurrence_count', 1),
-                                                  evidence=item.get("evidence", ""),
-                                                  snippet=item.get("snippet", "")))
+                raw_events = []
+                event_ids = []
+                services = []
+                for raw_item in raw_items:
+                    identity = str(raw_item.get('identity', ''))
+                    identity_parts = identity.split('|', 2)
+                    is_redfish = (len(identity_parts) == 3 and raw_item.get('code')
+                                  in {'REDFISH_CRITICAL', 'REDFISH_WARNING'})
+                    service = identity_parts[0] if is_redfish else ''
+                    event_id = identity_parts[1] if is_redfish else ''
+                    message = identity_parts[2] if is_redfish else ''
+                    if event_id and event_id not in event_ids:
+                        event_ids.append(event_id)
+                    if service and service not in services:
+                        services.append(service)
+                    if is_redfish:
+                        raw_events.append(dict(
+                            identity=identity, service=service, event_id=event_id,
+                            message=message, code=raw_item.get('code', ''),
+                            severity=raw_item.get('severity', 'FAIL'),
+                            detail=raw_item.get('detail', ''),
+                            occurrence_count=raw_item.get('occurrence_count', 1),
+                            evidence=raw_item.get('evidence', ''),
+                            snippet=raw_item.get('snippet', ''),
+                        ))
+                entry["occurrences"].append(dict(
+                    phase=record["phase"], detail=item["detail"],
+                    details=(details if 'HOSTNAME_MISMATCH' in codes
+                             else [item.get('detail', '')]),
+                    snippets=[item.get('snippet', '')], codes=codes,
+                    preserve_detail_variants='HOSTNAME_MISMATCH' in codes,
+                    classification=item.get("classification", ""),
+                    severity=item.get('severity', 'FAIL'),
+                    code=item.get('code', ''),
+                    occurrence_count=item.get('occurrence_count', 1),
+                    evidence=item.get("evidence", ""),
+                    snippet=item.get("snippet", ""),
+                    identity=str(item.get('identity', '')),
+                    services=services, event_ids=event_ids,
+                    raw_events=raw_events,
+                ))
+            states.update(observed_states)
             # A missing finding proves recovery only for a completed loop whose
             # own source was available. START is identity-only and RECOVERY is a
             # reconstruction note, so neither can clear hardware/log history.

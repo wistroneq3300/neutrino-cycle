@@ -96,7 +96,8 @@ class BootNotConfirmed(ConnectionError):
 
 def new_record(phase):
     return dict(phase=phase, started=now(), finished=None, status="PENDING", issues=[],
-                evidence=[], commands={}, identities={}, pci={}, pci_devices={}, sensors=[], action=[], recovery={},
+                evidence=[], commands={}, identities={}, identity_observations=[],
+                observation_status={}, pci={}, pci_devices={}, sensors=[], action=[], recovery={},
                 # Marks records written by the SEL evidence-aware schema.  The
                 # renderer uses this to distinguish an unfinished new record
                 # from an old record that never retained SEL metadata.
@@ -271,21 +272,50 @@ class NodeSession:
 
     def identity(self, record, role, stem=None, timeout=30, save_evidence=True, record_command=True,
                  strict_hostname=False):
-        result = self.command(record, stem or (role + "_identity"), role, IDENTITY, timeout=timeout,
-                              check=False, save_evidence=save_evidence, record_command=record_command)
+        expected = getattr(self.target, role + "_hostname")
+        try:
+            result = self.command(record, stem or (role + "_identity"), role, IDENTITY, timeout=timeout,
+                                  check=False, save_evidence=save_evidence, record_command=record_command)
+        except (ConnectionError, TimeoutError, OSError):
+            if record_command or stem is not None:
+                record.setdefault('identity_observations', []).append(dict(
+                    role=role, stage=stem or (role + '_identity'),
+                    expected=expected or '', actual='', result='UNAVAILABLE',
+                ))
+            raise
         if result.code:
+            if record_command or stem is not None:
+                record.setdefault('identity_observations', []).append(dict(
+                    role=role, stage=stem or (role + '_identity'),
+                    expected=expected or '', actual='', result='UNAVAILABLE',
+                ))
             raise ConnectionError(f"{role} identity unavailable: exit {result.code} ({result.state})")
         values = dict(re.findall(r"^(HOSTNAME|BOOT_ID)=(.*)$", result.output, re.M))
-        expected = getattr(self.target, role + "_hostname")
         actual = values.get("HOSTNAME", "").strip()
+        boot_id = values.get("BOOT_ID", "").strip()
         # PRE is the last moment before anything on the node is touched (log
         # clearing runs right after precheck), so a wrong machine must be a hard
         # stop there. START is strict for the same reason: no cycle action may be
         # issued after an identity mismatch. During a loop the mismatch is a
         # health FAIL but is deliberately non-fatal; the node completes the
         # cycle and later nodes/loops continue. Boot-ID safety remains separate.
+        mismatch = bool(expected and (
+            (not actual) or actual.lower().rstrip(".") != expected.lower().rstrip(".")
+        ))
+        invalid_boot_id = role == 'os' and not re.fullmatch(r"[0-9a-fA-F-]{36}", boot_id)
+        # Retain a compact trace of meaningful identity checks.  Polling while
+        # waiting for a boot can run hundreds of times, so successful anonymous
+        # polls are omitted; named stages, normal recorded checks, and every
+        # mismatch are kept.  The final ``identities`` snapshot below remains
+        # backward-compatible and still describes the latest check.
+        if record_command or stem is not None or mismatch or invalid_boot_id:
+            record.setdefault('identity_observations', []).append(dict(
+                role=role, stage=stem or (role + '_identity'),
+                expected=expected or '', actual=actual,
+                result=('MISMATCH' if mismatch else
+                        'INVALID_BOOT_ID' if invalid_boot_id else 'MATCH'),
+            ))
         if expected:
-            mismatch = (not actual) or actual.lower().rstrip(".") != expected.lower().rstrip(".")
             if mismatch:
                 seen = actual or "<empty>"
                 detail = (f"{role} hostname mismatch: inventory says '{expected}', "
@@ -300,9 +330,9 @@ class NodeSession:
                              detail + '; loop continues, but this round remains failed',
                              severity='FAIL',
                              evidence=record.get('commands', {}).get(stem or (role + "_identity"), {}).get('evidence', ''))
-        if role == "os" and not re.fullmatch(r"[0-9a-fA-F-]{36}", values.get("BOOT_ID", "").strip()):
+        if invalid_boot_id:
             raise IdentityUnsafe("OS did not provide a valid boot ID")
-        record["identities"][role] = dict(hostname=actual, boot_id=values.get("BOOT_ID", "").strip())
+        record["identities"][role] = dict(hostname=actual, boot_id=boot_id)
         return record["identities"][role]
 
     def dependencies(self, record):
@@ -362,6 +392,7 @@ class NodeSession:
         result = self.command(record, stem, 'os', command, sudo=True,
                               save_evidence=save_evidence, include_output=not wipe_only)
         if result.code:
+            record.setdefault('observation_status', {})['dmesg'] = 'UNAVAILABLE'
             # A failed read is not "no findings". Without this the loop looks
             # clean when in fact nothing was collected, which is indistinguishable
             # from a healthy kernel log.
@@ -372,6 +403,7 @@ class NodeSession:
         if wipe_only:
             self.dmesg_seen = {}
             return
+        record.setdefault('observation_status', {})['dmesg'] = 'AVAILABLE'
         boot = record['identities'].get('os', {}).get('boot_id', '')
         events = dmesg_issues(result.output)
         # key -> observation -> times that observation has been read. A multiset
@@ -384,8 +416,24 @@ class NodeSession:
             # ``0000:02:00.0: BAR assignment failed`` indistinguishable from a
             # repeat of ``0000:01:00.0`` and the second card never reached the
             # report. Observations keep the device, so a new one counts as new.
-            key = (boot, event['raw'])
-            observations = event.get('observations') or [event['raw']]
+            entries = event.get('entries') or []
+            capture_observations = [
+                f'{entry.get("device") or "<none>"}|{entry.get("text", "")}'
+                for entry in entries
+                for _ in range(int(entry.get('count', 1) or 1))
+            ]
+            if entries:
+                # Bundle ``raw`` is the set of message *types*.  It changes
+                # when an overlapping second read contains A+B instead of A,
+                # so using it as the outer delta key recounts A.  Bundle
+                # captures instead share one stable family bucket and compare
+                # their exact timestamp-free entry multisets inside it.
+                key = (boot, event.get('code', ''), event.get('family', ''),
+                       event.get('subtype', ''))
+                observations = capture_observations
+            else:
+                key = (boot, event['raw'])
+                observations = event.get('observations') or [event['raw']]
             before = self.dmesg_seen.get(key, {})
             after = counts.setdefault(key, {})
             pending = []
@@ -401,29 +449,43 @@ class NodeSession:
             # would be archived as 1 + 2 occurrences even though only two real
             # messages existed.
             event['occurrence_count'] = len(pending)
-            event['observations'] = pending
             if event.get('entries'):
                 new_counts = Counter(pending)
                 entries = []
+                logical_pending = []
                 for entry in event['entries']:
-                    count = new_counts.get(entry.get('observation', ''), 0)
+                    capture_key = (f'{entry.get("device") or "<none>"}|'
+                                   f'{entry.get("text", "")}')
+                    count = new_counts.get(capture_key, 0)
                     if not count:
                         continue
                     entries.append({**entry, 'count': count})
+                    logical_pending.extend([entry.get('observation', '')] * count)
                 event['entries'] = entries
+                event['observations'] = logical_pending
+                # The parser's snippet points at the first line in the full
+                # capture.  An overlapping read can filter that line out as
+                # already seen, so keep the finding's primary summary aligned
+                # with the first retained entry while the complete raw capture
+                # and evidence file remain untouched.
+                if entries:
+                    event['snippet'] = (f'dmesg line {entries[0].get("line", "?")}: '
+                                        f'{entries[0].get("text", "")}')
                 event['device'] = list(dict.fromkeys(
                     entry.get('device') for entry in entries if entry.get('device')
                 ))
                 family = event.get('family', 'BUNDLE')
                 event['detail'] = (f'{family}: {len(entries)} distinct error/fail line(s), '
                                    f'{len(pending)} occurrence(s)')
+            else:
+                event['observations'] = pending
             retention = record['commands'][stem]['evidence']
             if not retention and evidence_stem:
                 folder = self.folder(record).relative_to(self.root).as_posix()
                 retention = f'{folder}/{evidence_stem}.txt'
             event.update(boot_id=boot, phase=stem, evidence=retention)
             if event.get('observations'):
-                event['new_observations'] = pending
+                event['new_observations'] = list(event['observations'])
             record['issues'].append(event)
         if clear:
             self.dmesg_seen = {}
@@ -507,6 +569,8 @@ class NodeSession:
                                   filter_output=filter_pci_verbose if stem == 'pci_verbose' else None)
             if stem == "pci":
                 record["pci"] = parse_pci(result.output) if result.code == 0 else {}
+                record['observation_status']['pci'] = (
+                    'AVAILABLE' if result.code == 0 and bool(record['pci']) else 'UNAVAILABLE')
                 record["pci_devices"] = merge_pci_devices(record["pci"], record.get("pci_verbose", {}))
                 if not record["pci"]:
                     self.add(record, "PCI_EMPTY", "PCIe", "No valid full-BDF PCI inventory")
@@ -517,12 +581,18 @@ class NodeSession:
                 record["pci_devices"] = merge_pci_devices(record.get("pci", {}), record["pci_verbose"])
             elif stem == "usb" and result.code == 0:
                 record["usb"] = parse_usb(result.output)
+                record['observation_status']['usb'] = 'AVAILABLE'
                 if post:
                     record["issues"] += usb_issues(self.baseline["usb"], record["usb"])
+            elif stem == "usb":
+                record['observation_status']['usb'] = 'UNAVAILABLE'
             elif stem == "network" and result.code == 0:
                 record["network_ifaces"] = parse_network(result.output)
+                record['observation_status']['network'] = 'AVAILABLE'
                 if post:
                     record["issues"] += network_issues(self.baseline["network"], record["network_ifaces"])
+            elif stem == "network":
+                record['observation_status']['network'] = 'UNAVAILABLE'
         # BMC-side USB tree: PRE builds the baseline, each LOOP compares it. The
         # BMC sees the CPU MCTP endpoints behind its virtual hub, so a vanished
         # endpoint names the EID path that dropped. Identity is port + vid:pid.
@@ -532,8 +602,11 @@ class NodeSession:
                                save_evidence=True)
         if bmc_usb.code == 0:
             record["bmc_usb"] = parse_bmc_lsusb(bmc_usb.output)
+            record['observation_status']['bmc_usb'] = 'AVAILABLE'
             if post:
                 record["issues"] += bmc_usb_issues(self.baseline["bmc_usb"], record["bmc_usb"])
+        else:
+            record['observation_status']['bmc_usb'] = 'UNAVAILABLE'
         try:
             self.ensure_verified_script(record)
         except IdentityUnsafe:
@@ -626,6 +699,7 @@ class NodeSession:
                 retry = self.command(record, "sensor_confirm", "oob", "sensor list")
                 if record['commands']['sensor_confirm']['valid']:
                     confirmation = parse_sensors(retry.output)
+                    record['sensor_confirmation'] = confirmation
                 else:
                     valid = False
                     self.add(record, 'SENSOR_CONFIRM_FAILED', 'sensors', 'Reread failed; sensor disappearance cannot be confirmed from a failed collection')
@@ -635,6 +709,14 @@ class NodeSession:
                 record['issues'] += sensor_issues(record['sensors'])
         else:
             record["issues"] += sensor_issues(record["sensors"])
+        sensor_observation_valid = valid if post else sensor_valid
+        sensor_observation_rows = (record.get('sensor_confirmation')
+                                   if 'sensor_confirmation' in record else record['sensors'])
+        sensor_content_usable = bool(sensor_observation_rows) and all(
+            not row.get('format_error') for row in sensor_observation_rows
+        )
+        record['observation_status']['sensor'] = (
+            'AVAILABLE' if sensor_observation_valid and sensor_content_usable else 'UNAVAILABLE')
         sel = self.sel_command(record, "sel", "list", save_evidence=True)
         sel_meta = self._sel_metadata(record, 'sel', sel.output, 'POST' if post else 'PRE')
         if post:

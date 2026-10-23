@@ -31,7 +31,9 @@ unavailable. A SKIP is never counted as PASS.
   START mismatch prohibits start. During a loop, a blank or mismatched hostname
   is `HOSTNAME_MISMATCH` FAIL for that loop while the operable node continues.
   Any mismatch in a loop remains FAIL even if a later check is healthy. Never
-  retry a power action because of hostname failure.
+  retry a power action because of hostname failure. Retain the compact ordered
+  trace of named identity checks (stage, role, expected, actual and result), even
+  when a later check is healthy; keep one issue card for the logical fault.
 - Nodes are independent. Only unrecoverable SSH/boot recovery stops that node;
   PCIe, sensor, dmesg, hostname and Redfish health findings do not stop other
   operable nodes or resend a power action.
@@ -40,17 +42,23 @@ unavailable. A SKIP is never counted as PASS.
   collection. A dmesg collection failure does not stop an operable node.
 - dmesg occurrence counts are real observation counts. Repeated identical events
   count repeatedly, different BDFs remain separate, overlapping captures subtract
-  their multiset overlap, and raw evidence is retained without rewriting counts.
+  their exact timestamp-free entry multiset overlap, and raw evidence is retained
+  without rewriting counts. Counter-free identities are for report grouping only,
+  never for allocating occurrence counts.
 - Redfish EventLog and SEL are separate services and event IDs never cross-match.
   A successful empty service is PASS; confirmed service absence is PASS / N/A;
   Warning is WARN; Critical is FAIL; timeout, invalid or incomplete data is
   UNAVAILABLE and never PASS. Severity changes create report segments and do not
-  stop an otherwise operable node.
+  stop an otherwise operable node. Raw Event IDs remain evidence; lifecycle and
+  card identity use service plus non-empty message, so a new ID for a fault that
+  reappears after confirmed empty is RECURRENCE, not a new unrelated fault.
 - Issue lifecycle is stateful per node/device/fingerprint: first observation NEW,
   continuous observation KNOWN, and reappearance after a confirmed healthy
   observation RECURRENCE. UNAVAILABLE is not proof of recovery. Report cards merge
   only the same node/device/error, use consecutive loop ranges, and split lifecycle
-  or WARN/FAIL transitions. JSON, logs and evidence remain unchanged.
+  or WARN/FAIL transitions. Recovery requires a successful, usable observation
+  from that exact collector (PCI, network, USB, sensor, dmesg or Redfish), never
+  an unrelated hardware command. JSON, logs and evidence remain unchanged.
 - During execution, checkpoint Journal/JSON/status and per-loop evidence only.
   Generate full HTML once at normal completion, graceful stop, or another safe
   terminal unwind. SIGKILL/power loss requires an operator rebuild.
@@ -58,6 +66,10 @@ unavailable. A SKIP is never counted as PASS.
   or JSON write failure records FAILED/DEGRADED but does not stop cycling. HTML
   failure is FAILED, never changes execution/health, is not auto-retried, and
   preserves timestamped failure history; a successful manual rebuild becomes READY.
+  After successful synchronization, Journal, run status, text summary and
+  Markdown must agree on the current report state. If lightweight summary
+  synchronization fails, retain/restore the prior pair, record
+  `summary_state=FAILED`, and never change or rerender a READY HTML report.
 - Startup detects local dead-owner RUNNING campaigns and offers rebuild, view or
   skip. Skip deletes nothing and does not block a new campaign. Recovery never
   resumes/replays a loop, sends power, or treats an unfinished loop as PASS.

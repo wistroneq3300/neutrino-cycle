@@ -1130,9 +1130,17 @@ class CrossServiceDeltaIdTests(RedfishSessionCase):
     def test_meta_fallback_qualifies_by_service(self):
         from vera_cycle.core.cycle_core import _redfish_delta_ids
         record = {'eventlog_meta': {'delta': {'status': 'COMPARED', 'new_entries': [{'id': '3'}]}},
-                  'sel_delta_meta': {'delta': {'status': 'COMPARED', 'new_entries': [{'id': '3'}]}}}
+                  'redfish_sel_meta': {'delta': {'status': 'COMPARED',
+                                                 'new_entries': [{'id': '3'}]}}}
         ids = _redfish_delta_ids(record)
         self.assertEqual(ids, {'EventLog|3', 'SEL|3'})
+
+        # The IPMI SEL has a separate identity space and must never feed the
+        # Redfish EventLog/SEL classifier when the top-level marker is absent.
+        ipmi_only = {'sel_delta_meta': {
+            'delta': {'status': 'COMPARED', 'new_entries': [{'id': '3'}]},
+        }}
+        self.assertIsNone(_redfish_delta_ids(ipmi_only))
 
     def test_legacy_flat_marker_still_matches(self):
         from vera_cycle.core.cycle_core import _redfish_delta_ids

@@ -115,6 +115,53 @@ class FinalHostnameDecisionTests(unittest.TestCase):
         self.assertEqual(record['status'], 'FAIL')
         self.assertTrue(self.session.node['active'])
 
+    def test_every_hostname_check_is_retained_without_duplicate_fail_cards(self):
+        record = new_record('LOOP 100')
+        record['loop'] = 100
+        boot = '00000000-0000-0000-0000-000000000100'
+        replies = iter((
+            Command(0, f'HOSTNAME=wrong-A\nBOOT_ID={boot}\n'),
+            Command(0, f'HOSTNAME=wrong-B\nBOOT_ID={boot}\n'),
+            Command(0, f'HOSTNAME=os-n1\nBOOT_ID={boot}\n'),
+        ))
+        with patch.object(self.fake, 'ssh', side_effect=lambda *args, **kwargs: next(replies)):
+            self.session.identity(record, 'os', stem='post_identity_1')
+            self.session.identity(record, 'os', stem='post_identity_2')
+            self.session.identity(record, 'os', stem='final_identity')
+        observations = record['identity_observations']
+        self.assertEqual([o['actual'] for o in observations], ['wrong-A', 'wrong-B', 'os-n1'])
+        self.assertEqual([o['result'] for o in observations], ['MISMATCH', 'MISMATCH', 'MATCH'])
+        self.assertEqual([o['stage'] for o in observations],
+                         ['post_identity_1', 'post_identity_2', 'final_identity'])
+        self.assertEqual(record['identities']['os']['hostname'], 'os-n1')
+        self.assertEqual(len([i for i in record['issues']
+                              if i['code'] == 'HOSTNAME_MISMATCH']), 1)
+        page = cycle_report.record_html_compact(record, 0)
+        self.assertIn('wrong-A', page)
+        self.assertIn('wrong-B', page)
+        self.assertIn('final_identity', page)
+        unavailable = new_record('LOOP 101')
+        unavailable['loop'] = 101
+        with patch.object(self.fake, 'ssh', return_value=Command(255, 'down')):
+            with self.assertRaises(ConnectionError):
+                self.session.identity(unavailable, 'os', stem='named_unavailable')
+        self.assertEqual(unavailable['identity_observations'], [{
+            'role': 'os', 'stage': 'named_unavailable', 'expected': 'os-n1',
+            'actual': '', 'result': 'UNAVAILABLE',
+        }])
+        invalid = new_record('LOOP 102')
+        invalid['loop'] = 102
+        with patch.object(
+                self.fake, 'ssh',
+                return_value=Command(0, 'HOSTNAME=os-n1\nBOOT_ID=invalid\n')):
+            with self.assertRaises(IdentityUnsafe):
+                self.session.identity(
+                    invalid, 'os', save_evidence=False, record_command=False)
+        self.assertEqual(invalid['identity_observations'], [{
+            'role': 'os', 'stage': 'os_identity', 'expected': 'os-n1',
+            'actual': 'os-n1', 'result': 'INVALID_BOOT_ID',
+        }])
+
 
 class FinalDmesgCountingTests(unittest.TestCase):
     def setUp(self):
@@ -160,6 +207,71 @@ class FinalDmesgCountingTests(unittest.TestCase):
         self.assertEqual(sum(i['occurrence_count'] for i in findings), 2)
         self.assertEqual([i['occurrence_count'] for i in findings], [1, 1])
 
+    def test_aliasing_bundle_entries_preserve_count_conservation(self):
+        """Different raw lines may share one logical, counter-free identity."""
+        record = new_record('LOOP 50')
+        record['loop'] = 50
+        record['identities']['os'] = {
+            'hostname': 'os-n1',
+            'boot_id': '00000000-0000-0000-0000-000000000050',
+        }
+        text = ('[ 10.0] pcieport 0000:01:00.0: I/O 1 failed\n'
+                '[ 11.0] pcieport 0000:01:00.0: I/O 2 failed\n')
+        original = self.fake.ssh
+
+        def one_capture(t, role, cmd, timeout=60, sudo=False):
+            if cmd == 'dmesg -c':
+                return Command(0, text)
+            return original(t, role, cmd, timeout, sudo)
+
+        with patch.object(self.fake, 'ssh', side_effect=one_capture):
+            self.session.collect_dmesg(record, 'dmesg_clear', clear=True)
+
+        bundles = [i for i in record['issues'] if i['code'] == 'DMESG_BUNDLE']
+        self.assertEqual(len(bundles), 1)
+        self.assertEqual(bundles[0]['occurrence_count'], 2)
+        self.assertEqual([e['count'] for e in bundles[0]['entries']], [1, 1])
+        self.assertEqual(sum(e['count'] for e in bundles[0]['entries']), 2)
+        self.assertEqual(len(bundles[0]['observations']), 2)
+        node = {'key': 'tray1_n1', 'pre': new_record('PRE'), 'loops': [record]}
+        findings = [i for i in aggregate_issues({'nodes': [node]})
+                    if i['code'] == 'DMESG_BUNDLE']
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(sum(o['occurrence_count'] for o in findings[0]['occurrences']), 2)
+        self.assertIn('I/O 1 failed', bundles[0]['entries'][0]['text'])
+        self.assertIn('I/O 2 failed', bundles[0]['entries'][1]['text'])
+
+    def test_changed_bundle_signature_does_not_recount_prior_message(self):
+        """A followed by overlapping A+B contributes A once and B once."""
+        record = new_record('LOOP 51')
+        record['loop'] = 51
+        record['identities']['os'] = {
+            'hostname': 'os-n1',
+            'boot_id': '00000000-0000-0000-0000-000000000051',
+        }
+        first = '[ 10.0] pcieport 0000:01:00.0: BAR assignment failed\n'
+        second = '[ 11.0] pcieport 0000:01:00.0: device reset failed\n'
+        replies = iter((Command(0, first), Command(0, first + second)))
+        original = self.fake.ssh
+
+        def overlapping(t, role, cmd, timeout=60, sudo=False):
+            if cmd in {'dmesg', 'dmesg -c'}:
+                return next(replies)
+            return original(t, role, cmd, timeout, sudo)
+
+        with patch.object(self.fake, 'ssh', side_effect=overlapping):
+            self.session.collect_dmesg(record, 'dmesg_probe')
+            self.session.collect_dmesg(record, 'dmesg_clear', clear=True)
+        bundles = [i for i in record['issues'] if i['code'] == 'DMESG_BUNDLE']
+        self.assertEqual(sum(i['occurrence_count'] for i in bundles), 2)
+        self.assertEqual(sum(e['count'] for i in bundles for e in i['entries']), 2)
+        self.assertEqual([i['occurrence_count'] for i in bundles], [1, 1])
+        self.assertEqual(len(bundles[1]['entries']), 1)
+        self.assertIn('device reset failed', bundles[1]['entries'][0]['text'])
+        self.assertIn('device reset failed', bundles[1]['snippet'])
+        self.assertNotIn('BAR assignment failed', bundles[1]['snippet'])
+        self.assertEqual(bundles[1]['new_observations'], bundles[1]['observations'])
+
     def test_normal_loop_collects_dmesg_once_at_the_end(self):
         self.session.precheck()
         self.session.start()
@@ -187,14 +299,16 @@ class FinalDmesgCountingTests(unittest.TestCase):
                              for event in by_device['0000:02:00.0']['occurrences']), 1)
         page = issue_cards_compact(bundles, {'tray1_n1': 0})
         self.assertEqual(page.count('class="issue-row"'), 2)
+        self.assertNotIn('Event IDs:', page)
 
 
-def redfish_finding(severity='FAIL'):
+def redfish_finding(severity='FAIL', event_id='48', message='service fault', service='EventLog'):
     item = issue(
         'REDFISH_CRITICAL' if severity == 'FAIL' else 'REDFISH_WARNING',
-        'eventlog', 'Redfish EventLog: 48 service fault', severity=severity,
+        'eventlog' if service == 'EventLog' else 'redfish_sel',
+        f'Redfish {service}: {event_id} {message}', severity=severity,
     )
-    item['identity'] = 'EventLog|48|service fault'
+    item['identity'] = f'{service}|{event_id}|{message}'
     return item
 
 
@@ -242,11 +356,214 @@ class FinalIssueStateTests(unittest.TestCase):
             loop(1, [redfish_finding('WARN')]),
             loop(2, [redfish_finding('FAIL')]),
         ]
-        items = aggregate_issues(self.campaign(records))
+        items = merge_issues(aggregate_issues(self.campaign(records)))
         self.assertEqual(len(items), 1)
         item = items[0]
         self.assertEqual([o['severity'] for o in item['occurrences']], ['WARN', 'FAIL'])
         self.assertEqual([o['classification'] for o in item['occurrences']], ['NEW', 'KNOWN'])
+
+    def test_redfish_same_fault_with_new_event_id_is_recurrence(self):
+        first = loop(20, [redfish_finding(event_id='7')])
+        first['redfish_delta_ids'] = ['EventLog|7']
+        empty = loop(21)
+        empty['redfish_delta_ids'] = []
+        repeated = loop(22, [redfish_finding(event_id='8')])
+        repeated['redfish_delta_ids'] = ['EventLog|8']
+        items = aggregate_issues(self.campaign([first, empty, repeated]))
+        self.assertEqual(len(items), 1)
+        phases = {o['phase']: o['classification'] for o in items[0]['occurrences']}
+        self.assertEqual(phases, {'LOOP 20': 'NEW', 'LOOP 22': 'RECURRENCE'})
+        self.assertEqual({event_id for o in items[0]['occurrences']
+                          for event_id in o['event_ids']}, {'7', '8'})
+
+    def test_redfish_accumulated_ids_are_sorted_and_raw_ids_are_retained(self):
+        records = []
+        for number, ids in ((1, ('7',)), (2, ('7', '8')), (3, ('7', '8'))):
+            record = loop(number, [redfish_finding(event_id=value) for value in ids])
+            record['redfish_delta_ids'] = ([f'EventLog|{value}' for value in ids]
+                                           if number == 1 else
+                                           (['EventLog|8'] if number == 2 else []))
+            records.append(record)
+        item = merge_issues(aggregate_issues(self.campaign(records)))[0]
+        self.assertEqual([o['phase'] for o in item['occurrences']],
+                         ['LOOP 1', 'LOOP 2', 'LOOP 3'])
+        self.assertEqual([o['event_ids'] for o in item['occurrences']],
+                         [['7'], ['7', '8'], ['7', '8']])
+        self.assertEqual([o['occurrence_count'] for o in item['occurrences']], [1, 2, 2])
+        self.assertEqual(sum(s['occurrence_count'] for s in item['segments']), 5)
+
+    def test_same_loop_redfish_ids_use_one_worst_severity_observation(self):
+        previous = loop(1, [redfish_finding('FAIL', event_id='7')])
+        previous['redfish_delta_ids'] = ['EventLog|7']
+        mixed = loop(2, [redfish_finding('WARN', event_id='7'),
+                         redfish_finding('FAIL', event_id='8')])
+        mixed['redfish_delta_ids'] = ['EventLog|8']
+        item = merge_issues(aggregate_issues(self.campaign([previous, mixed])))[0]
+        self.assertEqual([o['severity'] for o in item['occurrences']], ['FAIL', 'FAIL'])
+        self.assertEqual([o['classification'] for o in item['occurrences']], ['NEW', 'KNOWN'])
+        self.assertEqual(len(item['segments']), 2)
+        self.assertFalse(item.get('severity_changed', False))
+
+    def test_redfish_logical_identity_keeps_service_and_full_pipe_message(self):
+        records = [
+            loop(1, [redfish_finding(event_id='9', message='rail | service fault'),
+                     redfish_finding(event_id='9', message='rail | service fault', service='SEL')]),
+        ]
+        records[0]['redfish_delta_ids'] = ['EventLog|9', 'SEL|9']
+        items = merge_issues(aggregate_issues(self.campaign(records)))
+        self.assertEqual(len(items), 2)
+        self.assertEqual({i['component'] for i in items}, {'eventlog', 'redfish_sel'})
+        self.assertTrue(all('rail | service fault' in i['identity'] for i in items))
+        blank = loop(2, [redfish_finding(event_id='10', message=''),
+                         redfish_finding(event_id='11', message='')])
+        blank['redfish_delta_ids'] = ['EventLog|10', 'EventLog|11']
+        blank_items = merge_issues(aggregate_issues(self.campaign([blank])))
+        self.assertEqual(len(blank_items), 2)
+
+    def test_pci_collection_failure_does_not_prove_recovery(self):
+        drift = issue('PCI_DRIFT', '0000:01:00.0', 'PRE device -> POST missing')
+        first = new_record('LOOP 1')
+        first.update(loop=1, issues=[drift], post_complete=True,
+                     hardware_execution_complete=True)
+        first['commands']['pci'] = {'valid': True}
+        unavailable = new_record('LOOP 2')
+        unavailable.update(loop=2, post_complete=True,
+                           hardware_execution_complete=True)
+        unavailable['commands']['pci'] = {'valid': False}
+        repeated = new_record('LOOP 3')
+        repeated.update(loop=3, issues=[copy.deepcopy(drift)], post_complete=True,
+                        hardware_execution_complete=True)
+        repeated['commands']['pci'] = {'valid': True}
+        item = aggregate_issues(self.campaign([first, unavailable, repeated]))[0]
+        self.assertEqual([o['classification'] for o in item['occurrences']],
+                         ['NEW', 'KNOWN'])
+
+    def test_empty_pci_inventory_does_not_prove_recovery(self):
+        drift = issue('PCI_DRIFT', '0000:01:00.0', 'PRE device -> POST missing')
+        first = new_record('LOOP 1')
+        first.update(loop=1, issues=[drift], post_complete=True)
+        empty = new_record('LOOP 2')
+        empty.update(loop=2, post_complete=True, pci={})
+        empty['commands']['pci'] = {'valid': True}
+        repeated = new_record('LOOP 3')
+        repeated.update(loop=3, issues=[copy.deepcopy(drift)], post_complete=True)
+        item = aggregate_issues(self.campaign([first, empty, repeated]))[0]
+        self.assertEqual([o['classification'] for o in item['occurrences']],
+                         ['NEW', 'KNOWN'])
+
+
+class FinalSourceObservationTests(unittest.TestCase):
+    """Production capture writes the metadata consumed by lifecycle recovery."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        options = SimpleNamespace(
+            project='neutrino', cycle_mode='power_cycle', channel='inband',
+            boot_timeout=.05, poll_interval=.001, loops=1, hours=0, cycle=True,
+            config_script=paths.project_config_path('neutrino'),
+            issue_policy=paths.ISSUE_POLICY, output=self.root / 'output',
+            sensor_retry_delay=0,
+        )
+        self.fake = FakeTransport({}, self.root / 'ssh')
+        self.fake.hardware_failure = False
+        self.session = NodeSession(
+            target(), self.fake, self.root, 'source-observation', b'script',
+            digest(b'script'), options, [],
+        )
+        self.session.precheck()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def post_record(self, number=1):
+        record = new_record(f'LOOP {number}')
+        record['loop'] = number
+        return record
+
+    def test_pci_failure_and_empty_output_are_formally_unavailable(self):
+        original = self.fake.ssh
+        for result in (Command(1, 'lspci failed'), Command(0, 'not a full BDF row')):
+            record = self.post_record()
+
+            def replace_pci(t, role, cmd, timeout=60, sudo=False, reply=result):
+                if cmd == 'lspci -Dnn':
+                    return reply
+                return original(t, role, cmd, timeout, sudo)
+
+            with patch.object(self.fake, 'ssh', side_effect=replace_pci):
+                self.session.capture(record, post=True)
+            self.assertEqual(record['observation_status']['pci'], 'UNAVAILABLE')
+            self.assertTrue(record['hardware_execution_complete'])
+
+        def fail_usb_sources(t, role, cmd, timeout=60, sudo=False):
+            if cmd in {'lsusb', 'lsusb -tv'}:
+                return Command(1, f'{role} USB collection failed')
+            return original(t, role, cmd, timeout, sudo)
+
+        usb_record = self.post_record(2)
+        with patch.object(self.fake, 'ssh', side_effect=fail_usb_sources):
+            self.session.capture(usb_record, post=True)
+        self.assertEqual(usb_record['observation_status']['usb'], 'UNAVAILABLE')
+        self.assertEqual(usb_record['observation_status']['bmc_usb'], 'UNAVAILABLE')
+        self.assertTrue(usb_record['hardware_execution_complete'])
+
+    def test_network_failure_and_sensor_confirmation_failure_are_unavailable(self):
+        original_ssh = self.fake.ssh
+        original_oob = self.fake.oob
+        sensor_reads = {'count': 0}
+
+        def fail_network(t, role, cmd, timeout=60, sudo=False):
+            if cmd == 'ip address show':
+                return Command(1, 'network collection failed')
+            return original_ssh(t, role, cmd, timeout, sudo)
+
+        def incomplete_sensor(t, cmd, timeout=30):
+            if cmd == 'sensor list':
+                sensor_reads['count'] += 1
+                if sensor_reads['count'] == 1:
+                    return Command(0, 'Temp | 30 | degrees C | ok | na\n')
+                return Command(1, 'sensor confirmation failed')
+            return original_oob(t, cmd, timeout)
+
+        record = self.post_record()
+        with patch.object(self.fake, 'ssh', side_effect=fail_network), \
+                patch.object(self.fake, 'oob', side_effect=incomplete_sensor):
+            self.session.capture(record, post=True)
+        self.assertEqual(record['observation_status']['network'], 'UNAVAILABLE')
+        self.assertEqual(record['observation_status']['sensor'], 'UNAVAILABLE')
+        self.assertTrue(any(i['code'] == 'SENSOR_CONFIRM_FAILED'
+                            for i in record['issues']))
+
+        blank_reads = {'count': 0}
+
+        def empty_confirmation(t, cmd, timeout=30):
+            if cmd == 'sensor list':
+                blank_reads['count'] += 1
+                return (Command(0, 'Temp | 30 | degrees C | ok | na\n')
+                        if blank_reads['count'] == 1 else Command(0, ''))
+            return original_oob(t, cmd, timeout)
+
+        empty = self.post_record(2)
+        with patch.object(self.fake, 'oob', side_effect=empty_confirmation):
+            self.session.capture(empty, post=True)
+        self.assertIn('sensor_confirmation', empty)
+        self.assertEqual(empty['sensor_confirmation'], [])
+        self.assertEqual(empty['observation_status']['sensor'], 'UNAVAILABLE')
+
+        critical = issue('SENSOR_CRITICAL', 'Temp', 'Status critical; reading 90')
+        first = self.post_record(1)
+        first['issues'] = [critical]
+        first['observation_status']['sensor'] = 'AVAILABLE'
+        repeated = self.post_record(3)
+        repeated['issues'] = [copy.deepcopy(critical)]
+        repeated['observation_status']['sensor'] = 'AVAILABLE'
+        data = {'nodes': [{'key': 'tray1_n1', 'pre': new_record('PRE'),
+                           'loops': [first, empty, repeated]}]}
+        finding = next(item for item in aggregate_issues(data)
+                       if item['code'] == 'SENSOR_CRITICAL' and item['component'] == 'Temp')
+        self.assertEqual([o['classification'] for o in finding['occurrences']],
+                         ['NEW', 'KNOWN'])
 
 
 def complete_campaign(nodes):
@@ -309,6 +626,10 @@ class FinalHtmlLifecycleTests(unittest.TestCase):
         self.assertEqual(renderer.call_count, 1)
         self.assertTrue((output / 'CYCLE_REVIEW_REPORT.html').is_file())
         self.assertEqual(read_journal(output)['report']['state'], 'READY')
+        self.assertIn('Report: READY',
+                      (output / 'cycle_summary.txt').read_text(encoding='utf-8'))
+        self.assertIn('Report: READY',
+                      (output / 'CYCLE_REVIEW_REPORT.md').read_text(encoding='utf-8'))
 
     def test_failed_html_history_survives_successful_manual_rebuild(self):
         data = complete_campaign([report_node()])
@@ -328,6 +649,55 @@ class FinalHtmlLifecycleTests(unittest.TestCase):
         page = (output / 'CYCLE_REVIEW_REPORT.html').read_text(encoding='utf-8')
         self.assertIn('Output recovery history', page)
         self.assertIn('bad template', page)
+        summary = (output / 'cycle_summary.txt').read_text(encoding='utf-8')
+        markdown = (output / 'CYCLE_REVIEW_REPORT.md').read_text(encoding='utf-8')
+        self.assertIn('Report: READY', summary)
+        self.assertIn('Report: READY', markdown)
+        self.assertNotIn('Report: FAILED', summary)
+        self.assertNotIn('Report: FAILED', markdown)
+
+        # A lightweight-summary failure must not rewrite the successful HTML
+        # outcome, and the renderer must still run only once.
+        summary_failure = self.root / 'summary-failure'
+        summary_failure.mkdir()
+        failed_summary_campaign = complete_campaign([report_node()])
+        with patch.object(cycle_report, 'render_html', wraps=cycle_report.render_html) as renderer, \
+                patch.object(cycle_report, '_write_current_summaries',
+                             side_effect=OSError('summary blocked')):
+            with self.assertRaises(ReportDegraded):
+                write_reports(summary_failure, failed_summary_campaign)
+        self.assertEqual(renderer.call_count, 1)
+        self.assertTrue((summary_failure / 'CYCLE_REVIEW_REPORT.html').is_file())
+        self.assertEqual(failed_summary_campaign['report']['state'], 'READY')
+        self.assertEqual(failed_summary_campaign['report']['summary_state'], 'FAILED')
+        persisted = read_journal(summary_failure)
+        self.assertEqual(persisted['report']['state'], 'READY')
+        self.assertEqual(persisted['report']['summary_state'], 'FAILED')
+        run_status_data = json.loads(
+            (summary_failure / 'run_status.json').read_text(encoding='utf-8'))
+        self.assertEqual(run_status_data['report']['state'], 'READY')
+        self.assertEqual(run_status_data['report']['summary_state'], 'FAILED')
+
+        # Replacing the two current-state text files is all-or-rollback.  A
+        # failure on the second replace cannot leave a mixed summary pair.
+        rollback = self.root / 'summary-rollback'
+        rollback.mkdir()
+        summary_path = rollback / 'cycle_summary.txt'
+        markdown_path = rollback / 'CYCLE_REVIEW_REPORT.md'
+        summary_path.write_text('old summary\n', encoding='utf-8')
+        markdown_path.write_text('old markdown\n', encoding='utf-8')
+        real_atomic_write = cycle_report.atomic_write
+
+        def fail_first_markdown(path, text):
+            if Path(path).name == 'CYCLE_REVIEW_REPORT.md':
+                raise OSError('markdown replace blocked')
+            return real_atomic_write(path, text)
+
+        with patch.object(cycle_report, 'atomic_write', side_effect=fail_first_markdown):
+            with self.assertRaises(OSError):
+                cycle_report._write_current_summaries(rollback, rebuilt)
+        self.assertEqual(summary_path.read_text(encoding='utf-8'), 'old summary\n')
+        self.assertEqual(markdown_path.read_text(encoding='utf-8'), 'old markdown\n')
 
     def test_one_card_contains_lifecycle_and_severity_segments(self):
         repeated_with_count_detail = redfish_finding('FAIL')
@@ -350,17 +720,68 @@ class FinalHtmlLifecycleTests(unittest.TestCase):
         self.assertIn('loop 2-3', page)
         self.assertIn('loop 5', page)
 
+    def test_continuous_hostname_card_retains_changed_actual_values(self):
+        records = []
+        for number, actual in ((1, 'wrong-A'), (2, 'wrong-B')):
+            record = new_record(f'LOOP {number}')
+            record.update(loop=number, post_complete=True, issues=[
+                issue('HOSTNAME_MISMATCH', 'os',
+                      f"os hostname mismatch: inventory says 'os-n1', host reports '{actual}'")
+            ])
+            record['identities']['os'] = {'hostname': actual, 'boot_id': '0' * 36}
+            records.append(record)
+        items = merge_issues(aggregate_issues(complete_campaign([report_node(records=records)])))
+        page = issue_cards_compact(items, {'tray1_n1': 0})
+        self.assertEqual(page.count('class="issue-row"'), 1)
+        self.assertIn('wrong-A', page)
+        self.assertIn('wrong-B', page)
+
     def test_synthetic_four_node_280_loop_report_is_complete_html(self):
         nodes = []
         for node_number in range(1, 5):
             records = []
             for number in range(1, 281):
                 record = new_record(f'LOOP {number}')
-                record.update(
-                    loop=number, status='PASS', post_complete=True,
-                    valid_cycle=True, finished='2026-10-24T00:01:00+08:00',
-                    duration_seconds=.1,
+                expected = f'os-n{node_number}'
+                boot_id = f'{node_number:08d}-0000-0000-0000-{number:012d}'
+                trace = [
+                    {
+                        'role': 'os', 'stage': f'identity_{check}',
+                        'expected': expected,
+                        'actual': (f'wrong-{node_number}-{number}-{check}'
+                                   if check < 5 else expected),
+                        'result': 'MISMATCH' if check < 5 else 'MATCH',
+                    }
+                    for check in range(1, 6)
+                ]
+                bdf = f'0000:{node_number:02d}:00.0'
+                dmesg = dmesg_issues(
+                    f'[ 10.0] pcieport {bdf}: I/O 1 failed\n'
+                    f'[ 11.0] pcieport {bdf}: I/O 2 failed\n'
                 )
+                for event in dmesg:
+                    event.update(boot_id=boot_id, phase='dmesg_clear',
+                                 evidence=f'loops/{number}/dmesg_clear.txt')
+                hostname = issue(
+                    'HOSTNAME_MISMATCH', 'os',
+                    f"os hostname mismatch: inventory says '{expected}', "
+                    f"host reports 'wrong-{node_number}-{number}-1'",
+                )
+                redfish = redfish_finding(
+                    'FAIL' if ((number - 1) // 20) % 2 else 'WARN',
+                    event_id=f'{node_number}-{number}',
+                    message='stress | supply fault',
+                )
+                record.update(
+                    loop=number, status='FAIL', post_complete=True,
+                    valid_cycle=True, finished='2026-10-24T00:01:00+08:00',
+                    duration_seconds=.1, issues=[hostname, *dmesg, redfish],
+                    identity_observations=trace,
+                )
+                record['identities']['os'] = {'hostname': expected, 'boot_id': boot_id}
+                record['redfish_delta_ids'] = [f'EventLog|{node_number}-{number}']
+                record['observation_status'].update(
+                    dmesg='AVAILABLE', eventlog='AVAILABLE')
                 records.append(record)
             nodes.append(report_node(f'tray1_n{node_number}', records))
         page = render_html(complete_campaign(nodes))
@@ -368,7 +789,15 @@ class FinalHtmlLifecycleTests(unittest.TestCase):
         self.assertTrue(page.rstrip().endswith('</html>'))
         self.assertIn('SYNTHETIC DEMONSTRATION', page)
         self.assertIn('LOOP 280', page)
+        self.assertIn('wrong-4-280-4', page)
+        self.assertIn('(20 distinct IDs)', page)
+        self.assertIn('I/O 1 failed', page)
+        self.assertIn('I/O 2 failed', page)
         self.assertEqual(page.count('class="node-panel"'), 4)
+        self.assertIn('Issues (12)', page)
+        # The same 12 cards appear in Overview and the filterable Issues tab.
+        self.assertEqual(page.count('class="issue-row"'), 24)
+        self.assertLess(len(page.encode('utf-8')), 12 * 1024 * 1024)
 
 
 class FinalRecoveryStartupTests(unittest.TestCase):

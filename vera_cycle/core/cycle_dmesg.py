@@ -70,10 +70,10 @@ def _bundle_event(lines, code, family, severity):
 
     Identity has two levels, and they must not be confused:
 
-    * ``observations`` -- one ``(device, message)`` pair per distinct occurrence.
-      This is what the engine's cross-capture delta compares. It keeps the BDF,
-      because 0000:01:00.0 and 0000:02:00.0 failing the same way are two devices
-      failing, not one repeated message.
+    * ``observations`` -- one logical ``(device, message)`` pair per occurrence,
+      with volatile counters removed.  This is used for lifecycle/report
+      grouping.  Cross-capture delta accounting instead expands the exact
+      timestamp-free ``entries`` locally so two counter values cannot alias.
     * ``raw`` / ``fingerprint`` -- normalised, BDF-free, used only for grouping
       and for PRE comparison. Folding a BDF into these would make a pre-existing
       bundle look NEW on every boot when enumeration order shifts.

@@ -146,7 +146,7 @@ Reports distinguish attempts, POST completions, confirmed boots and valid cycles
 
 CPU row accounting uses unique CPU IDs independently of socket topology. Offline CPUs with blank sockets remain counted; malformed/duplicate rows or missing topology are explicit failures. SMBIOS Thread Count remains optional; no fixed CPU SKU was added. RCiEP/RCEC without link capability are UNSUPPORTED (not applicable); an advertised/present optional link is checked. Ordinary/Legacy Endpoint missing link, denied capability access and downgraded links still fail.
 
-Current hardening version: **2026.10.24.1** (`python3 neutrino_cycle.py --version`). See [final hardening implementation and verification](docs/FINAL_HARDENING_2026-10-24.md), [Run 2 history](docs/RUN2_IMPLEMENTATION.md), and the [previous release record](docs/IMPLEMENTATION_2026-10-01.md).
+Current hardening version: **2026.10.24.2** (`python3 neutrino_cycle.py --version`). See [final hardening implementation and verification](docs/FINAL_HARDENING_2026-10-24.md), [Run 2 history](docs/RUN2_IMPLEMENTATION.md), and the [previous release record](docs/IMPLEMENTATION_2026-10-01.md).
 
 For a Chinese operator-facing walkthrough of inputs, PRE, OS checks, Cycle/POST, FAIL criteria and evidence, open the offline [VERA Cycle 測試流程與判定邏輯](docs/VERA_CYCLE_TEST_FLOW_zh-TW.html).
 

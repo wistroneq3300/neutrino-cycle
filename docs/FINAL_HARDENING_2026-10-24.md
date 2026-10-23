@@ -1,12 +1,35 @@
 # Vera CPU Rack Cycle final hardening acceptance record
 
 - Date: 2026-10-24 (UTC+8)
-- Release: `2026.10.24.1`
+- Release: `2026.10.24.2`
 - Source branch: `codex/ts1-p0-p1-hardening`
 - Verified source HEAD: `2a201fda13c950a980887c5631dc89f436354241`
 - Delivery branch: `codex/vera-cycle-final-hardening-v1`
 
 The remote source branch was fetched before development. Its HEAD exactly matched the requested source commit, so there was no newer source delta to reconcile. The delivery branch was created from that commit. This record is for offline implementation verification; it is not a claim of live-rack acceptance.
+
+## Independent-review correction pass
+
+An independent review of delivery commit `99d79174da9edc13933ebbd4d49fac6f4c29e355`
+identified three P1 correctness defects and two P2 trace/display defects. Release
+`2026.10.24.2` applies narrow corrections on the same delivery branch:
+
+- dmesg delta allocation now compares exact timestamp-free entries while keeping
+  counter-free device/message identities only for logical grouping. Count
+  conservation holds when different I/O/QID values alias and when an overlapping
+  capture changes from A to A+B.
+- Redfish raw Event IDs remain attached to each logical per-loop observation;
+  lifecycle and cards use service plus non-empty message, are chronologically
+  ordered, and take the worst same-loop severity before segmentation.
+- PCI, network, USB/BMC USB and sensor recovery require that collector's own
+  successful, usable observation metadata. An unrelated hardware script cannot
+  prove recovery.
+- Named hostname checks retain an ordered compact trace without adding duplicate
+  failure cards or changing keep-going/power behavior.
+- A report outcome updates the text and Markdown current-state lines after the
+  single HTML attempt. Manual rebuild READY and FAILED history are both retained.
+  A lightweight-summary write failure rolls back the pair, records
+  `summary_state=FAILED`, and does not overwrite READY HTML state or rerender it.
 
 ## Approved decision status (13 ED + 8 FIX = 21)
 
@@ -40,40 +63,52 @@ The remote source branch was fetched before development. Its HEAD exactly matche
 |---:|---|---|---|
 | 1 | PRE hostname mismatch/blank BLOCKED | PASS | `test_wrong_hostname_blocks_pre_before_any_change`, `test_empty_hostname_blocks_pre` |
 | 2 | Loop hostname mismatch FAIL and continue | PASS | `test_loop_hostname_mismatch_is_fail_and_node_continues`, existing blank/POST hostname cases |
-| 3 | Same-round recovery cannot erase FAIL | PASS | `test_transient_loop_mismatch_cannot_be_washed_out_later_in_round` |
-| 4 | Same-device dmesg repeats counted | PASS | `test_same_device_repeat_keeps_its_count` |
+| 3 | Same-round recovery cannot erase FAIL | PASS | `test_transient_loop_mismatch_cannot_be_washed_out_later_in_round`, ordered trace regression |
+| 4 | Same-device dmesg repeats counted | PASS | `test_same_device_repeat_keeps_its_count`, alias count-conservation regression |
 | 5 | Distinct BDFs retained | PASS | `test_second_bdf_is_a_distinct_observation`, `test_different_devices_same_error_are_not_swallowed` |
-| 6 | Overlapping capture not double-counted | PASS | `test_overlapping_capture_counts_only_the_new_occurrence`, `test_multiset_delta_does_not_double_count` |
+| 6 | Overlapping capture not double-counted | PASS | overlap regression plus A→A+B changing-signature regression |
 | 7 | Empty Redfish log PASS | PASS | Redfish empty-service/delta suite |
 | 8 | Redfish timeout UNAVAILABLE | PASS | `test_logservices_timeout_is_unavailable_not_absent` and Redfish failure suite |
-| 9 | EventLog/SEL IDs isolated | PASS | service-qualified Redfish identity/delta regression suite |
-| 10 | WARN→Critical becomes FAIL | PASS | `test_continuous_warning_to_critical_is_one_issue_with_two_severity_segments` |
-| 11 | NEW/KNOWN/RECURRENCE | PASS | `test_new_known_recurrence_after_confirmed_recovery` |
-| 12 | UNAVAILABLE is not recovery | PASS | `test_unavailable_gap_is_not_recovery` |
+| 9 | EventLog/SEL IDs isolated | PASS | service-qualified identity, pipe-containing message and raw-ID retention regressions |
+| 10 | WARN→Critical becomes FAIL | PASS | severity transition plus same-loop multi-ID worst-severity regressions |
+| 11 | NEW/KNOWN/RECURRENCE | PASS | confirmed recovery and new-Event-ID recurrence regressions |
+| 12 | UNAVAILABLE is not recovery | PASS | Redfish gap plus formal PCI/network/USB/BMC-USB/sensor collector metadata regressions |
 | 13 | No full HTML rebuild per loop | PASS | `test_full_html_is_rendered_once_at_terminal_state_not_each_loop` |
 | 14 | Terminal HTML generated | PASS | same terminal-render test plus report suite |
-| 15 | Manual rebuild changes HTML state to READY | PASS | `test_failed_html_history_survives_successful_manual_rebuild` |
+| 15 | Manual rebuild changes HTML state to READY | PASS | rebuild plus Journal/run-status/text/Markdown state-consistency regression |
 | 16 | FAILED history retained | PASS | same failure-history regression and degraded-output suite |
-| 17 | SIGKILL/offline rebuild | PASS | existing subprocess SIGKILL/recovery suite plus interrupted-campaign rebuild regression |
+| 17 | SIGKILL/offline rebuild | SKIP | dead-owner, partial-record and manual offline rebuild tests pass, but this Windows host cannot perform the required end-to-end POSIX runner SIGKILL scenario; OpenHands/Linux handoff required |
 | 18 | One failed node stops; other nodes continue | PASS | `test_two_nodes_only_execution_failure_stops` |
 | 19 | ZIP excludes journal | PASS | `test_delivery_zip_includes_evidence_and_snapshots_but_never_journal` |
-| 20 | 4 nodes × 280 loops report opens | PASS | synthetic generation and structural test; installed Chrome opened the 735,422-character DOM and found Node 4 / Loop 280 |
+| 20 | 4 nodes × 280 loops report opens | PASS | current anomaly-rich synthetic test covers changing hostname traces, aliased dmesg entries, unique Redfish IDs and WARN/FAIL segments; installed Chrome headless parsed a separately generated temporary current 2,544,930-byte report and found Loop 280, final trace, capped IDs and 12 logical cards |
 | 21 | JSON/log/evidence retained | PASS | ZIP byte-for-byte evidence assertion, checkpoint/rebuild suites, and report evidence-link tests |
 
 ## Verification result
 
-- Full discovery: 426 total; **404 PASS, 0 FAIL, 0 ERROR, 22 SKIP**.
+- Full discovery: 438 total; **416 PASS, 0 FAIL, 0 ERROR, 22 SKIP**.
 - Explicit skips: 18 hardware-script cases and 2 Run 2 shell-parser cases require Bash; 1 lock-permissions case requires Linux root/cross-UID; 1 wizard case requires POSIX PTY.
-- Final-hardening focused suite: 17/17 PASS.
-- Generated scale fixture: `test-results/final-4x280`, clearly marked `SYNTHETIC DEMONSTRATION` and excluded from Git.
-- Browser check: installed Chrome headless loaded the complete generated report; DOM length 735,396; Node 4 and Loop 280 were present.
+- Requested acceptance matrix: **20 PASS, 0 FAIL, 1 SKIP**. Item 17's
+  end-to-end runner SIGKILL gap is explicit and is not counted as PASS; it is
+  separate from the test runner's 22 environment-specific skips.
+- Final-hardening focused suite: 29/29 PASS.
+- Scale coverage: the checked regression renders 1,120 anomaly-bearing synthetic
+  loop records (five identity checks per loop, aliased dmesg entries, unique raw
+  Redfish IDs and repeated severity transitions), retains the last-loop values,
+  produces 12 logical issue cards and enforces a 12 MiB upper bound. The existing
+  older pass-oriented `test-results/final-4x280` fixture remains a separate,
+  clearly marked `SYNTHETIC DEMONSTRATION` and is excluded from Git.
+- Browser check: installed Chrome headless parsed a separately generated
+  temporary current anomaly-rich 2,544,930-byte report into a complete
+  2,455,442-character DOM; Loop 280, `wrong-4-280-4`, `(20 distinct IDs)`,
+  `Issues (12)` and the closing HTML node were present. This did not overwrite
+  the older `test-results/final-4x280` fixture.
 - Historical source data: no historical campaign directory or evidence file was modified or deleted. Existing checked-in fixtures were consumed read-only; scale validation used an explicitly synthetic fixture.
 - Hardware safety: no real power-cycle command, rack SSH, BMC/OS write, package installation, or physical-device operation was executed.
 
 ## Remaining limits and risk
 
 - No unresolved P0 issue is known from offline verification.
-- P1 acceptance remains for a controlled Linux/rack run: the 22 environment-specific skips, actual BMC power command/recovery timing, real Redfish vendor variants, real `dmesg -c` behavior, and Linux cross-user journal/lock permissions.
+- P1 acceptance remains for a controlled Linux/rack run: the 22 environment-specific skips, an end-to-end running-runner SIGKILL/offline rebuild, actual BMC power command/recovery timing, real Redfish vendor variants, real `dmesg -c` behavior, and Linux cross-user journal/lock permissions.
 - The report scale check proves generation and browser parsing/opening, not interactive performance on every operator workstation.
 - Live credential/endpoint behavior was deliberately not exercised. No password, token, or SSH private key is added by this change. The requested source commit already contained plaintext-looking credential examples in historical `AGENTS.md`; the final tree removes them, but parent/source Git history remains public under the no-rewrite/no-force-push constraint. Treat those values as compromised and rotate them immediately if they are real.
 
@@ -93,9 +128,9 @@ The remote source branch was fetched before development. Its HEAD exactly matche
 
 Review these high-risk paths first:
 
-1. `vera_cycle/engine/cycle_engine.py`: `capture`, `collect_dmesg`, strict hostname checks, and recovery-tail behavior. Confirm exactly one normal final `dmesg -c` and no added power action.
-2. `vera_cycle/core/cycle_core.py`: `aggregate_issues` observation state. Verify UNAVAILABLE does not prove recovery and node/source/device identity cannot cross-merge.
-3. `vera_cycle/reporting/cycle_report.py`: `_redfish_event_key`, `merge_issues`, `_issue_segments`, checkpoint/report transitions, `rebuild`, and `create_delivery_zip`. Check count preservation, severity/lifecycle segmentation, FAILED history, and journal exclusion.
+1. `vera_cycle/engine/cycle_engine.py`: `identity`, `capture`, `collect_dmesg`, and recovery-tail behavior. Confirm trace completeness, exact-entry delta allocation, exactly one normal final `dmesg -c`, and no added power action.
+2. `vera_cycle/core/cycle_dmesg.py` and `cycle_core.py`: `_strip_count`, `_bundle_event`, `_split_dmesg_bundle`, `_lifecycle_issue_key`, `_observation_state`, and `aggregate_issues`. Verify count conservation, Redfish raw/logical identity, source-specific UNAVAILABLE, and no node/device/service cross-merge.
+3. `vera_cycle/reporting/cycle_report.py`: `_redfish_event_key`, `merge_issues`, `_issue_segments`, `_write_reports`, `_write_current_summaries`, `_render_reports`, `rebuild`, and `create_delivery_zip`. Check chronological segmentation, summary rollback, READY/FAILED history, single HTML render, and journal exclusion.
 4. `vera_cycle/cli.py`: terminal checkpoint/report flow and interrupted-campaign prompt. Confirm skip is non-mutating and rebuild never invokes cycle/action paths.
 5. `dev/tests/test_final_hardening.py`, `test_dmesg_bundle.py`, `test_redfish_failures.py`, and `test_run2_recovery.py`: audit failure-first coverage and ensure mocks do not conceal a production call-order regression.
 

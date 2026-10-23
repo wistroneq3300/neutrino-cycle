@@ -1,5 +1,24 @@
 # Refactor verification
 
+## Release 2026.10.24.2 — independent-review corrections
+
+**438 offline tests: 416 PASS, 0 FAIL, 0 ERROR, 22 explicit environment SKIP.**
+The 12 additional regressions reproduce and close independent-review findings
+R1–R5: dmesg alias/count conservation and changing capture membership; Redfish
+logical identity, raw-ID retention, ordering and same-loop worst severity;
+source-specific PCI/network/USB/BMC-USB/sensor observability; ordered hostname traces; and
+READY/FAILED synchronization across Journal, run status, text and Markdown.
+The 4-node x 280-loop regression now carries changing five-check hostname traces,
+two aliased dmesg entries per node/loop, 1,120 distinct raw Redfish IDs and
+repeated WARN/FAIL transitions; it verifies the 12 logical cards, final loop,
+raw values and a bounded complete HTML document. The full renderer remains
+terminal-only and is not retried. Installed Chrome headless parsed a separately
+generated temporary current 2,544,930-byte anomaly-rich report into a complete
+2,455,442-character DOM and found Loop 280, the last hostname trace, capped
+raw-ID display and 12 issue cards.
+This fixture is explicitly synthetic: no live endpoint or physical power action
+was used.
+
 ## Release 2026.10.24.1 — final hardening
 
 **426 offline tests: 404 PASS, 0 FAIL, 0 ERROR, 22 explicit environment SKIP.** The skipped cases require Bash, a POSIX pseudo-terminal, or a Linux root/cross-UID environment that is not present on this Windows validation host. They are not counted as passes. The final-hardening regression module contributes 17 passing tests for strict hostname handling, exact dmesg occurrence/device accounting, issue lifecycle, terminal-only HTML, output-state history, recovery discovery/rebuild/skip, 4-node × 280-loop scale, and delivery ZIP contents. Python compilation, diff checks, CLI smoke checks, and an actual headless Chrome open of the generated 4-node × 280-loop synthetic report also passed. No physical power action, rack SSH, OS/BMC mutation, or live-hardware acceptance was performed.
