@@ -176,10 +176,17 @@ def _norm_class(value):
     return 'KNOWN' if value == 'WORSENED' else value
 
 
+def _is_dmesg(item):
+    return str(item.get('code', '')).startswith('DMESG_')
+
+
 def _issue_counts(record):
     severity = Counter(i.get('severity', 'UNKNOWN') for i in record.get('issues', []))
+    # dmesg findings are rendered without KNOWN/NEW labels, so they are kept out
+    # of the headline tally too: a count with no matching label on the page
+    # reads as a finding the operator cannot locate.
     classification = Counter(_norm_class(i.get('classification', 'NEW')) for i in record.get('issues', [])
-                             if record.get('phase') != 'PRE')
+                             if record.get('phase') != 'PRE' and not _is_dmesg(i))
     return severity, classification
 
 
@@ -193,31 +200,17 @@ def _finding_summary(record):
     return ' · '.join(parts)
 
 
-def _dmesg_block(item):
-    """Render a DMESG finding as one compact line per distinct message.
-
-    A capture can hold dozens of near-identical boot lines (e.g. 46 PCI
-    io-window ``failed to assign``). Listing them verbatim bloats the report
-    until it will not open, so each distinct message is shown once with its
-    occurrence count instead.
-    """
-    rows = []
-    if item.get('code') == 'DMESG_APEI':
-        line = item.get('raw_lines') or []
-        label = f"dmesg line {line[0]}" if line else 'APEI'
-        rows.append(f'<li><code>{esc(item.get("detail", ""))}</code>'
-                    f' <span class="occurrences">{esc(label)}</span></li>')
-    for entry in item.get('entries', []):
-        count = entry.get('count', 1)
-        tally = f' <span class="occurrences">×{count}</span>' if count > 1 else ''
-        rows.append(f'<li><code>{esc(entry.get("text", ""))}</code>{tally}</li>')
-    return '<ul class="dmesg-bundle">' + ''.join(rows) + '</ul>'
-
-
-# dmesg findings are shown to the operator as ONE package: the generic bundle
-# plus any APEI events. They stay separate findings internally so an APEI
-# ``info`` event still reads as PASS -- only the display is merged.
-DMESG_CODES = {'DMESG_BUNDLE', 'DMESG_APEI', 'DMESG_NOISE'}
+# dmesg findings keep their own codes in the report: a captured NVMe, EDAC or
+# AER event is a hardware finding the operator must be able to read, and hiding
+# the per-family codes left only the catch-all bundle visible.
+# Capture phase -> label shown beside a dmesg block. The stem is what the engine
+# stores in ``item['phase']``; 'before action' only appears in legacy runs.
+DMESG_PHASE_LABELS = {
+    'dmesg_clear': 'post',
+    'dmesg': 'post',
+    'before_action_dmesg': 'before action',
+    'dmesg_before_clear': 'before clear',
+}
 
 
 def _issue_title(item):
@@ -246,75 +239,123 @@ def _issue_title(item):
 
 
 def _visible_issues(record):
-    """Findings to show in the HTML.
+    """Every finding recorded for this record, in record order.
 
-    The dmesg bundles are the operator-facing dmesg signal. The older
-    per-family DMESG_* findings are hidden from the report for now -- their
-    events are still parsed and still fold into the health verdict, they are
-    just not rendered as separate lines.
+    Nothing is filtered here: a dmesg family the parser identified (NVMe, EDAC,
+    PCIe/AER, MCE, ...) is a hardware finding, and an earlier version of this
+    function dropped all of them except the catch-all bundle -- so a memory
+    uncorrectable or an NVMe timeout raised the health verdict without ever
+    appearing in the report.
     """
-    return [item for item in record.get('issues', [])
-            if not item.get('code', '').startswith('DMESG_') or item.get('code') in DMESG_CODES]
+    return list(record.get('issues', []))
 
 
-def _dmesg_severity(issues):
-    order = {'FAIL': 3, 'WARN': 2, 'UNKNOWN': 1, 'PASS': 0}
-    worst = 'PASS'
-    for item in issues:
-        if not item:
-            # An APEI-only capture has no bundle; the absent slot must not be
-            # dereferenced. Skipping empty entries keeps this safe for any caller.
-            continue
-        if order.get(item.get('severity'), 0) > order[worst]:
-            worst = item['severity']
-    return worst
+def _dmesg_phase(item):
+    """Operator-facing phase label for one dmesg finding."""
+    return DMESG_PHASE_LABELS.get(str(item.get('phase', '')), 'post')
 
 
-def _dmesg_package_html(bundle, apei, noise=None):
-    """One dmesg package: the bundle rows, APEI events, then the benign noise.
+def _dmesg_html(item):
+    """Render one dmesg finding: phase, line count, per-message entries."""
+    entries = item.get('entries') or []
+    if entries:
+        count = sum(entry.get('count', 1) for entry in entries)
+        lines = [entry for entry in entries]
+    else:
+        count = item.get('occurrence_count', 1)
+        lines = [dict(text=item.get('snippet', '') or item.get('detail', ''), count=1)]
+    header = (f'<span class="badge {esc(item.get("severity", "FAIL").lower())}">'
+              f'{esc(item.get("severity", "FAIL"))}</span> '
+              f'<strong>{esc(display_component(item))}</strong> '
+              f'<span class="dmesg-phase">({esc(_dmesg_phase(item))})</span> '
+              f'<span class="muted">{len(lines)} line(s), {count} occurrence(s)</span>')
+    link = f' {evidence_link(item["evidence"])}' if item.get('evidence') else ''
+    body = '<ul class="dmesg-bundle">' + ''.join(
+        f'<li><code>{esc(entry.get("text", ""))}</code>'
+        + (f' <span class="occurrences">×{entry["count"]}</span>' if entry.get('count', 1) > 1 else '')
+        + '</li>' for entry in lines) + '</ul>'
+    if item.get('code') == 'DMESG_NOISE':
+        # Benign-looking lines are retained for review but collapsed: they never
+        # affect health, and expanding dozens of them buries the real findings.
+        return f'<details class="dmesg-block dmesg-noise"><summary>{header}</summary>{body}{link}</details>'
+    return f'<div class="dmesg-block">{header}{link}{body}</div>'
 
-    All three share one card so the operator sees the whole kernel-log picture
-    in place. The noise rows are INFO (known-benign) and never affect health,
-    but they stay visible because the allowlist is only a heuristic.
+
+def _issue_title(item):
+    """Issue card title: '<node> / <component>'.
+
+    Kernel-log findings carry a code of ``DMESG_*`` and a component that is the
+    parser family (``kernel``, ``mce``, ``pcie``, ...), which reads as a bare
+    device name in the report. Prefix those with ``Dmesg-`` so the source is
+    obvious to whoever reads the HTML, e.g. ``node / Dmesg-kernel``.
     """
-    packages = [i for i in [bundle, *apei] if i]
-    severity = _dmesg_severity(packages)
-    count = sum(len(i.get('entries', [])) for i in packages) + len(apei)
-    occurrences = sum(e.get('count', 1) for i in packages for e in i.get('entries', []))
-    headline = f'DMESG: {count} distinct error/fail line(s), {occurrences} occurrence(s)'
-    body = _dmesg_block(bundle) if bundle else ''
-    if apei:
-        body += ' '.join(_dmesg_block(i) for i in apei)
-    # Evidence is the file that actually holds these lines (the loop's retained
-    # dmesg_clear.txt / PRE's dmesg.txt); without it the findings are unreadable.
-    src = bundle or (apei[0] if apei else None)
-    link = f' {evidence_link(src["evidence"])}' if src and src.get('evidence') else ''
-    noise_html = ''
-    if noise:
-        n_entries = len(noise.get('entries', []))
-        n_occ = sum(e.get('count', 1) for e in noise.get('entries', []))
-        n_link = f' {evidence_link(noise["evidence"])}' if noise.get('evidence') else ''
-        noise_html = (
-            '<details class="dmesg-noise"><summary>'
-            f'Known-benign dmesg lines (review only): {n_entries} distinct, '
-            f'{n_occ} occurrence(s)</summary>{n_link}{_dmesg_block(noise)}</details>')
-    return (f'<li>{badge(severity)} <strong>dmesg</strong> — {esc(headline)} '
-            f'<span class="badge new">NEW</span>{link}{body}</li>'
-            + (f'<li class="dmesg-noise-row">{noise_html}</li>' if noise_html else ''))
+    node = esc(item.get('node', ''))
+    component = item.get('component', '')
+    code = str(item.get('code', ''))
+    if code == 'DMESG_APEI':
+        # The APEI component is the failing device's BDF (or DIMM/nvme locator),
+        # not a family name. Keep the locator but label it as APEI so the title
+        # says where the source is, e.g. "node / Dmesg-apei:0001:00:00.0".
+        component = f'Dmesg-apei:{component}'
+    elif code.startswith('DMESG_'):
+        # "bundle" is the parser's internal name for the unclassified sweep; show
+        # it as "fail/error" so the operator knows it is the catch-all group of
+        # error/fail lines no family pattern claimed.
+        label = 'fail/error' if component == 'bundle' else component
+        component = 'Dmesg-' + label
+    return f'{node} / {esc(component)}'
+
+
+def _visible_issues(record):
+    """Every finding recorded for this record, in record order.
+
+    Nothing is filtered here: a dmesg family the parser identified (NVMe, EDAC,
+    PCIe/AER, MCE, ...) is a hardware finding, and an earlier version of this
+    function dropped all of them except the catch-all bundle -- so a memory
+    uncorrectable or an NVMe timeout raised the health verdict without ever
+    appearing in the report.
+    """
+    return list(record.get('issues', []))
+
+
+def _dmesg_phase(item):
+    """Operator-facing phase label for one dmesg finding."""
+    return DMESG_PHASE_LABELS.get(str(item.get('phase', '')), 'post')
+
+
+def _dmesg_html(item):
+    """Render one dmesg finding: phase, line count, per-message entries."""
+    entries = item.get('entries') or []
+    if entries:
+        count = sum(entry.get('count', 1) for entry in entries)
+        lines = [entry for entry in entries]
+    else:
+        count = item.get('occurrence_count', 1)
+        lines = [dict(text=item.get('snippet', '') or item.get('detail', ''), count=1)]
+    header = (f'<span class="badge {esc(item.get("severity", "FAIL").lower())}">'
+              f'{esc(item.get("severity", "FAIL"))}</span> '
+              f'<strong>{esc(display_component(item))}</strong> '
+              f'<span class="dmesg-phase">({esc(_dmesg_phase(item))})</span> '
+              f'<span class="muted">{len(lines)} line(s), {count} occurrence(s)</span>')
+    link = f' {evidence_link(item["evidence"])}' if item.get('evidence') else ''
+    body = '<ul class="dmesg-bundle">' + ''.join(
+        f'<li><code>{esc(entry.get("text", ""))}</code>'
+        + (f' <span class="occurrences">×{entry["count"]}</span>' if entry.get('count', 1) > 1 else '')
+        + '</li>' for entry in lines) + '</ul>'
+    if item.get('code') == 'DMESG_NOISE':
+        # Benign-looking lines are retained for review but collapsed: they never
+        # affect health, and expanding dozens of them buries the real findings.
+        return f'<details class="dmesg-block dmesg-noise"><summary>{header}</summary>{body}{link}</details>'
+    return f'<div class="dmesg-block">{header}{link}{body}</div>'
 
 
 def _finding_html(record):
     issues = _visible_issues(record)
     if not issues:
         return '<p class="empty">No issues recorded.</p>'
-    rows = []
-    bundle = next((i for i in issues if i.get('code') == 'DMESG_BUNDLE'), None)
-    apei = [i for i in issues if i.get('code') == 'DMESG_APEI']
-    noise = next((i for i in issues if i.get('code') == 'DMESG_NOISE'), None)
-    if bundle or apei or noise:
-        rows.append(_dmesg_package_html(bundle, apei, noise))
+    rows = [_dmesg_html(item) for item in issues if _is_dmesg(item)]
     for item in issues:
-        if item.get('code') in DMESG_CODES:
+        if _is_dmesg(item):
             continue
         classification = 'PRE-EXISTING' if record.get('phase') == 'PRE' else _norm_class(item.get('classification', 'NEW'))
         snippet = ''
@@ -342,11 +383,9 @@ def _finding_html_compact(record):
         return '<p class="empty">No issues recorded.</p>'
     groups = []
     by_key = {}
-    bundle = next((i for i in _visible_issues(record) if i.get('code') == 'DMESG_BUNDLE'), None)
-    apei = [i for i in _visible_issues(record) if i.get('code') == 'DMESG_APEI']
-    noise = next((i for i in _visible_issues(record) if i.get('code') == 'DMESG_NOISE'), None)
+    dmesg_rows = [_dmesg_html(item) for item in _visible_issues(record) if _is_dmesg(item)]
     for item in _visible_issues(record):
-        if item.get('code') in DMESG_CODES:
+        if _is_dmesg(item):
             continue
         ident = item.get('identity') or ''
         # Redfish identities are '<name>|<id>|<message>'; the message itself can
@@ -392,9 +431,7 @@ def _finding_html_compact(record):
             snippet = f'<pre class="snippet">{esc(grp["snippet"])}</pre>'
         link = f' {evidence_link(grp["evidence"][0])}' if grp['evidence'] else ''
         rows.append(f'<li>{badge(grp["severity"])} <strong>{esc(grp["component"])}</strong> — {esc(grp["detail"])}{ids_txt} {badge(classification)}{link}{snippet}</li>')
-    if bundle or apei or noise:
-        rows.insert(0, _dmesg_package_html(bundle, apei, noise))
-    return '<ul class="record-issues">' + ''.join(rows) + '</ul>'
+    return '<ul class="record-issues">' + ''.join(dmesg_rows) + ''.join(rows) + '</ul>'
 
 
 def _status_from_items(items, kind):
@@ -1101,19 +1138,19 @@ def _loop_ranges(phases):
 
 
 def _redfish_event_key(item):
-    """Merge key for one Redfish event: node + code + message (no event id).
+    """Merge key for one Redfish event: node + code + service + message.
 
-    ``identity`` is '<name>|<id>|<message>'. Dropping the event id collapses the
-    per-loop repeats of one event into a single card, while keeping the message
-    (including e.g. Boot0001 vs Boot0002) distinct. Non-Redfish findings keep
-    the full identity/code+component so nothing else is merged.
+    ``identity`` is '<service>|<id>|<message>'. The event id is dropped so the
+    per-loop repeats of one event collapse into a single card, but the service
+    name is kept: EventLog and SEL are separate logs on the same BMC, and the
+    same message text in both is two sources, not one repeated event.
     """
     ident = item.get('identity') or ''
     # Split at most twice: a vendor message may itself contain '|', and an
     # unbounded split would keep a truncated message as the merge key.
     parts = ident.split('|', 2)
     if len(parts) >= 3 and item['code'] in ('REDFISH_CRITICAL', 'REDFISH_WARNING'):
-        return ('redfish', item['node'], item['code'], parts[2])
+        return ('redfish', item['node'], item['code'], parts[0], parts[2])
     return ('other', item['node'], item['code'], item.get('component', ''), ident or item.get('detail', ''))
 
 

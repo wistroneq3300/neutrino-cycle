@@ -44,15 +44,15 @@ BUNDLE_BENIGN = [
     re.compile(r'\bInitialized with .*timeout\b', re.I),
     re.compile(r'\btimeout set to\b', re.I),
     re.compile(r'\bset to \d+\s*seconds?\b', re.I),
-    # Anchors of a family above: a continuation line that the strict family
-    # pattern did not itself claim still belongs to that event, so the fallback
-    # must not re-report it as unclassified. Only true AER continuation markers
-    # are listed: a bare ``nvme``/``mlx5``/``NVRM``/``EDAC`` token is NOT a
-    # continuation marker, and excluding on it silently dropped genuine device
-    # errors (e.g. ``mlx5_cmd_check timeout``, ``nvme0: Abort status``) that no
-    # strict pattern claimed. Those now flow into the bundle like any other
-    # unclassified error line.
-    re.compile(r'\bAER:|\bPCIe Bus Error:', re.I),
+    # AER/PCIe continuation markers are NOT benign by themselves. Excluding the
+    # whole prefix hid real failures such as ``AER: device recovery failed`` and
+    # ``PCIe Bus Error: severity=Recoverable`` as INFO, because the family
+    # pattern only claims lines carrying corrected/uncorrected/fatal. Only the
+    # exact capability banners and the status/mask companion of an AER event the
+    # family pattern already claimed are benign; every other AER line reaches
+    # the bundle and stays a FAIL.
+    re.compile(r'\bAER:\s*(?:Enabled|Capabilit(?:y|ies)|\S+:\s*Enabled)\b', re.I),
+    re.compile(r'\bAER:\s*error status/mask=[0-9a-f]+/[0-9a-f]+\b', re.I),
 ]
 # IPMI/SSIF transport failures are functional, not noise: a broken SSIF leaves
 # /dev/ipmi0 present but unusable, so ``ipmitool`` fails outright. They are not

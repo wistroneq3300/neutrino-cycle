@@ -244,7 +244,8 @@ class NodeSession:
         self.persist(record)
         return result
 
-    def identity(self, record, role, stem=None, timeout=30, save_evidence=True, record_command=True):
+    def identity(self, record, role, stem=None, timeout=30, save_evidence=True, record_command=True,
+                 strict_hostname=False):
         result = self.command(record, stem or (role + "_identity"), role, IDENTITY, timeout=timeout,
                               check=False, save_evidence=save_evidence, record_command=record_command)
         if result.code:
@@ -252,17 +253,27 @@ class NodeSession:
         values = dict(re.findall(r"^(HOSTNAME|BOOT_ID)=(.*)$", result.output, re.M))
         expected = getattr(self.target, role + "_hostname")
         actual = values.get("HOSTNAME", "").strip()
-        # Hostname is a soft check: run either way, but surface a mismatch so the
-        # operator can review it. A blank expected hostname means "do not check".
-        # (Boot ID below stays a hard stop - that guards against a real reboot.)
-        if expected and actual and actual.lower().rstrip(".") != expected.lower().rstrip("."):
-            if not any(i.get('code') == 'HOSTNAME_MISMATCH' and i.get('component') == role
-                       for i in record.get('issues', [])):
-                self.add(record, 'HOSTNAME_MISMATCH', role,
-                         f"{role} hostname mismatch: inventory says '{expected}', host reports '{actual}'; "
-                         f"continuing, but confirm this is the intended machine",
-                         severity='WARN',
-                         evidence=record.get('commands', {}).get(stem or (role + "_identity"), {}).get('evidence', ''))
+        # PRE is the last moment before anything on the node is touched (log
+        # clearing runs right after precheck), so a wrong machine must be a hard
+        # stop there. During the loops a mismatch only warns: the run continues
+        # but the operator is told the machine no longer matches the inventory.
+        # (Boot ID below stays a hard stop -- that guards against a real reboot.)
+        if expected:
+            mismatch = (not actual) or actual.lower().rstrip(".") != expected.lower().rstrip(".")
+            if mismatch:
+                seen = actual or "<empty>"
+                detail = (f"{role} hostname mismatch: inventory says '{expected}', "
+                          f"host reports '{seen}'")
+                if strict_hostname:
+                    raise IdentityUnsafe(detail + "; PRE blocked before any changes were made")
+                if not any(i.get('code') == 'HOSTNAME_MISMATCH' and i.get('component') == role
+                           for i in record.get('issues', [])):
+                    # Evidence is only kept for a real mismatch: at 4 nodes x 280
+                    # loops a file per loop would be pure noise until it matters.
+                    self.add(record, 'HOSTNAME_MISMATCH', role,
+                             detail + '; continuing, but confirm this is the intended machine',
+                             severity='WARN',
+                             evidence=record.get('commands', {}).get(stem or (role + "_identity"), {}).get('evidence', ''))
         if role == "os" and not re.fullmatch(r"[0-9a-fA-F-]{36}", values.get("BOOT_ID", "").strip()):
             raise IdentityUnsafe("OS did not provide a valid boot ID")
         record["identities"][role] = dict(hostname=actual, boot_id=values.get("BOOT_ID", "").strip())
@@ -325,6 +336,12 @@ class NodeSession:
         result = self.command(record, stem, 'os', command, sudo=True,
                               save_evidence=save_evidence, include_output=not wipe_only)
         if result.code:
+            # A failed read is not "no findings". Without this the loop looks
+            # clean when in fact nothing was collected, which is indistinguishable
+            # from a healthy kernel log.
+            self.add(record, 'DMESG_COLLECT_FAILED', 'dmesg',
+                     f'Kernel log collection failed: exit {result.code} ({result.state})',
+                     severity='WARN', evidence=record['commands'].get(stem, {}).get('evidence', ''))
             return
         if wipe_only:
             self.dmesg_seen = {}
@@ -604,8 +621,9 @@ class NodeSession:
         bmc = self.command(record, "host_power", "bmc", "/usr/bin/powerctrl.sh power_status")
         if bmc.code == 0 and not ("Host: Running" in bmc.output and "Chassis Power: On" in bmc.output):
             self.add(record, "HOST_NOT_RUNNING", "power", "BMC power_status did not confirm Host: Running and Chassis Power: On")
-        if post:
-            self.collect_dmesg(record, 'dmesg_clear', clear=True)
+        # dmesg is NOT read here. One read-and-clear per loop, at the very end of
+        # the loop (see ``one_loop``), captures the whole boot -- including the
+        # MCTP stress that runs after this capture.
         for item in record["issues"]:
             if not item.get("evidence"):
                 component = item["component"]
@@ -652,8 +670,11 @@ class NodeSession:
         record = self.node["pre"]
         self.persist(record)
         try:
+            # Identity first, and strictly: PRE runs before any log is cleared,
+            # so this is the last chance to refuse a machine that does not match
+            # the inventory without having touched it.
             for role, _, _ in self.target.endpoints():
-                self.identity(record, role)
+                self.identity(record, role, strict_hostname=True)
             uid = self.command(record, "root_uid", "os", "id -u", sudo=True, check=False)
             if uid.code or uid.output.strip() != "0":
                 self.add(record, "ROOT_UNAVAILABLE", "privileges", "Root execution is unavailable; privileged checks may fail")
@@ -1230,8 +1251,10 @@ class NodeSession:
         record = new_record('START')
         self.node['start'] = record
         try:
+            # START re-verifies identity before the first loop; the operator is
+            # about to hand the run over, so a wrong machine still stops here.
             for role, _, _ in self.target.endpoints():
-                self.identity(record, role)
+                self.identity(record, role, strict_hostname=True)
             if self.expected_boot and record['identities']['os']['boot_id'] != self.expected_boot:
                 raise IdentityUnsafe('OS rebooted while awaiting PRE approval; reviewed baseline is no longer current')
         except IdentityUnsafe:
@@ -1304,9 +1327,10 @@ class NodeSession:
                               save_evidence=False, record_command=False)
             if self.expected_boot and record['identities']['os']['boot_id'] != self.expected_boot:
                 raise IdentityUnsafe('Unexpected OS boot transition between captures')
-            # This read is the only capture of events that arrive before the
-            # power action, so it must keep its own evidence file.
-            self.collect_dmesg(record, 'before_action_dmesg', save_evidence=True)
+            # Kernel log is read ONCE per loop, at the end (after MCTP stress), so
+            # one read-and-clear covers the whole boot and every step of this
+            # loop. A pre-action read here would duplicate that capture and put
+            # the previous loop's tail on this loop's record.
             before = self.sel_command(record, 'sel_before', 'list', save_evidence=True)
             record['sel_before_valid'] = record['commands']['sel_before']['valid']
             record['sel_before'] = before.output if record['sel_before_valid'] else ''
@@ -1410,6 +1434,13 @@ class NodeSession:
                     self.command(record, "failure_power", "oob", "power status")
                 except Exception as bmc_exc:
                     self.add(record, "BMC_UNAVAILABLE", "recovery", str(bmc_exc))
+        # The single kernel-log read for this loop. It sits outside the main
+        # try/except so a failing log read never rewrites the loop verdict: the
+        # POST either succeeded or it did not, independently of whether the log
+        # could be collected. ``dmesg -c`` here covers the whole boot plus the
+        # MCTP stress that ran a few lines above; collect_dmesg records its own
+        # failure, so nothing is raised from here.
+        self.collect_dmesg(record, 'dmesg_clear', clear=True)
         result = self.finish(record)
         self.stage("DONE")
         return result
