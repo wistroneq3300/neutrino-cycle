@@ -275,3 +275,73 @@ class FamilyVisibilityTests(unittest.TestCase):
         second_bundle = [e['text'] for i in second if i['code'] == 'DMESG_BUNDLE'
                          for e in i.get('entries', [])]
         self.assertTrue(set(first_bundle) <= set(second_bundle))
+
+
+class CrossCaptureIdentityTests(unittest.TestCase):
+    """A second device failing the same way must survive as its own finding.
+
+    Real failure this pins: 0000:01:00.0 logged ``BAR assignment failed`` on the
+    first capture, then 0000:02:00.0 logged the same text on the next one. The
+    bundle signature normalised the BDF away, so the engine's (boot, raw) delta
+    treated the second capture as a repeat and the second card never reached the
+    report -- a newly failing device was invisible on the page that is supposed
+    to prove no such thing happened.
+
+    Identity is per (device, message). Normalisation may still collapse repeats
+    for presentation, but it must never decide whether an observation exists.
+    """
+
+    def bundle(self, text):
+        return [e for e in dmesg_issues(text) if e['code'] == 'DMESG_BUNDLE']
+
+    def test_second_bdf_is_a_distinct_observation(self):
+        first = '[ 10.0] pcieport 0000:01:00.0: BAR assignment failed\n'
+        second = first + '[ 20.0] pcieport 0000:02:00.0: BAR assignment failed\n'
+        one, two = self.bundle(first), self.bundle(second)
+        self.assertEqual(len(one), 1)
+        self.assertEqual(len(two), 1)
+        # The raw signature may normalise, but the observation identity may not
+        # lose the device: that is what the delta compares.
+        devices_one = {d for e in one for d in e['device']}
+        devices_two = {d for e in two for d in e['device']}
+        self.assertIn('0000:01:00.0', devices_one)
+        self.assertIn('0000:02:00.0', devices_two)
+        self.assertNotEqual(self.identity(one[0]), self.identity(two[0]))
+
+    def identity(self, event):
+        return tuple(sorted(event.get('observations') or []))
+
+    def test_same_device_repeat_keeps_its_count(self):
+        text = ('[ 10.0] pcieport 0000:01:00.0: BAR assignment failed\n'
+                '[ 11.0] pcieport 0000:01:00.0: BAR assignment failed\n'
+                '[ 12.0] pcieport 0000:01:00.0: BAR assignment failed\n')
+        event = self.bundle(text)[0]
+        # occurrence_count is what the engine sums; it said 1 for three lines.
+        self.assertEqual(event['occurrence_count'], 3)
+        self.assertEqual(event['entries'][0]['count'], 3)
+
+    def test_multiset_delta_does_not_double_count(self):
+        text = '[ 10.0] pcieport 0000:01:00.0: BAR assignment failed\n'
+        twice = text + '[ 11.0] pcieport 0000:01:00.0: BAR assignment failed\n'
+        one = self.bundle(text)[0]
+        two = self.bundle(twice)[0]
+        self.assertEqual(one['occurrence_count'], 1)
+        self.assertEqual(two['occurrence_count'], 2)
+        # Overlapping captures: the second read repeats the first line only.
+        self.assertEqual(two['occurrence_count'] - one['occurrence_count'], 1)
+
+    def test_different_devices_same_error_are_not_swallowed(self):
+        text = ('[ 10.0] pcieport 0000:01:00.0: BAR assignment failed\n'
+                '[ 11.0] pcieport 0000:02:00.0: BAR assignment failed\n')
+        event = self.bundle(text)[0]
+        self.assertEqual(event['occurrence_count'], 2)
+        self.assertEqual(len(event['entries']), 2)
+        self.assertEqual({d for d in event['device']}, {'0000:01:00.0', '0000:02:00.0'})
+
+    def test_raw_evidence_keeps_the_original_text(self):
+        # raw is used as a dedupe key, so it may normalise for comparison, but
+        # the original line must remain readable in the evidence trail.
+        text = '[ 10.0] pcieport 0000:02:00.0: BAR assignment failed\n'
+        event = self.bundle(text)[0]
+        self.assertIn('0000:02:00.0', ' '.join(event['raw_lines_text'] if 'raw_lines_text' in event
+                                               else [e['text'] for e in event['entries']]))

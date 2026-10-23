@@ -1154,6 +1154,14 @@ def _redfish_event_key(item):
     parts = ident.split('|', 2)
     if len(parts) >= 3 and item['code'] in ('REDFISH_CRITICAL', 'REDFISH_WARNING'):
         return ('redfish', item['node'], item['code'], parts[0], parts[2])
+    if _is_dmesg(item):
+        # Merge on device + message, not on ``detail``. A bundle's detail is only
+        # a count ("2 distinct lines, 2 occurrences"), so two captures showing
+        # two different cards shared a key and the second card's evidence was
+        # dropped while its count was lost too.
+        return ('dmesg', item['node'], item['code'],
+                tuple(sorted(item.get('observations') or [])),
+                tuple(sorted(item.get('device') or [])))
     return ('other', item['node'], item['code'], item.get('component', ''), ident or item.get('detail', ''))
 
 

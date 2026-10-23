@@ -372,19 +372,34 @@ class NodeSession:
             return
         boot = record['identities'].get('os', {}).get('boot_id', '')
         events = dmesg_issues(result.output)
+        # key -> observation -> times that observation has been read. A multiset
+        # over observations, keyed by the normalised signature only for grouping.
         counts = {}
         for event in events:
-            # printk timestamp + exact raw content distinguishes repetitions;
-            # a multiset also preserves identical repeated lines in one read.
+            # The delta is over observations, not over the normalised signature.
+            # A bundle's ``raw`` folds the BDF away so a PRE bundle is not
+            # reclassified NEW on every boot, but that also made
+            # ``0000:02:00.0: BAR assignment failed`` indistinguishable from a
+            # repeat of ``0000:01:00.0`` and the second card never reached the
+            # report. Observations keep the device, so a new one counts as new.
             key = (boot, event['raw'])
-            counts[key] = counts.get(key, 0) + 1
-            if counts[key] <= self.dmesg_seen.get(key, 0):
+            observations = event.get('observations') or [event['raw']]
+            before = self.dmesg_seen.get(key, {})
+            after = counts.setdefault(key, {})
+            pending = []
+            for observation in observations:
+                after[observation] = after.get(observation, 0) + 1
+                if after[observation] > before.get(observation, 0):
+                    pending.append(observation)
+            if not pending:
                 continue
             retention = record['commands'][stem]['evidence']
             if not retention and evidence_stem:
                 folder = self.folder(record).relative_to(self.root).as_posix()
                 retention = f'{folder}/{evidence_stem}.txt'
             event.update(boot_id=boot, phase=stem, evidence=retention)
+            if event.get('observations'):
+                event['new_observations'] = pending
             record['issues'].append(event)
         if clear:
             self.dmesg_seen = {}
