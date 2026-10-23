@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="VERA Cycle 2026.10.01.2 中文測試流程與判定邏輯">
+  <meta name="description" content="VERA Cycle 2026.10.24.1 中文測試流程與判定邏輯">
   <title>VERA Cycle｜測試流程與判定邏輯</title>
   <style>
     :root {
@@ -120,7 +120,7 @@
   <header class="topbar">
     <div class="topbar-inner">
       <div class="wordmark">Wistron / VERA<span>Internal engineering test guide</span></div>
-      <div class="top-meta">VERA Cycle<br><span class="mono">2026.10.01.2</span></div>
+      <div class="top-meta">VERA Cycle<br><span class="mono">2026.10.24.1</span></div>
     </div>
   </header>
 
@@ -135,7 +135,7 @@
       <a href="#checks">檢查與 FAIL</a>
       <a href="#evidence">證據與報告</a>
       <a href="#stop">停止與復原</a>
-      <div class="version">適用版本<br><strong>2026.10.01.2</strong><br><span>以 branch codex/run2-review 的程式邏輯為準。</span></div>
+      <div class="version">適用版本<br><strong>2026.10.24.1</strong><br><span>以 final hardening branch 的程式邏輯為準。</span></div>
     </nav>
 
     <main id="main">
@@ -231,7 +231,7 @@
             <div class="step"><div><h3>Before action</h3><p>保存本輪 action 前的 OS／BMC identity 與 SEL snapshot，並以 PRE baseline 做比較。這一步是時間窗與 boot 判讀的基準。</p></div></div>
             <div class="step"><div><h3>送出 power action</h3><p>依 mode／channel 發送 reboot、power cycle 或 aux cycle。command state 會分成 SENT、RESPONSE_LOST、NOT_ISSUED 或 COMMAND_FAILED。</p><ul><li>RESPONSE_LOST 不盲目重送；後面用 boot 與 power evidence reconciliation。</li><li>NOT_ISSUED／COMMAND_FAILED 若 OS boot 維持原值，仍可進 POST，保留 action failure。</li><li>如果 action 被拒絕後觀察到額外 boot，加入 <code>UNEXPECTED_BOOT_TRANSITION</code> 並停止該 node，不採用新 boot 當 expected baseline。</li></ul></div></div>
             <div class="step"><div><h3>等待 OS recovery</h3><p>輪詢 OS identity，必須看到新的 boot ID；timeout 會停止 node。其他 endpoint 會在 OS recovery 後重新驗證。</p></div></div>
-            <div class="step"><div><h3>POST entry 與硬體 capture</h3><p>重新檢查 dmesg、PCI inventory、sensor、SEL delta、BMC firmware、chassis power、host power，並再次驗證及執行 hardware script。</p><ul><li>PCI 是和 PRE 比較，不是只看數量。</li><li>dmesg 保留完整 raw evidence；AER 多行的 BDF、status、error bit 一起形成 event identity。</li><li>正常的 NVMe shutdown timeout 設定訊息不算 failure；真正 I/O timeout、controller down、reset failure 仍會被記錄。</li></ul></div></div>
+            <div class="step"><div><h3>POST entry 與硬體 capture</h3><p>重新檢查 PCI inventory、sensor、SEL delta、BMC firmware、chassis power、host power，並再次驗證及執行 hardware script；正常 loop 最後才執行一次 <code>dmesg -c</code>。</p><ul><li>PCI 是和 PRE 比較，不是只看數量。</li><li>dmesg 不增加 reboot 前或 early-POST capture，完整 raw evidence 保留；同錯誤實際重複次數照實計數，不同 BDF 分開。</li><li>正常的 NVMe shutdown timeout 設定訊息不算 failure；真正 I/O timeout、controller down、reset failure 仍會被記錄。</li></ul></div></div>
             <div class="step"><div><h3>POST 結束 gate</h3><p>POST 完成前會再次確認 OS identity 沒有在檢查中多重開機。最後才計算 <code>post_complete</code>、<code>boot_confirmed</code> 與 <code>valid_cycle</code>。</p></div></div>
           </div>
         </div>
@@ -250,7 +250,7 @@
             <tr><td><strong>PCIe link</strong></td><td>一般 Endpoint 的 LnkSta、RCiEP／RCEC device type、link speed／width</td><td>一般 Endpoint 缺 LnkSta、access denied、宣告 LnkCap 卻缺 LnkSta、link downgrade</td><td><span class="status fail">硬體 FAIL</span></td></tr>
             <tr><td><strong>RCiEP / RCEC</strong></td><td>是否為 Root Complex Integrated Endpoint／Event Collector；是否真的提供 optional link</td><td>有 link 卻 invalid 或 downgrade</td><td>沒有 physical link capability 時 <span class="status na">N/A</span></td></tr>
             <tr><td><strong>Sensor</strong></td><td>名稱、format、value、status、缺失與恢復 reread</td><td>malformed row、控制字元、critical status、消失且確認 reread 仍缺</td><td><span class="status fail">FAIL</span>；收集失敗會明確標示</td></tr>
-            <tr><td><strong>dmesg</strong></td><td>AER、EDAC、APEI、NVMe、kernel 等事件與 PRE fingerprint</td><td>native severity 為 failure、NEW event、WORSENED count／severity</td><td>Known 仍影響 health；不代表 causal proof</td></tr>
+            <tr><td><strong>dmesg</strong></td><td>AER、EDAC、APEI、NVMe、kernel 等事件與裝置 identity</td><td>native severity、NEW／KNOWN／RECURRENCE 與 WARN→FAIL 區段</td><td>Known 仍影響 health；UNAVAILABLE 不代表恢復</td></tr>
             <tr><td><strong>SEL</strong></td><td>Before／POST snapshot 的 new event delta</td><td>無法讀取、格式不合法、delta 不可判讀</td><td><span class="status warn">REVIEW</span>；不把 0 new 等同 cumulative empty</td></tr>
             <tr><td><strong>Power</strong></td><td>Chassis Power is on、BMC host running</td><td>電源不是 on 或 host 狀態不符</td><td><span class="status fail">FAIL</span></td></tr>
             <tr><td><strong>Hardware execution gate</strong></td><td>transport state、exit code、唯一 final RESULT、script SHA</td><td>NOT_ISSUED、timeout、syntax、缺 final RESULT、exit／RESULT 不一致</td><td><span class="status fail">PRE BLOCK / POST STOP</span></td></tr>
@@ -314,7 +314,7 @@
       </section>
     </main>
   </div>
-  <footer>VERA Cycle internal engineering guide · version 2026.10.01.2 · 本頁只說明程式邏輯；真機驗收仍需在受控環境執行。</footer>
+  <footer>VERA Cycle internal engineering guide · version 2026.10.24.1 · 本頁只說明程式邏輯；真機驗收仍需在受控環境執行。</footer>
   <script>
     (() => {
       'use strict';

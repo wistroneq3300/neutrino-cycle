@@ -266,7 +266,7 @@ class MalformedCollectionTests(RedfishSessionCase):
     def test_members_not_a_list_is_collection_failure(self):
         self.fake.eventlog_pages = [{"Members": "not-an-array"}]
         record = self.collect()
-        self.assertEqual(record['eventlog_meta']['status'], 'FAILED')
+        self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
         self.assertEqual(record['status'], 'FAIL')
         self.assertIn('REDFISH_COLLECTION_FAILED', [i['code'] for i in record['issues']])
         self.assertNotEqual(record['check_summary'].get('eventlog'), 'PASS')
@@ -274,13 +274,13 @@ class MalformedCollectionTests(RedfishSessionCase):
     def test_truncated_json_is_collection_failure(self):
         self.fake.eventlog_pages = [Command(0, '{"Members": [')]
         record = self.collect()
-        self.assertEqual(record['eventlog_meta']['status'], 'FAILED')
+        self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
         self.assertEqual(record['status'], 'FAIL')
 
     def test_missing_members_key_is_collection_failure(self):
         self.fake.eventlog_pages = [{}]
         record = self.collect()
-        self.assertEqual(record['eventlog_meta']['status'], 'FAILED')
+        self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
         self.assertNotEqual(record['status'], 'PASS')
 
     def test_valid_empty_collection_is_pass(self):
@@ -313,7 +313,8 @@ class PaginationTests(RedfishSessionCase):
         record = self.collect()
         meta = record['eventlog_meta']
         self.assertFalse(meta['complete'])
-        self.assertEqual(meta['status'], 'FAILED')
+        self.assertEqual(meta['status'], 'UNAVAILABLE')
+        self.assertEqual(meta['verdict'], 'UNAVAILABLE')
         self.assertEqual(record['status'], 'FAIL')
         self.assertNotEqual(record['check_summary'].get('eventlog'), 'PASS')
         self.assertEqual(len(record['eventlog_entries']), 1)
@@ -324,7 +325,7 @@ class PaginationTests(RedfishSessionCase):
         self.fake.eventlog_pages = [page, page, page]
         record = self.collect()
         self.assertFalse(record['eventlog_meta']['complete'])
-        self.assertEqual(record['eventlog_meta']['status'], 'FAILED')
+        self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
 
     def test_pagination_max_pages_is_bounded(self):
         # The cap test must actually reach the cap: the fake serves every page
@@ -347,7 +348,7 @@ class PaginationTests(RedfishSessionCase):
         # Reached the cap -> incomplete, and the engine made exactly MAX_PAGES
         # requests for that path (not one, and not an unbounded number).
         self.assertFalse(meta['complete'])
-        self.assertEqual(meta['status'], 'FAILED')
+        self.assertEqual(meta['status'], 'UNAVAILABLE')
         self.assertIn('exceeded', meta['reason'])
         self.assertEqual(self.fake.requests.get(entries_path), self.session.REDFISH_MAX_PAGES)
         self.assertEqual(len(generated), self.session.REDFISH_MAX_PAGES)
@@ -483,7 +484,7 @@ class ConsistencyTests(RedfishSessionCase):
         self.fake.redfish_sel_present = True
         self.fake.sel_pages = [Command(500, 'err', 'HTTP_ERROR', http_status=500)]
         self.session.collect_redfish(record); self.session.finish(record)
-        self.assertEqual(record['redfish_sel_meta']['status'], 'FAILED')
+        self.assertEqual(record['redfish_sel_meta']['status'], 'UNAVAILABLE')
         self.assertEqual(record['status'], 'FAIL')
         # (3) collected successfully with no events -> COLLECTED / PASS
         record['issues'].clear()
@@ -613,7 +614,7 @@ class MemberValidityTests(RedfishSessionCase):
         # (A) [null, 7] is a corrupt collection.
         self.fake.eventlog_pages = [{"Members": [None, 7]}]
         record = self.collect()
-        self.assertEqual(record['eventlog_meta']['status'], 'FAILED')
+        self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
         self.assertEqual(record['status'], 'FAIL')
         self.assertNotEqual(record['check_summary'].get('eventlog'), 'PASS')
 
@@ -677,6 +678,7 @@ class LogServicesPaginationTests(RedfishSessionCase):
         record = self.collect()
         self.assertIsNone(record['eventlog_meta']['present'])
         self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
+        self.assertEqual(record['eventlog_meta']['verdict'], 'UNAVAILABLE')
         self.assertEqual(record['status'], 'FAIL')
         self.assertNotEqual(record['check_summary'].get('eventlog'), 'PASS')
 
@@ -923,21 +925,27 @@ class HttpGateTests(unittest.TestCase):
     """_redfish must never report success without a confirmed HTTP success."""
 
     def _run(self, status_text, body='', exit_code=0):
-        import os
-        import stat
-        import tempfile
         from vera_cycle.core.cycle_transport import Transport
-        tmpd = tempfile.mkdtemp()
-        p = Path(tmpd) / 'curl'
-        p.write_text("#!/usr/bin/env sh\ncat <<'B'\n" + body + "\nB\nprintf '\\n__VERA_HTTP_STATUS__:" + status_text + "'\nexit " + str(exit_code) + "\n")
-        p.chmod(p.stat().st_mode | stat.S_IEXEC)
-        tr = Transport({}, Path(tmpd) / 'kh')
-        old = os.environ['PATH']
-        os.environ['PATH'] = tmpd + os.pathsep + old
-        try:
-            return tr._redfish(['https://bmc/x'], 5)
-        finally:
-            os.environ['PATH'] = old
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmpd:
+            tr = Transport({}, Path(tmpd) / 'kh')
+            returned = SimpleNamespace(
+                returncode=exit_code,
+                stdout=f'{body}\n__VERA_HTTP_STATUS__:{status_text}', stderr='',
+            )
+            with patch('vera_cycle.core.cycle_transport.shutil.which', return_value='curl'), \
+                    patch('vera_cycle.core.cycle_transport.subprocess.run', return_value=returned):
+                return tr._redfish(['https://bmc/x'], 5)
+
+    def _run_without_marker(self, body, exit_code=0):
+        from vera_cycle.core.cycle_transport import Transport
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmpd:
+            tr = Transport({}, Path(tmpd) / 'kh')
+            returned = SimpleNamespace(returncode=exit_code, stdout=body, stderr='')
+            with patch('vera_cycle.core.cycle_transport.shutil.which', return_value='curl'), \
+                    patch('vera_cycle.core.cycle_transport.subprocess.run', return_value=returned):
+                return tr._redfish(['https://bmc/x'], 5)
 
     def test_redirect_is_not_success(self):
         r = self._run('302')
@@ -946,21 +954,7 @@ class HttpGateTests(unittest.TestCase):
         self.assertEqual(r.http_status, 302)
 
     def test_missing_marker_is_not_success(self):
-        import os
-        import stat
-        import tempfile
-        from vera_cycle.core.cycle_transport import Transport
-        tmpd = tempfile.mkdtemp()
-        p = Path(tmpd) / 'curl'
-        p.write_text("#!/usr/bin/env sh\necho 'connection refused'\nexit 0\n")
-        p.chmod(p.stat().st_mode | stat.S_IEXEC)
-        tr = Transport({}, Path(tmpd) / 'kh')
-        old = os.environ['PATH']
-        os.environ['PATH'] = tmpd + os.pathsep + old
-        try:
-            r = tr._redfish(['https://bmc/x'], 5)
-        finally:
-            os.environ['PATH'] = old
+        r = self._run_without_marker('connection refused\n')
         self.assertNotEqual(r.code, 0, 'missing status marker must not be a success')
 
     def test_malformed_marker_is_not_success(self):
@@ -1020,21 +1014,21 @@ class ReferencedEntryIntegrityTests(RedfishSessionCase):
     def test_truncated_reference_is_collection_failure(self):
         self._reference_only('{')
         record = self.collect()
-        self.assertEqual(record['eventlog_meta']['status'], 'FAILED')
+        self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
         self.assertNotEqual(record['status'], 'PASS')
         self.assertIn('REDFISH_COLLECTION_FAILED', [i['code'] for i in record['issues']])
 
     def test_empty_object_reference_is_collection_failure(self):
         self._reference_only('{}')
         record = self.collect()
-        self.assertEqual(record['eventlog_meta']['status'], 'FAILED')
+        self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
         self.assertNotEqual(record['status'], 'PASS')
         self.assertIn('REDFISH_COLLECTION_FAILED', [i['code'] for i in record['issues']])
 
     def test_missing_identity_reference_is_collection_failure(self):
         self._reference_only(json.dumps({"Severity": "OK"}))
         record = self.collect()
-        self.assertEqual(record['eventlog_meta']['status'], 'FAILED')
+        self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
         self.assertNotEqual(record['status'], 'PASS')
 
     def test_valid_warning_reference_is_a_warn_finding(self):
@@ -1068,7 +1062,7 @@ class ReferencedEntryIntegrityTests(RedfishSessionCase):
         self.fake.routes[self.REF] = Command(0, '{}')
         self.fake.eventlog_pages = [{"Members": [{"@odata.id": good}, {"@odata.id": self.REF}]}]
         record = self.collect()
-        self.assertEqual(record['eventlog_meta']['status'], 'FAILED')
+        self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
         self.assertNotEqual(record['status'], 'PASS')
 
 

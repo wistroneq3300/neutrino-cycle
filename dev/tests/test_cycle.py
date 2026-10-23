@@ -650,8 +650,8 @@ class EngineTests(unittest.TestCase):
     def test_wrong_hostname_blocks_pre_before_any_change(self):
         # PRE runs before any log is cleared, so a machine that does not match
         # the inventory must be refused there -- the operator has not yet handed
-        # the node over. (During the loops a mismatch only warns; see
-        # test_post_hostname_mismatch_keeps_running_with_warning.)
+        # the node over. During loops a mismatch fails that loop without
+        # stopping an otherwise operable node.
         self.fake.mismatch = True
         self.session.precheck()
         self.assertTrue(self.session.node['blocked'])
@@ -661,7 +661,7 @@ class EngineTests(unittest.TestCase):
         self.assertFalse(any(cmd == 'dmesg -C' for _, _, cmd in self.fake.calls))
         self.assertFalse(any(cmd == 'sel clear' for _, _, cmd in self.fake.calls))
 
-    def test_empty_hostname_during_loop_warns(self):
+    def test_empty_hostname_during_loop_fails_but_continues(self):
         # A blank reply used to pass silently: the check required both values to
         # be non-empty. "No name where one is expected" is itself a signal.
         self.ready()
@@ -680,8 +680,9 @@ class EngineTests(unittest.TestCase):
         with patch.object(self.fake, 'ssh', side_effect=ssh):
             result = self.session.one_loop(1)
         self.assertTrue(self.session.node['active'])
-        codes = [i['code'] for i in result['issues']]
-        self.assertIn('HOSTNAME_MISMATCH', codes)
+        finding = next(i for i in result['issues'] if i['code'] == 'HOSTNAME_MISMATCH')
+        self.assertEqual(finding['severity'], 'FAIL')
+        self.assertEqual(result['status'], 'FAIL')
 
     def test_empty_hostname_blocks_pre(self):
         original = self.fake.ssh
@@ -709,13 +710,15 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(next(i for i in result['issues'] if i['code'] == 'DMESG_COLLECT_FAILED')['severity'], 'WARN')
         self.assertTrue(result['valid_cycle'])
 
-    def test_post_hostname_mismatch_keeps_running_with_warning(self):
+    def test_post_hostname_mismatch_fails_loop_and_keeps_running(self):
         self.ready()
         self.fake.on_action = lambda: setattr(self.fake, 'mismatch', True)
         result = self.session.one_loop(1)
-        # Still active so the campaign continues; a warning is recorded instead.
+        # Still active so the campaign continues, while this loop remains FAIL.
         self.assertTrue(self.session.node['active'])
-        self.assertIn('HOSTNAME_MISMATCH', [i['code'] for i in result['issues']])
+        finding = next(i for i in result['issues'] if i['code'] == 'HOSTNAME_MISMATCH')
+        self.assertEqual(finding['severity'], 'FAIL')
+        self.assertEqual(result['status'], 'FAIL')
 
     def test_bmc_transient_after_os_boot_retries(self):
         self.options.boot_timeout=.5
@@ -923,7 +926,7 @@ class EngineTests(unittest.TestCase):
         self.assertIn('&lt;script&gt;alert(1)&lt;/script&gt;',page)
         self.assertIn('KNOWN',page)
         self.assertTrue((output/'known_issues.md').exists())
-        console_log = (output/'console.log').read_text()
+        console_log = (output/'console.log').read_text(encoding='utf-8')
         self.assertEqual(console_log.count('| PRE |'), 1)
         self.assertIn('| log clearing | PASS', console_log)
         self.assertEqual(rebuild(output)['state'],'COMPLETE')
@@ -937,7 +940,7 @@ class EngineTests(unittest.TestCase):
             self.run_campaign()
         output=next(self.options.output.iterdir())
         self.assertTrue(output.name.startswith('neutrino_power_cycle_inband_20260929_160000_'),output.name)
-        self.assertIn('Time zone: UTC+8 (local time in Run ID',(output/'console.log').read_text())
+        self.assertIn('Time zone: UTC+8 (local time in Run ID',(output/'console.log').read_text(encoding='utf-8'))
 
     def test_graceful_stop_keeps_current_loop_post(self):
         def callback():
@@ -981,7 +984,7 @@ class EngineTests(unittest.TestCase):
         self.run_campaign()
         output=next(self.options.output.iterdir())
         path=journal_path(output)
-        data=json.loads(path.read_text())
+        data=json.loads(path.read_text(encoding='utf-8'))
         data['state']='RUNNING'
         # Simulate a crashed former process, not this still-live test owner.
         data['writer_owner']['process_token'] = 'terminated-test-owner'

@@ -116,7 +116,9 @@ class SessionRedfishTests(unittest.TestCase):
         self.session.precheck()
         record = self.session.node['pre']
         self.assertIn('REDFISH_UNAVAILABLE', [i['code'] for i in record['issues']])
-        self.assertFalse(record.get('eventlog_meta'))
+        self.assertEqual(record['eventlog_meta']['status'], 'UNAVAILABLE')
+        self.assertEqual(record['eventlog_meta']['verdict'], 'UNAVAILABLE')
+        self.assertFalse(record['eventlog_meta']['complete'])
         self.assertFalse(self.session.node['blocked'])
 
     def test_pre_clears_redfish_logs(self):

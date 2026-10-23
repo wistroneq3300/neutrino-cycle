@@ -21,7 +21,7 @@
 
 | # | 嚴重度 | 檔案 : 位置 | 議題 | 建議 | 狀態 |
 |---|---|---|---|---|---|
-| 9 | 低 | `cycle_engine.py` `identity`（~252） | hostname 不符目前是 WARN | **維持 WARN**（硬擋會與 inventory placeholder 需求衝突、打字錯誤會鎖全批）；若要嚴，改為節點級 strict | 依使用者指示不動 |
+| 9 | 高 | `cycle_engine.py` `identity` | hostname 舊規則為 WARN | **已由 2026-10-24 最終決策取代並修復**：PRE 空白/不符 BLOCKED、START 不符禁止開始、LOOP 空白/不符 FAIL 但可操作 node 繼續；同輪 FAIL 不會被洗掉 | `test_final_hardening.FinalHostnameDecisionTests` 與更新後 `test_cycle` |
 | 10 | 低 | legacy journal | 舊 journal 只有扁平 id，仍有理論碰撞 | 可選一次性 migration（建議先不做） | 待決策 |
 | 11 | 資訊 | `stop_cycle.sh` 非 force 路徑 | `--status` 與 `$@` 傳遞 | 已確認 `STATUS` 分支提前 exit，無誤傳 | 無需修 |
 

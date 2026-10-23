@@ -1,5 +1,6 @@
 """Generate synthetic review data without constructing any hardware transport."""
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from vera_cycle import paths
@@ -7,12 +8,15 @@ from vera_cycle.core.cycle_core import *
 from vera_cycle.engine.cycle_engine import new_record
 from vera_cycle.reporting.cycle_report import write_reports
 
-def build(output, count=3):
+def build(output, count=3, loops=3):
     nodes=[]
     for index in range(1,count+1):
         t=Target('L105-21R',f'n{index}',f'198.18.{index}.1',f'198.18.{index}.2',f'example-bmc-{index}',f'example-os-{index}')
-        node=dict(key=t.key,target=t.__dict__,blocked=[],active=True,completed=3,stop_reason='',pre=new_record('PRE'),loops=[])
-        for number in range(4):
+        node=dict(key=t.key,target=t.__dict__,blocked=[],active=True,completed=loops,
+                  attempts=loops,boot_confirmed=loops,valid_cycles=loops,
+                  stop_reason='',pre=new_record('PRE'),loops=[])
+        base_time = datetime(2026, 9, 29, 16, 0, tzinfo=timezone(timedelta(hours=8)))
+        for number in range(loops + 1):
             record=node['pre'] if number==0 else new_record(f'LOOP {number}')
             if number:
                 record.update(loop=number,post_complete=True)
@@ -30,7 +34,9 @@ def build(output, count=3):
             for item in record['issues']:
                 item['evidence']=path
             classify_against_pre(record['issues'], {(i['code'], i['component']) for i in node['pre']['issues']} if number else set())
-            record.update(status=health(record['issues']),started=f'2026-09-29T16:{number*10:02d}:00+08:00',finished=f'2026-09-29T16:{number*10+8:02d}:00+08:00')
+            record.update(status=health(record['issues']),
+                          started=(base_time + timedelta(minutes=number)).isoformat(),
+                          finished=(base_time + timedelta(minutes=number, seconds=30)).isoformat())
             record['evidence']=[path]
             record['duration_seconds'] = 480
             if number:
@@ -38,11 +44,13 @@ def build(output, count=3):
                 record['sel_status'] = 'REVIEW REQUIRED'
             atomic_write(output/path,'SYNTHETIC EXAMPLE — no hardware operated\n'+ '\n'.join(i['detail'] for i in record['issues'])+'\n')
         nodes.append(node)
-    campaign=dict(run_id='neutrino_DEMO_20260929_160000',project='neutrino',started='2026-09-29T16:00:00+08:00',finished='2026-09-29T16:38:00+08:00',
-                  state='COMPLETE',stop_reason=f'All 3 requested loops completed on {count} approved nodes.',cycle_mode='power_cycle',channel='inband',limits=dict(loops=3,hours=0),
+    campaign=dict(run_id='neutrino_DEMO_20260929_160000',project='neutrino',started=base_time.isoformat(),finished=(base_time + timedelta(minutes=loops, seconds=30)).isoformat(),
+                  state='COMPLETE',stop_reason=f'All {loops} requested loops completed on {count} approved nodes.',cycle_mode='power_cycle',channel='inband',limits=dict(loops=loops,hours=0),
                   script_sha256=digest(paths.project_config_path('neutrino').read_bytes()),nodes=nodes,synthetic=True)
     atomic_write(output/'console.log', '2026-09-29T16:00:00+08:00 Run ID: neutrino_DEMO_20260929_160000\n2026-09-29T16:01:00+08:00 L105-21R_n1 | LOOP 1 | FAIL\n')
     write_reports(output,campaign)
 
 if __name__=='__main__':
-    build(Path(sys.argv[1]) if len(sys.argv)>1 else Path('test-results/demo'), int(sys.argv[2]) if len(sys.argv)>2 else 3)
+    build(Path(sys.argv[1]) if len(sys.argv)>1 else Path('test-results/demo'),
+          int(sys.argv[2]) if len(sys.argv)>2 else 3,
+          int(sys.argv[3]) if len(sys.argv)>3 else 3)

@@ -6,12 +6,17 @@ smoke test covers the raw-key reader.
 """
 import io
 import os
-import pty
-import select as select_module
 import sys
 import tempfile
 import time
 import unittest
+
+try:
+    import pty
+    import select as select_module
+except (ImportError, ModuleNotFoundError):  # Windows has no POSIX pseudo-terminal module.
+    pty = None
+    select_module = None
 
 from vera_cycle.core.cycle_core import Target, select_targets
 from vera_cycle.cli import (
@@ -147,6 +152,7 @@ class TraySelectionTests(unittest.TestCase):
         self.assertEqual(resolved, ['ETF1_n0', 'ETF1_n1', 'ETF3_n4'])
 
 
+@unittest.skipUnless(pty is not None, 'pseudo-terminal requires POSIX')
 class RealTerminalTests(unittest.TestCase):
     """Drive the raw key reader through a pseudo-terminal.
 

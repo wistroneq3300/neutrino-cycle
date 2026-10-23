@@ -1,5 +1,11 @@
 # Refactor verification
 
+## Release 2026.10.24.1 — final hardening
+
+**426 offline tests: 404 PASS, 0 FAIL, 0 ERROR, 22 explicit environment SKIP.** The skipped cases require Bash, a POSIX pseudo-terminal, or a Linux root/cross-UID environment that is not present on this Windows validation host. They are not counted as passes. The final-hardening regression module contributes 17 passing tests for strict hostname handling, exact dmesg occurrence/device accounting, issue lifecycle, terminal-only HTML, output-state history, recovery discovery/rebuild/skip, 4-node × 280-loop scale, and delivery ZIP contents. Python compilation, diff checks, CLI smoke checks, and an actual headless Chrome open of the generated 4-node × 280-loop synthetic report also passed. No physical power action, rack SSH, OS/BMC mutation, or live-hardware acceptance was performed.
+
+The controlled acceptance record, all 21 requested regression outcomes, decision traceability, and remaining environment limitations are documented in [FINAL_HARDENING_2026-10-24.md](../docs/FINAL_HARDENING_2026-10-24.md). All older release results below are historical.
+
 ## Release 2026.10.01.2 — Run 2
 
 **143 offline tests: 142 PASS, 1 explicit Linux-root cross-UID environment SKIP, 0 failures/errors.** Includes 28 new Run 2 tests and all 115 original tests. Bash syntax (three scripts), Python AST (nine production modules), version output, diff checks and Chrome desktop/128-node report checks passed. Nine selected new tests against untouched `b148a73` produced 17 expected assertion failures and zero errors as a negative control. No reviewer ZIP or live rack was used. See [finding-by-finding evidence and limits](../docs/RUN2_IMPLEMENTATION.md). All older release results below are historical.

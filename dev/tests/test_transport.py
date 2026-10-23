@@ -1,34 +1,14 @@
 """Transport failure behavior without connecting to an endpoint."""
 import tempfile
 import os
-import stat
 import threading
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from vera_cycle.core.cycle_core import Target
 from vera_cycle.core.cycle_transport import Transport
-
-
-def _fake_curl(directory, status, body='{"Members": []}', exit_code=0):
-    """Write a curl stub that always prints ``body`` and ``status`` then exits.
-
-    curl with -s and no -f exits 0 even for a 4xx/5xx response, so the stub
-    mirrors that: the HTTP status is only visible through the ``-w`` marker.
-    """
-    path = Path(directory) / 'curl'
-    script = (
-        "#!/usr/bin/env sh\n"
-        "cat <<'VERA_BODY'\n"
-        f"{body}\n"
-        "VERA_BODY\n"
-        f"printf '\\n__VERA_HTTP_STATUS__:{status}'\n"
-        f"exit {exit_code}\n"
-    )
-    path.write_text(script, encoding='utf-8')
-    path.chmod(path.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-    return directory
 
 
 class RedfishHTTPStatusTests(unittest.TestCase):
@@ -36,14 +16,14 @@ class RedfishHTTPStatusTests(unittest.TestCase):
 
     def _run(self, status, body='{"Members": []}', exit_code=0):
         with tempfile.TemporaryDirectory() as temp:
-            directory = _fake_curl(temp, status, body, exit_code)
             transport = Transport({}, Path(temp) / 'known')
-            old = os.environ['PATH']
-            os.environ['PATH'] = directory + os.pathsep + old
-            try:
+            returned = SimpleNamespace(
+                returncode=exit_code,
+                stdout=f'{body}\n__VERA_HTTP_STATUS__:{status}', stderr='',
+            )
+            with patch('vera_cycle.core.cycle_transport.shutil.which', return_value='curl'), \
+                    patch('vera_cycle.core.cycle_transport.subprocess.run', return_value=returned):
                 result = transport._redfish(['https://bmc/redfish/v1/Systems'], 5)
-            finally:
-                os.environ['PATH'] = old
             return result
 
     def test_http_200_is_success(self):

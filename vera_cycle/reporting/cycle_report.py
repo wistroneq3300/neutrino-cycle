@@ -7,6 +7,8 @@ import html
 import json
 import os
 import re
+import tempfile
+import zipfile
 from collections import Counter
 from pathlib import Path
 from urllib.parse import quote
@@ -149,9 +151,15 @@ def evidence_link(path):
 
 def status(campaign):
     items = aggregate_issues(campaign)
+    lifecycle = [
+        {_norm_class(event.get('classification', item.get('classification', 'KNOWN')))
+         for event in item.get('occurrences', [])} or {_norm_class(item.get('classification', 'KNOWN'))}
+        for item in items
+    ]
     return {"health": health(items), "completion": campaign["state"],
-            "unique_issues": len(items), "known": sum(i["classification"] == "KNOWN" for i in items),
-            "new": sum(i["classification"] == "NEW" for i in items),
+            "unique_issues": len(items), "known": sum('KNOWN' in states for states in lifecycle),
+            "new": sum('NEW' in states for states in lifecycle),
+            "recurrence": sum('RECURRENCE' in states for states in lifecycle),
             "escalated": sum(bool(i.get("severity_changed")) for i in items),
             "attempted_node_loops": sum(n.get("attempts", len(n["loops"])) for n in campaign["nodes"]),
             "valid_node_cycles": sum(n.get("valid_cycles", 0) for n in campaign["nodes"]),
@@ -238,6 +246,8 @@ def _issue_title(item):
         # error/fail lines no family pattern claimed.
         label = 'fail/error' if component == 'bundle' else component
         component = 'Dmesg-' + label
+    if code == 'DMESG_BUNDLE' and item.get('device'):
+        component += ':' + ','.join(str(device) for device in item['device'])
     return f'{node} / {esc(component)}'
 
 
@@ -306,6 +316,8 @@ def _issue_title(item):
         # error/fail lines no family pattern claimed.
         label = 'fail/error' if component == 'bundle' else component
         component = 'Dmesg-' + label
+    if code == 'DMESG_BUNDLE' and item.get('device'):
+        component += ':' + ','.join(str(device) for device in item['device'])
     return f'{node} / {esc(component)}'
 
 
@@ -873,7 +885,7 @@ def _render_redfish(record):
             continue
         if meta.get('status') != 'COLLECTED':
             ev = _record_evidence(record, meta.get('evidence'))
-            blocks.append(f'<div class="sel-panel"><h3>{label}</h3><p>Collection: {badge("COLLECTION FAILED")} · '
+            blocks.append(f'<div class="sel-panel"><h3>{label}</h3><p>Collection: {badge("UNAVAILABLE")} · '
                           f'{esc(meta.get("reason", ""))} · Evidence: {ev}</p></div>')
             continue
         verdict = meta.get('verdict', 'PASS')
@@ -1141,19 +1153,21 @@ def _loop_ranges(phases):
 
 
 def _redfish_event_key(item):
-    """Merge key for one Redfish event: node + code + service + message.
+    """Merge key for one Redfish event: node + service + message.
 
     ``identity`` is '<service>|<id>|<message>'. The event id is dropped so the
     per-loop repeats of one event collapse into a single card, but the service
     name is kept: EventLog and SEL are separate logs on the same BMC, and the
-    same message text in both is two sources, not one repeated event.
+    same message text in both is two sources, not one repeated event. Severity
+    code is omitted so Warning→Critical becomes a segment in the same card.
     """
     ident = item.get('identity') or ''
     # Split at most twice: a vendor message may itself contain '|', and an
     # unbounded split would keep a truncated message as the merge key.
     parts = ident.split('|', 2)
     if len(parts) >= 3 and item['code'] in ('REDFISH_CRITICAL', 'REDFISH_WARNING'):
-        return ('redfish', item['node'], item['code'], parts[0], parts[2])
+        # Severity/code changes are segments of the same service+message card.
+        return ('redfish', item['node'], parts[0], parts[2])
     if _is_dmesg(item):
         # Merge on device + message, not on ``detail``. A bundle's detail is only
         # a count ("2 distinct lines, 2 occurrences"), so two captures showing
@@ -1190,7 +1204,57 @@ def merge_issues(items):
         if item.get('classification') == 'NEW':
             entry['classification'] = 'NEW'
             entry['known_reason'] = item.get('known_reason', '')
-    return [merged[k] for k in order]
+    result = []
+    lifecycle_rank = {'KNOWN': 0, 'RECURRENCE': 1, 'NEW': 2}
+    for key in order:
+        entry = merged[key]
+        classes = list(dict.fromkeys(
+            event.get('classification', entry.get('classification', 'KNOWN'))
+            for event in entry['occurrences']
+        ))
+        entry['codes'] = list(dict.fromkeys(
+            event.get('code', entry.get('code', '')) for event in entry['occurrences']
+        ))
+        entry['classifications'] = classes
+        entry['classification'] = max(classes or ['KNOWN'], key=lambda v: lifecycle_rank.get(v, 0))
+        entry['segments'] = _issue_segments(entry['occurrences'])
+        result.append(entry)
+    return result
+
+
+def _issue_segments(events):
+    """Split one issue into consecutive lifecycle/severity loop segments."""
+    segments = []
+    last_loop = None
+    for event in events:
+        phase = str(event.get('phase', ''))
+        match = re.fullmatch(r'LOOP\s+(\d+)', phase, re.I)
+        loop_number = int(match.group(1)) if match else None
+        classification = _norm_class(event.get('classification', 'KNOWN'))
+        severity = event.get('severity', 'FAIL')
+        # Detail/snippet often contain per-loop counts or timestamps. They are
+        # evidence, not lifecycle boundaries: approved segmentation changes only
+        # on a gap, lifecycle state, or severity transition.
+        signature = (classification, severity)
+        consecutive = (loop_number is not None and last_loop is not None
+                       and loop_number in {last_loop, last_loop + 1})
+        same_non_loop = loop_number is None and segments and phase == segments[-1]['phases'][-1]
+        if (segments and segments[-1]['signature'] == signature
+                and (consecutive or same_non_loop)):
+            segment = segments[-1]
+        else:
+            segment = dict(
+                signature=signature, classification=classification,
+                severity=severity, phases=[], occurrence_count=0,
+                detail=event.get('detail', ''), snippet=event.get('snippet', ''),
+            )
+            segments.append(segment)
+        segment['phases'].append(phase)
+        segment['occurrence_count'] += int(event.get('occurrence_count', 1) or 1)
+        last_loop = loop_number
+    for segment in segments:
+        segment.pop('signature', None)
+    return segments
 
 
 def issue_cards_compact(items, indices):
@@ -1206,52 +1270,44 @@ def issue_cards_compact(items, indices):
     for item in sorted(items, key=lambda x: (x['severity'] != 'FAIL', x['node'], x['code'])):
         i = indices[item['node']]
         events = item['occurrences']
-
-        # Group occurrences by identical finding (detail + snippet) so a fault
-        # repeated every loop becomes one row with a loop-range phase.
-        groups = []
-        by_key = {}
-        for event in events:
-            key = (event.get('detail') or item.get('detail') or '', event.get('snippet') or '')
-            grp = by_key.get(key)
-            if grp is None:
-                grp = {'detail': key[0], 'snippet': key[1], 'phases': [], 'count': 0}
-                by_key[key] = grp
-                groups.append(grp)
-            grp['phases'].append(event['phase'])
-            grp['count'] += 1
+        groups = item.get('segments') or _issue_segments(events)
 
         body_rows = []
         for grp in groups:
             phase = _loop_ranges(grp['phases'])
             source = f'<pre class="snippet">{esc(grp["snippet"])}</pre>' if grp.get('snippet') else ''
-            count = f' <span class="muted">({grp["count"]}&times;)</span>' if grp['count'] > 1 else ''
-            body_rows.append(f'<tr><td>{esc(phase)}</td><td>{esc(grp["detail"])}{count}{source}</td></tr>')
-        table = ('<div class="tablewrap"><table><thead><tr><th>Phase</th>'
-                 '<th>Finding and source</th></tr></thead><tbody>' + ''.join(body_rows) +
+            count = f' <span class="muted">({grp["occurrence_count"]}&times;)</span>' if grp['occurrence_count'] > 1 else ''
+            body_rows.append(f'<tr><td>{esc(phase)}</td><td>{badge(grp["classification"])}</td>'
+                             f'<td>{badge(grp["severity"])}</td><td>{esc(grp["detail"])}{count}{source}</td></tr>')
+        table = ('<div class="tablewrap"><table><thead><tr><th>Phase</th><th>Lifecycle</th>'
+                 '<th>Severity</th><th>Finding and source</th></tr></thead><tbody>' + ''.join(body_rows) +
                  '</tbody></table></div>')
 
         scope = _loop_ranges(e['phase'] for e in events)
+        actual_count = sum(int(e.get('occurrence_count', 1) or 1) for e in events)
+        classes = item.get('classifications') or list(dict.fromkeys(
+            _norm_class(e.get('classification', item.get('classification', 'KNOWN'))) for e in events))
+        class_badges = ''.join(badge(value) for value in classes)
         open_attr = ' open' if not opened and item['severity'] == 'FAIL' else ''
         opened = opened or bool(open_attr)
-        rows.append(f'''<details class="issue-row" data-severity="{esc(item['severity'])}" data-classification="{esc(item['classification'])}"{open_attr}><summary>{badge(item['severity'])}<span class="issue-title">{_issue_title(item)}</span> {badge(item['classification'])}<span class="issue-meta">{esc(item['code'])} &middot; {len(events)} occurrence(s) &middot; {esc(scope)}</span></summary><div class="detail-body"><details><summary>All occurrences ({len(events)})</summary>{table}</details></div></details>''')
+        codes = ' / '.join(item.get('codes') or [item['code']])
+        rows.append(f'''<details class="issue-row" data-severity="{esc(item['severity'])}" data-classification="{esc(' '.join(classes))}"{open_attr}><summary>{badge(item['severity'])}<span class="issue-title">{_issue_title(item)}</span> {class_badges}<span class="issue-meta">{esc(codes)} &middot; {actual_count} occurrence(s) &middot; {esc(scope)}</span></summary><div class="detail-body"><details><summary>Lifecycle segments ({len(groups)})</summary>{table}</details></div></details>''')
     return ''.join(rows) or '<p>No issues recorded.</p>'
 
 
 def _degraded_banner(campaign):
-    """Banner for an output problem the campaign verdict cannot express.
-
-    Only the persistence state is rendered here. The report's own state cannot
-    be: "the HTML was written" is not known until after this HTML is written,
-    so claiming READY inside it would be a guess, and claiming FAILED would be
-    false by construction. The report state lives in run_status.json instead.
-
-    Absent unless something actually failed. A banner that is always there
-    stops being read, and then the one time it matters it is invisible.
-    """
+    """Show current output degradation and retained, timestamped failure history."""
     nodes = [n for n in campaign.get('nodes', []) if n.get('persistence') not in (None, 'OK')]
     persistence = campaign.get('persistence') or {}
-    if persistence.get('state') in (None, 'OK') and not nodes:
+    report = campaign.get('report') or {}
+    persistence_history = list(persistence.get('history') or [])
+    report_history = list(report.get('history') or [])
+    if report.get('state') == 'FAILED' and not report_history:
+        report_history.append(dict(
+            state='FAILED', at=report.get('updated_at', ''), detail=report.get('detail', ''),
+        ))
+    if (persistence.get('state') in (None, 'OK') and not nodes
+            and not persistence_history and not report_history):
         return ''
     rows = []
     if persistence.get('state') not in (None, 'OK'):
@@ -1260,8 +1316,18 @@ def _degraded_banner(campaign):
     for node in nodes:
         rows.append(f'<li><span class="label">{esc(node["key"])}</span>{badge(node["persistence"])} '
                     f'{esc(node.get("persistence_detail", ""))}</li>')
-    return (f'<div class="degraded-banner"><p><strong>Output degraded</strong> &mdash; '
-            f'the campaign verdict below is unaffected, but this report is incomplete.</p>'
+    for event in persistence_history:
+        rows.append(f'<li><span class="label">Past Journal failure</span>{badge("FAILED")} '
+                    f'{esc(event.get("at", "unknown time"))}: {esc(event.get("detail", ""))}</li>')
+    for event in report_history:
+        rows.append(f'<li><span class="label">Past HTML failure</span>{badge("FAILED")} '
+                    f'{esc(event.get("at", "unknown time"))}: {esc(event.get("detail", ""))}</li>')
+    currently_degraded = persistence.get('state') not in (None, 'OK') or bool(nodes)
+    title = 'Output degraded' if currently_degraded else 'Output recovery history'
+    explanation = ('the campaign verdict below is unaffected, but some output is incomplete.'
+                   if currently_degraded else
+                   'the current HTML was rebuilt successfully; earlier failures remain recorded.')
+    return (f'<div class="degraded-banner"><p><strong>{title}</strong> &mdash; {explanation}</p>'
             f'<ul>{"".join(rows)}</ul>'
             f'<p class="muted">Rebuild with <code>--report &lt;output&gt;</code> once the cause is resolved.</p></div>')
 
@@ -1288,10 +1354,10 @@ def render_html(campaign, console_log=''):
         times = [r['duration_seconds'] for r in node['loops'] if r.get('post_complete') and r.get('duration_seconds') is not None]
         notice = f'<p class="notice">{esc("; ".join(node["blocked"]) or node["stop_reason"])}</p>' if node['blocked'] or node['stop_reason'] else ''
         panels.append(f'''<article class="node-panel" id="node-{i}" aria-labelledby="heading-node-{i}"><h2 id="heading-node-{i}">{esc(node['key'])} {badge(health_value)}</h2>{notice}{facts([('BMC', node['target']['bmc_ip']), ('OS', node['target']['os_ip']), ('Node elapsed (PRE to last POST)', duration(elapsed(node['pre']['started'], last.get('finished')))), ('Average completed loop', duration(sum(times) / len(times) if times else None))])}<h3>PRE and cycle history</h3><p class="muted">POST uses the original PRE baseline. PRE-EXISTING findings become KNOWN when repeated.</p>{records}</article>''')
-    outcome = f'''<div class="sheet"><div class="outcome"><div><h2>Campaign outcome</h2><p>{esc(campaign.get('stop_reason') or 'Campaign is in progress.')}</p></div><div class="outcome-badges"><div><span class="label">Execution</span>{badge(result['completion'])}</div><div><span class="label">Health</span>{badge(result['health'])}</div></div></div>{facts([('Cycle / channel', f"{campaign['cycle_mode']} / {campaign['channel']}"), ('Requested limits', f"{campaign['limits']['loops'] or 'No'} loop limit / {campaign['limits']['hours'] or 'No'} hour limit"), ('Campaign elapsed', duration(elapsed(campaign['started'], campaign.get('finished') or now()))), ('POST completed', result['completed_node_loops']), ('Attempts', result['attempted_node_loops']), ('Boot confirmed', result['boot_confirmed_node_loops']), ('Valid cycles', result['valid_node_cycles']), ('Escalated findings (WARN→FAIL)', result['escalated']), ('Selected / approved nodes', f"{len(nodes)} / {sum(not n['blocked'] for n in nodes)}"), ('PRE-existing issue groups', result['known']), ('New issue groups during cycling', result['new'])])}</div>'''
-    overview = f'''<section role="tabpanel" id="overview" aria-labelledby="tab-overview">{outcome}<div class="sheet"><h2>Target results</h2><p class="muted">All selected nodes. Filters in other views do not change this overview.</p><div class="tablewrap"><table id="target-results"><thead><tr><th>Target / OS address</th><th>Health</th><th>Execution</th><th>Completed loops</th><th>Findings</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div></div><div class="sheet"><h2>Problems to review</h2><p>FAIL first, then WARN. Repeated Redfish events are merged per (node, message); KNOWN still affects health.</p>{issue_cards_compact(items, indices)}</div></section>'''
+    outcome = f'''<div class="sheet"><div class="outcome"><div><h2>Campaign outcome</h2><p>{esc(campaign.get('stop_reason') or 'Campaign is in progress.')}</p></div><div class="outcome-badges"><div><span class="label">Execution</span>{badge(result['completion'])}</div><div><span class="label">Health</span>{badge(result['health'])}</div></div></div>{facts([('Cycle / channel', f"{campaign['cycle_mode']} / {campaign['channel']}"), ('Requested limits', f"{campaign['limits']['loops'] or 'No'} loop limit / {campaign['limits']['hours'] or 'No'} hour limit"), ('Campaign elapsed', duration(elapsed(campaign['started'], campaign.get('finished') or now()))), ('POST completed', result['completed_node_loops']), ('Attempts', result['attempted_node_loops']), ('Boot confirmed', result['boot_confirmed_node_loops']), ('Valid cycles', result['valid_node_cycles']), ('Escalated findings (WARN→FAIL)', result['escalated']), ('Selected / approved nodes', f"{len(nodes)} / {sum(not n['blocked'] for n in nodes)}"), ('Issue groups with KNOWN observations', result['known']), ('Issue groups with NEW observations', result['new']), ('Issue groups with RECURRENCE observations', result['recurrence'])])}</div>'''
+    overview = f'''<section role="tabpanel" id="overview" aria-labelledby="tab-overview">{outcome}<div class="sheet"><h2>Target results</h2><p class="muted">All selected nodes. Filters in other views do not change this overview.</p><div class="tablewrap"><table id="target-results"><thead><tr><th>Target / OS address</th><th>Health</th><th>Execution</th><th>Completed loops</th><th>Findings</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div></div><div class="sheet"><h2>Problems to review</h2><p>FAIL first, then WARN. Repeated Redfish events are merged per (node, service, message); lifecycle and severity changes remain separate segments.</p>{issue_cards_compact(items, indices)}</div></section>'''
     node_panel = f'''<section role="tabpanel" id="nodes" aria-labelledby="tab-nodes"><div class="sheet node-browser"><aside><h2>Find a node</h2><label for="node-search">Node name</label><input id="node-search" type="search" placeholder="Search nodes"><label for="node-health">Health</label><select id="node-health"><option value="">All nodes</option><option>FAIL</option><option>WARN</option><option>PASS</option></select><p id="node-count" aria-live="polite">{len(nodes)} nodes</p><nav class="node-list" aria-label="Select a node">{''.join(choices)}</nav></aside><div class="node-content">{''.join(panels)}</div></div></section>'''
-    issues_panel = f'''<section role="tabpanel" id="issues" aria-labelledby="tab-issues"><div class="sheet"><h2>Issue review</h2><div class="filterbar"><label>Search node, component or finding<input id="issue-search" type="search" placeholder="Search issues"></label><label>Severity<select id="severity-filter"><option value="">All severities</option><option>FAIL</option><option>WARN</option></select></label><label>Classification<select id="class-filter"><option value="">Known and new</option><option>KNOWN</option><option>NEW</option></select></label></div><p id="issue-count" aria-live="polite">{len(items)} matching issues</p>{issue_cards_compact(items, indices)}<p id="no-matches" hidden>No matching issues. Clear the filters to show all findings.</p></div></section>'''
+    issues_panel = f'''<section role="tabpanel" id="issues" aria-labelledby="tab-issues"><div class="sheet"><h2>Issue review</h2><div class="filterbar"><label>Search node, component or finding<input id="issue-search" type="search" placeholder="Search issues"></label><label>Severity<select id="severity-filter"><option value="">All severities</option><option>FAIL</option><option>WARN</option></select></label><label>Classification<select id="class-filter"><option value="">All lifecycle states</option><option>KNOWN</option><option>NEW</option><option>RECURRENCE</option></select></label></div><p id="issue-count" aria-live="polite">{len(items)} matching issues</p>{issue_cards_compact(items, indices)}<p id="no-matches" hidden>No matching issues. Clear the filters to show all findings.</p></div></section>'''
     console_panel = f'''<details class="console-panel"><summary>Console log <span class="muted">{len(console_log.splitlines()) if console_log else 0} lines</span></summary><div class="console-tools"><label for="console-search">Search console log<input id="console-search" type="search" placeholder="Search console output"></label><button id="download-console" type="button">Download console.log</button></div><pre id="console-log">{esc(console_log) if console_log else 'Console log is not available for this report.'}</pre></details>'''
     overview = overview.replace('</section>', console_panel + '</section>', 1)
     css = (ASSETS / 'report.css').read_text(encoding='utf-8')
@@ -1320,9 +1386,66 @@ def write_journal(root, campaign):
         write_json(journal_path(root), copy.deepcopy(campaign))
 
 
+def _append_failure(previous, detail):
+    """Return failure history with a timestamped, de-duplicated new event."""
+    previous = previous or {}
+    history = copy.deepcopy(previous.get('history', []))
+    if previous.get('state') == 'FAILED' and not history:
+        history.append(dict(
+            state='FAILED', detail=previous.get('detail', ''),
+            at=previous.get('updated_at', 'legacy timestamp unavailable'),
+        ))
+    event = dict(state='FAILED', detail=detail, at=now())
+    if not history or history[-1].get('detail') != detail:
+        history.append(event)
+    return history
+
+
+def _report_transition(previous, state, detail=''):
+    previous = previous or {}
+    history = copy.deepcopy(previous.get('history', []))
+    if previous.get('state') == 'FAILED' and not history:
+        history = _append_failure(previous, previous.get('detail', ''))
+    if state == 'FAILED':
+        history = _append_failure(dict(previous, history=history), detail)
+    return dict(state=state, detail=detail, updated_at=now(), history=history)
+
+
+def _persistence_transition(previous, state, detail=''):
+    previous = previous or {}
+    history = copy.deepcopy(previous.get('history', []))
+    if previous.get('state') == 'FAILED' and not history:
+        history = _append_failure(previous, previous.get('detail', ''))
+    if state == 'FAILED':
+        history = _append_failure(dict(previous, history=history), detail)
+        return dict(state='FAILED', detail=detail, updated_at=now(), history=history)
+    if history:
+        last = history[-1].get('detail', '')
+        return dict(state='DEGRADED', detail=f'Previous persistence failure: {last}',
+                    updated_at=now(), history=history)
+    return dict(state='OK', detail='', updated_at=now(), history=[])
+
+
+def write_checkpoint(root, campaign):
+    """Persist live state without generating any terminal report artefact."""
+    with report_writer_lock(root, wait=True):
+        previous = campaign.get('persistence') or {}
+        campaign.setdefault('report', _report_transition({}, 'NOT_GENERATED'))
+        try:
+            campaign['persistence'] = _persistence_transition(previous, 'OK')
+            write_json(journal_path(root), copy.deepcopy(campaign))
+        except Exception as exc:
+            detail = f'{type(exc).__name__}: {exc}'
+            campaign['persistence'] = _persistence_transition(previous, 'FAILED', detail)
+            _write_run_status(root, campaign)
+            raise
+        _write_run_status(root, campaign)
+
+
 def _write_reports(root, campaign):
     root = Path(root)
     # Missing-file annotations belong to the rendered snapshot, not reviewed PRE.
+    original = campaign
     campaign = copy.deepcopy(campaign)
     for node in campaign['nodes']:
         for record in [node['pre'], *([node['start']] if node.get('start') else []), *node['loops']]:
@@ -1330,28 +1453,35 @@ def _write_reports(root, campaign):
     # Both outcomes are decided before either is persisted: the journal is the
     # verdict of record and carries the report's state, so writing it first
     # would lose that state on the next read (a rebuild reads the journal).
-    parse = {}
+    previous_persistence = campaign.get('persistence') or {}
+    previous_report = campaign.get('report') or {}
     try:
         write_json(journal_path(root), campaign)
-        persist_state = dict(state='OK', detail='')
+        persist_state = _persistence_transition(previous_persistence, 'OK')
     except Exception as exc:
-        persist_state = dict(state='FAILED', detail=f'{type(exc).__name__}: {exc}')
+        persist_state = _persistence_transition(
+            previous_persistence, 'FAILED', f'{type(exc).__name__}: {exc}')
     try:
         _render_reports(root, campaign, persist_state)
-        parse = dict(state='READY', detail='')
+        report_state = _report_transition(previous_report, 'READY')
     except Exception as exc:
-        parse = dict(state='FAILED', detail=f'{type(exc).__name__}: {exc}')
-    campaign['persistence'], campaign['report'] = persist_state, parse
-    if persist_state['state'] == 'OK':
+        report_state = _report_transition(
+            previous_report, 'FAILED', f'{type(exc).__name__}: {exc}')
+    campaign['persistence'], campaign['report'] = persist_state, report_state
+    if persist_state['state'] != 'FAILED':
         # Journal was written before the states were finalized; record them now
         # so a later rebuild knows the report's fate instead of reporting
         # NOT_GENERATED for a campaign whose HTML was fine.
         try:
             write_json(journal_path(root), campaign)
         except Exception as exc:
-            persist_state.update(state='FAILED', detail=f'{type(exc).__name__}: {exc}')
+            persist_state = _persistence_transition(
+                persist_state, 'FAILED', f'{type(exc).__name__}: {exc}')
+            campaign['persistence'] = persist_state
+    original['persistence'] = copy.deepcopy(campaign['persistence'])
+    original['report'] = copy.deepcopy(campaign['report'])
     _write_run_status(root, campaign)
-    if campaign['report']['state'] == 'FAILED' or campaign['persistence']['state'] == 'FAILED':
+    if campaign['report']['state'] == 'FAILED' or campaign['persistence']['state'] != 'OK':
         raise ReportDegraded(campaign['persistence'], campaign['report'])
 
 
@@ -1398,6 +1528,11 @@ def _write_run_status(root, campaign):
 
 def _render_reports(root, campaign, persistence_state=None):
     result = status(campaign)
+    # Rendering happens before the final Journal/report-state transition, but a
+    # persistence failure is already known. Put that current state into the
+    # rendered snapshot so the successful HTML cannot falsely look complete.
+    render_campaign = (dict(campaign, persistence=persistence_state)
+                       if persistence_state else campaign)
     lines = [f"Run ID: {campaign['run_id']}", f"Execution: {result['completion']}", f"Health: {result['health']}",
              f"Requested limits: {campaign['limits']}", f"Completed node-loops: {result['completed_node_loops']}",
              f"Attempts: {result['attempted_node_loops']}; boot confirmed: {result['boot_confirmed_node_loops']}; valid cycles: {result['valid_node_cycles']}",
@@ -1422,14 +1557,16 @@ def _render_reports(root, campaign, persistence_state=None):
         lines += node_lines
     atomic_write(root / "cycle_summary.txt", '\n'.join(lines) + '\n')
     atomic_write(root / "CYCLE_REVIEW_REPORT.md", '# Cycle review\n\n' + '\n\n'.join(lines) + '\n\nSee CYCLE_REVIEW_REPORT.html for expandable evidence and issue recurrence.\n')
-    for classification in ('KNOWN', 'NEW'):
+    for classification in ('KNOWN', 'NEW', 'RECURRENCE'):
         markdown = [f"# {classification.title()} issues", "", "Classification does not change severity.", ""]
         for item in result['issues']:
-            if item['classification'] != classification:
+            occurrences = [event for event in item.get('occurrences', [])
+                           if _norm_class(event.get('classification', item.get('classification'))) == classification]
+            if not occurrences:
                 continue
             markdown += [f"## {item['node']} / {item['code']} / {display_component(item)}", '',
                          f"Severity: {item['severity']}", '', item.get('known_reason', ''), '']
-            for event in item['occurrences']:
+            for event in occurrences:
                 markdown.append(f"- {event['phase']}: {event['detail']} ({event['evidence'] or 'No evidence file'})")
             markdown.append('')
         atomic_write(root / (classification.lower() + '_issues.md'), '\n'.join(markdown) + '\n')
@@ -1438,7 +1575,7 @@ def _render_reports(root, campaign, persistence_state=None):
         console_log = console_path.read_text(encoding='utf-8') if console_path.is_file() else ''
     except OSError:
         console_log = ''
-    atomic_write(root / "CYCLE_REVIEW_REPORT.html", render_html(campaign, console_log))
+    atomic_write(root / "CYCLE_REVIEW_REPORT.html", render_html(render_campaign, console_log))
     # The specification is generic and self-contained, but ships beside every
     # campaign report so the two formal documents can use relative links.
     from vera_cycle.reporting.cycle_specification import write_specification
@@ -1454,3 +1591,44 @@ def rebuild(root, runtime_root=None, journal=None):
         campaign = recover_records(root, campaign)
         _write_reports(root, campaign)
         return campaign
+
+
+def create_delivery_zip(root, destination=None):
+    """Package the campaign bundle while excluding every Journal/credential file.
+
+    Raw JSON, logs and evidence are copied byte-for-byte. The external Journal
+    is never under ``root`` by design; a legacy in-bundle ``campaign.json`` is
+    explicitly excluded as well. Controller SSH trust material is operational
+    state, not delivery evidence, and is also excluded.
+    """
+    root = Path(root).resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f'Campaign directory not found: {root}')
+    destination = Path(destination) if destination is not None else root.parent / f'{root.name}.zip'
+    destination = destination.resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(
+        prefix=destination.name + '.', suffix='.tmp', dir=destination.parent,
+    )
+    os.close(fd)
+    temporary = Path(temporary_name)
+    try:
+        with zipfile.ZipFile(temporary, 'w', compression=zipfile.ZIP_DEFLATED,
+                             allowZip64=True) as archive:
+            for path in sorted(root.rglob('*')):
+                if not path.is_file():
+                    continue
+                relative = path.relative_to(root)
+                if (path.resolve() in {destination, temporary.resolve()}
+                        or relative.name in {'campaign.json', '.report-writer.lock'}
+                        or '.ssh' in relative.parts):
+                    continue
+                archive.write(path, relative.as_posix())
+        os.replace(temporary, destination)
+    except BaseException:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+        raise
+    return destination

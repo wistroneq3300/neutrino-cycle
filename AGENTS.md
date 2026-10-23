@@ -1,109 +1,79 @@
 # AGENTS.md — vera-cpu-rack-cycle
 
-Agent-facing notes for this repository. Keep this file current; it is the
-first thing a new agent session should read.
+Agent-facing implementation contract. Run from the repository root; arbitrary
+working directories are intentionally unsupported. Never execute a real power
+action during development verification, mutate historical campaigns, or commit
+passwords, tokens, private keys, generated campaigns, or runtime Journals.
 
-## What this is
+## Entry points and layout
 
-AC/aux power-cycle test harness for 3 NVIDIA Vera CPU nodes (n1/n2/n3,
-aarch64 Ubuntu). It runs a PRE baseline → repeated cycles (BMC standby, or
-inband/outband reboot) → per-loop POST comparison → HTML/JSON report.
+- `neutrino_cycle.py` calls `vera_cycle.cli.main`.
+- `vera_cycle/paths.py` is the sole source of repository-relative paths.
+- `vera_cycle/core/` owns pure parsing, comparison, storage, transport and dmesg.
+- `vera_cycle/engine/` owns node execution, runtime locks and recovery.
+- `vera_cycle/reporting/` owns the terminal report and validation specification.
+- `projects/<project>/` owns inventory and project-specific hardware checks.
+- `dev/tests/` is offline; fake transports must never contact rack equipment.
+- `campaigns/` is ignored, historical evidence, and read-only to development.
 
-Repo: `github.com/wistroneq3300/vera-cpu-rack-cycle` (local `/root/vera-cycle-eb1`).
-Nodes: OS `root/password`, BMC `root/0penBmc`.
+Run the offline suite with:
 
-## Running
+```bash
+python3 -m unittest discover -s dev/tests -p 'test_*.py' -v
+```
 
-- Tests: `python3 -m unittest discover -s dev/tests -p 'test_*.py'` (373 tests, 1 skipped).
-  Single test: `python3 -m unittest dev.tests.test_cycle.ClassName.method` from repo root.
-- Cycles: `python3 neutrino_cycle.py` (interactive wizard), or non-interactively:
-  `CD` to repo root and use **`/usr/bin/python3`** — the system Python is the one
-  with `paramiko`; the uv-managed python on PATH does not have it and SSH will
-  fail with `ModuleNotFoundError: No module named 'paramiko'`.
-- Credentials via env: `OS_PASSWORD=... BMC_PASSWORD=... BMC_USER=root OS_USER=root`
-  (project-scoped `<PROJECT>_<ROLE>_PASSWORD` also accepted).
-- Output lands in `campaigns/<run_id>/` (gitignored).
-- `campaigns/` is gitignored; do not `git add` run output into the repo.
+Linux/Bash/PTY-only tests must report an explicit SKIP when their environment is
+unavailable. A SKIP is never counted as PASS.
 
-## Layout (package reorganised 2026-10-23)
+## Final approved behavior
 
-`neutrino_cycle.py` stays at the repo root as the operator entry point; the
-implementation lives in the `vera_cycle/` package.
+- Hostname is an identity gate. Missing/mismatched PRE identity blocks that node;
+  START mismatch prohibits start. During a loop, a blank or mismatched hostname
+  is `HOSTNAME_MISMATCH` FAIL for that loop while the operable node continues.
+  Any mismatch in a loop remains FAIL even if a later check is healthy. Never
+  retry a power action because of hostname failure.
+- Nodes are independent. Only unrecoverable SSH/boot recovery stops that node;
+  PCIe, sensor, dmesg, hostname and Redfish health findings do not stop other
+  operable nodes or resend a power action.
+- Normal loops collect OS dmesg once, at the end, with `dmesg -c`. Do not add a
+  before-reboot or early-POST read. Keep the existing abnormal recovery-tail
+  collection. A dmesg collection failure does not stop an operable node.
+- dmesg occurrence counts are real observation counts. Repeated identical events
+  count repeatedly, different BDFs remain separate, overlapping captures subtract
+  their multiset overlap, and raw evidence is retained without rewriting counts.
+- Redfish EventLog and SEL are separate services and event IDs never cross-match.
+  A successful empty service is PASS; confirmed service absence is PASS / N/A;
+  Warning is WARN; Critical is FAIL; timeout, invalid or incomplete data is
+  UNAVAILABLE and never PASS. Severity changes create report segments and do not
+  stop an otherwise operable node.
+- Issue lifecycle is stateful per node/device/fingerprint: first observation NEW,
+  continuous observation KNOWN, and reappearance after a confirmed healthy
+  observation RECURRENCE. UNAVAILABLE is not proof of recovery. Report cards merge
+  only the same node/device/error, use consecutive loop ranges, and split lifecycle
+  or WARN/FAIL transitions. JSON, logs and evidence remain unchanged.
+- During execution, checkpoint Journal/JSON/status and per-loop evidence only.
+  Generate full HTML once at normal completion, graceful stop, or another safe
+  terminal unwind. SIGKILL/power loss requires an operator rebuild.
+- Execution, Health, Persistence and HTML Report are independent states. Journal
+  or JSON write failure records FAILED/DEGRADED but does not stop cycling. HTML
+  failure is FAILED, never changes execution/health, is not auto-retried, and
+  preserves timestamped failure history; a successful manual rebuild becomes READY.
+- Startup detects local dead-owner RUNNING campaigns and offers rebuild, view or
+  skip. Skip deletes nothing and does not block a new campaign. Recovery never
+  resumes/replays a loop, sends power, or treats an unfinished loop as PASS.
+- Delivery ZIP contains HTML, JSON, console/log/evidence, inventory snapshot and
+  config snapshot. It excludes the external/legacy Journal, writer locks and SSH
+  state. The controller Journal remains in place; a ZIP need not rebuild elsewhere.
+- Fix mature behavior only where a regression proves it incomplete. Do not merge,
+  force-push, rewrite source branches, or change power-cycle counts.
 
-- `neutrino_cycle.py` — thin root entry; calls `vera_cycle.cli.main`.
-- `vera_cycle/cli.py` — CLI/wizard, campaign orchestrator, console output.
-- `vera_cycle/paths.py` — **single source of truth** for every repo-relative
-  path (`REPO_ROOT`, `CAMPAIGNS_DIR`, `ISSUE_POLICY`, `project_config_path()`,
-  `inventory_path()`, `mctp_stressor_path()`, `REPORTING_ASSETS`). Do not derive
-  a repo path from `__file__` anywhere else.
-- `vera_cycle/core/` — `cycle_core.py` (parsing + issue/delta/verdict, pure
-  functions), `cycle_dmesg.py`, `cycle_transport.py` (SSH/paramiko + OOB
-  ipmitool + Redfish/curl), `cycle_storage.py`.
-- `vera_cycle/engine/` — `cycle_engine.py` (`NodeSession`: precheck/start/
-  one_loop, capture, Redfish), `cycle_runtime.py`, `cycle_recovery.py`.
-- `vera_cycle/reporting/` — `cycle_report.py` (HTML report renderer),
-  `cycle_specification.py`, and `assets/` (`report.css`, `report.js`,
-  `wistron-logo.svg`). Assets are read via `paths.REPORTING_ASSETS`.
-- `projects/<project>/` — per-project node-side hardware check
-  (`neutrino_config.sh`, `naboo_config.sh`, `cycle_inventory_*.csv`,
-  `mctp-stressor-p5032.sh`). New project = add a directory, adjust the
-  expected-count constants, add to `--project` choices. Do not guess counts;
-  inspect real hardware.
-- `config/` — shared settings (`issue_policy.md`).
-- `docs/` — documentation (incl. `CYCLE_VALIDATION_SPECIFICATION.html`).
-- `dev/tests/` — offline regression suite; imports use package paths
-  (`from vera_cycle.core import cycle_core`, `from vera_cycle.cli import main`).
-- `campaigns/` — run output (gitignored, read-only history).
+## Security and operational boundaries
 
+Credentials are supplied interactively or through documented environment variables;
+only variable names may appear in the repository. Redfish tokens and passwords must
+not enter argv, evidence, reports or Git. SSH host keys are pinned per run. Endpoint
+locks are controller-local and never fail open. Project expected quantities remain
+in the selected project config and must not be guessed.
 
-## Key design rules (do not regress)
-
-- Issue classification compares against the **PRE baseline** (`aggregate_issues`),
-  not `issue_policy.md` (retired).
-- Cycle command dispatch, boot_id semantics, and per-mode power state are
-  documented in detail in `.openhands/memory/MEMORY.md` and
-  `.openhands/memory/2026-09-30.md` (kept locally, not committed).
-- Sensor judgement rules and the `coruti` no-reading whitelist live in
-  `cycle_core.py`; garbled (`U+FFFD`) sensor names are always FAIL.
-- BF4 detection uses two sources (`mst status -v` + `lspci -nn`).
-- Hostname is a **soft check**: if the inventory `bmc_hostname`/`os_hostname`
-  does not match what the host reports, the node is NOT blocked � a
-  `HOSTNAME_MISMATCH` WARN is recorded and the run continues (a blank expected
-  hostname means "do not check"). Boot-ID validation is still a hard stop
-  (it guards against a real reboot). `inventory_blocks` still blocks a row with
-  no hostname at all (placeholder semantics).
-
-## Redfish EventLog / SEL (added 2026-10-02)
-
-- Collects BMC Redfish **EventLog (always, if present)** and **SEL (only if the
-  service exists)** — "有什麼撈什麼". Does NOT fetch PostCodes/Journal/HostLogger/Dump.
-- Dynamic discovery, no hardcoded IDs: resolve `/redfish/v1/Systems` → System ID
-  (e.g. `System_0`), then list `/LogServices` members. Fetches `.../Entries`.
-- Auth: login per capture via `SessionService/Sessions` → `X-Auth-Token`
-  (token is short-lived; re-login each cycle). Credentials never enter argv/evidence.
-- Verdict by worst severity: **Critical → FAIL, Warning → WARN, else PASS**.
-  An absent service (merged BMC layout) is PASS, not a failure. A cleared-log
-  trace (`Logging.Cleared`, OK) is retained and does not affect the verdict.
-- Console shows **one summary line per service** (`EventLog: FAIL · Critical:2
-  Warning:1 OK:21 · new:23`), never one line per event.
-- Log clearing for dmesg / IPMI SEL / Redfish logs happens **in PRE, before the
-  baseline** (`_prepare_clean_state`) so the run starts clean. Each source is
-  probed before clearing and skipped (recorded `CLEAR_SKIPPED`) if unreadable.
-  Note: this means a cancelled campaign has already cleared logs on the node.
-- Loops do NOT re-clear; the per-loop delta (`new:N`) is the meaningful number.
-
-## Environment notes
-
-- Samba is a backup/share mount (`/root/samba`, incl. `/root/samba/vera-cycle`
-  and `/root/samba/Netruino cycle`). Only copy there when the user explicitly asks.
-- Orchestrator host is the sandbox itself (`10.35.228.144`); it has no BMC.
-
-## Session 2026-10-05 — sheng push to branch
-
-- sheng/vera-cycle work pushed to branch `dev/sheng-dmesg-wipe-evidence-links` (commit be2eddf),
-  rebased onto origin/main (865e5be). 170/170 tests pass.
-- Branch keeps **soft-WARN hostname** behavior (engine+tests+AGENTS), per 0c27941 note that
-  soft-WARN lives only in the sheng branch; main/vera-cycle keep hard block.
-- `/root/vera-cycle-eb1` (main) = 865e5be pushed: PRE dmesg -C wipe, hide clean dmesg/eventlog
-  lines, evidence links. 164/164 tests pass.
-- sheng extra (stop_cycle.sh +182, neutrino_config.sh) bundled in the branch snapshot.
+Real rack acceptance is separate from offline verification. It requires an explicit
+controlled run by an engineer with correct inventory, platform paths and credentials.

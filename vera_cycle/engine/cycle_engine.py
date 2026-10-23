@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from collections import Counter
 from datetime import datetime
 import re
 import shlex
@@ -279,9 +280,10 @@ class NodeSession:
         actual = values.get("HOSTNAME", "").strip()
         # PRE is the last moment before anything on the node is touched (log
         # clearing runs right after precheck), so a wrong machine must be a hard
-        # stop there. During the loops a mismatch only warns: the run continues
-        # but the operator is told the machine no longer matches the inventory.
-        # (Boot ID below stays a hard stop -- that guards against a real reboot.)
+        # stop there. START is strict for the same reason: no cycle action may be
+        # issued after an identity mismatch. During a loop the mismatch is a
+        # health FAIL but is deliberately non-fatal; the node completes the
+        # cycle and later nodes/loops continue. Boot-ID safety remains separate.
         if expected:
             mismatch = (not actual) or actual.lower().rstrip(".") != expected.lower().rstrip(".")
             if mismatch:
@@ -295,8 +297,8 @@ class NodeSession:
                     # Evidence is only kept for a real mismatch: at 4 nodes x 280
                     # loops a file per loop would be pure noise until it matters.
                     self.add(record, 'HOSTNAME_MISMATCH', role,
-                             detail + '; continuing, but confirm this is the intended machine',
-                             severity='WARN',
+                             detail + '; loop continues, but this round remains failed',
+                             severity='FAIL',
                              evidence=record.get('commands', {}).get(stem or (role + "_identity"), {}).get('evidence', ''))
         if role == "os" and not re.fullmatch(r"[0-9a-fA-F-]{36}", values.get("BOOT_ID", "").strip()):
             raise IdentityUnsafe("OS did not provide a valid boot ID")
@@ -393,6 +395,28 @@ class NodeSession:
                     pending.append(observation)
             if not pending:
                 continue
+            # ``pending`` is the multiset delta, not the full second capture.
+            # Keep only its counts in the finding. Otherwise a first read with
+            # one line followed by an overlapping read-and-clear with two lines
+            # would be archived as 1 + 2 occurrences even though only two real
+            # messages existed.
+            event['occurrence_count'] = len(pending)
+            event['observations'] = pending
+            if event.get('entries'):
+                new_counts = Counter(pending)
+                entries = []
+                for entry in event['entries']:
+                    count = new_counts.get(entry.get('observation', ''), 0)
+                    if not count:
+                        continue
+                    entries.append({**entry, 'count': count})
+                event['entries'] = entries
+                event['device'] = list(dict.fromkeys(
+                    entry.get('device') for entry in entries if entry.get('device')
+                ))
+                family = event.get('family', 'BUNDLE')
+                event['detail'] = (f'{family}: {len(entries)} distinct error/fail line(s), '
+                                   f'{len(pending)} occurrence(s)')
             retention = record['commands'][stem]['evidence']
             if not retention and evidence_stem:
                 folder = self.folder(record).relative_to(self.root).as_posix()
@@ -467,14 +491,11 @@ class NodeSession:
     def capture(self, record, post=False):
         self.hardware_execution_complete = False
         record['hardware_execution_complete'] = False
-        # In a LOOP the non-clear read is superseded by the later ``dmesg -c``
-        # read (same buffer, retained as dmesg_clear.txt), so it cites that file.
-        # In PRE there is no later clear read, so this read must retain its own
-        # evidence - otherwise a PRE dmesg finding would link to a file that is
-        # never written.
-        if post:
-            self.collect_dmesg(record, 'dmesg', evidence_stem='dmesg_clear')
-        else:
+        # PRE retains its baseline. A normal loop deliberately does not read the
+        # kernel buffer here: its one collection is the final ``dmesg -c`` after
+        # every POST and MCTP check. This preserves the approved timing and avoids
+        # adding a before-reboot or early-POST capture.
+        if not post:
             self.collect_dmesg(record, 'dmesg', save_evidence=True)
         for stem, (cmd, sudo) in CAPTURES.items():
             if stem == 'dmesg':
@@ -650,6 +671,13 @@ class NodeSession:
             for stem in ('eventlog', 'redfish_sel'):
                 record.setdefault('commands', {}).setdefault(stem, {"command": "redfish", "role": "oob",
                     "code": 255, "state": "NOT_ISSUED", "evidence": "", "valid": False, "output_excerpt": str(exc)})
+                record.setdefault(f'{stem}_meta', dict(
+                    phase='COLLECT', status='UNAVAILABLE', present=None,
+                    verdict='UNAVAILABLE',
+                    counts={"Critical": 0, "Warning": 0, "OK": 0, "Other": 0},
+                    evidence='', entries=[], complete=False, valid=False,
+                    reason=str(exc),
+                ))
         if post:
             self._redfish_loop_delta(record)
         self.command(record, "bmc_firmware", "oob", "mc info")
@@ -1074,7 +1102,7 @@ class NodeSession:
                                                     "code": 1, "state": "UNAVAILABLE", "evidence": "",
                                                     "valid": False, "output_excerpt": disc.get('reason', '')}
                         record[f'{stem}_meta'] = dict(phase='COLLECT', status='UNAVAILABLE', present=None,
-                                                      verdict='FAIL', counts={"Critical": 0, "Warning": 0, "OK": 0, "Other": 0},
+                                                      verdict='UNAVAILABLE', counts={"Critical": 0, "Warning": 0, "OK": 0, "Other": 0},
                                                       entries=[], complete=False, valid=False,
                                                       reason=disc.get('reason') or 'Redfish LogServices discovery failed')
                         self.add(record, 'REDFISH_UNAVAILABLE', stem,
@@ -1088,7 +1116,7 @@ class NodeSession:
                 valid = fetched['valid']
                 complete = fetched['complete']
                 verdict, counts = redfish_verdict(entries) if (valid and complete) else (
-                    "FAIL", {"Critical": 0, "Warning": 0, "OK": 0, "Other": 0})
+                    "UNAVAILABLE", {"Critical": 0, "Warning": 0, "OK": 0, "Other": 0})
                 evidence = self._write_redfish_evidence(record, stem, name, entries_path, fetched, verdict, counts,
                                                         history=history)
                 record['commands'][stem] = {"command": f"redfish {name} ({entries_path})", "role": "oob",
@@ -1096,7 +1124,7 @@ class NodeSession:
                                             "state": 'COLLECTED' if (valid and complete) else 'UNAVAILABLE',
                                             "evidence": evidence, "valid": valid and complete,
                                             "output_excerpt": "" if (valid and complete) else fetched.get('reason', '')}
-                record[f'{stem}_meta'] = dict(phase='COLLECT', status='COLLECTED' if (valid and complete) else 'FAILED',
+                record[f'{stem}_meta'] = dict(phase='COLLECT', status='COLLECTED' if (valid and complete) else 'UNAVAILABLE',
                                               present=True, verdict=verdict, counts=counts, evidence=evidence,
                                               entries=entries, path=entries_path, complete=complete, valid=valid,
                                               reason='' if (valid and complete) else fetched.get('reason', 'Redfish collection incomplete'))
@@ -1248,8 +1276,8 @@ class NodeSession:
                 continue
             current = record.get(f'{stem}_entries') or []
             if meta.get('present') is False:
-                meta['delta'] = dict(status='UNAVAILABLE', new_count=None, new_entries=[],
-                                     reason='Service not present on this BMC')
+                meta['delta'] = dict(status='NOT_APPLICABLE', new_count=0, new_entries=[],
+                                     reason='Service confirmed not present on this BMC')
                 continue
             before_valid = bool(before.get('available') and before.get(key + '_valid'))
             post_valid = bool(meta.get('valid') and meta.get('complete'))

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import json
 import math
 import os
 import re
@@ -39,15 +40,91 @@ from vera_cycle.core.cycle_core import (
     select_targets,
 )
 from vera_cycle.core.cycle_transport import Transport
-from vera_cycle.core.cycle_storage import writer_identity
+from vera_cycle.core.cycle_storage import owner_alive, writer_identity
 from vera_cycle.engine.cycle_engine import NodeSession
 from vera_cycle.engine.cycle_runtime import EndpointLocks, RunRegistry, list_running, request_stop
 from vera_cycle.reporting.cycle_report import (
-    ReportDegraded, duration, elapsed, rebuild, run_status, status, write_journal, write_reports,
+    ReportDegraded, campaign_tmp, create_delivery_zip, duration, elapsed, rebuild,
+    run_status, status, write_checkpoint, write_reports,
 )
 
 # Repository root, kept for callers that derive sibling paths from it.
 BASE = paths.REPO_ROOT
+
+
+def discover_interrupted_campaigns(output_root=None):
+    """Find local RUNNING journals whose writer is no longer alive.
+
+    This is read-only. A foreign-controller owner cannot be proved dead here and
+    is therefore not offered as rebuildable; the source controller must handle
+    it. Missing output bundles are likewise left untouched.
+    """
+    output_root = Path(output_root or paths.CAMPAIGNS_DIR)
+    found = []
+    try:
+        journals = sorted(campaign_tmp().glob('*/campaign.json'))
+    except OSError:
+        return found
+    for path in journals:
+        try:
+            data = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict) or data.get('state') != 'RUNNING':
+            continue
+        owner = data.get('writer_owner') or {}
+        try:
+            if owner and owner_alive(owner):
+                continue
+        except (OSError, RuntimeError, ValueError, KeyError):
+            # Unknown is not dead. Never invite an unsafe cross-controller
+            # rebuild based on a guess.
+            continue
+        run_id = str(data.get('run_id') or path.parent.name)
+        output = output_root / run_id
+        if not output.is_dir():
+            continue
+        found.append(dict(run_id=run_id, output=output, journal=path, campaign=data))
+    return found
+
+
+def startup_recovery_prompt(output_root=None, input_func=input, output_func=print):
+    """Offer rebuild/view/skip for dead RUNNING campaigns; never auto-resume."""
+    results = []
+    for item in discover_interrupted_campaigns(output_root):
+        data = item['campaign']
+        while True:
+            output_func(
+                f"Interrupted campaign detected: {item['run_id']} "
+                f"({sum(len(n.get('loops', [])) for n in data.get('nodes', []))} retained loop record(s))."
+            )
+            answer = input_func('Recovery: [r]ebuild HTML, [v]iew details, [s]kip [s]: ').strip().lower()
+            if answer in {'v', 'view'}:
+                output_func(
+                    f"Run ID: {item['run_id']}\nOutput: {item['output']}\n"
+                    f"Journal: {item['journal']}\nState: {data.get('state')}\n"
+                    "No cycle will be resumed or replayed."
+                )
+                continue
+            if answer in {'r', 'rebuild'}:
+                try:
+                    rebuilt = rebuild(item['output'], journal=item['journal'])
+                except Exception as exc:
+                    output_func(f"Recovery rebuild failed: {exc}. Data was retained; startup may continue.")
+                    results.append(dict(run_id=item['run_id'], action='FAILED', detail=str(exc)))
+                else:
+                    output_func(
+                        f"Recovered report: {item['output'] / 'CYCLE_REVIEW_REPORT.html'} "
+                        f"({rebuilt['state']}). No power action was executed."
+                    )
+                    results.append(dict(run_id=item['run_id'], action='REBUILT'))
+                break
+            if answer in {'', 's', 'skip'}:
+                output_func('Skipped. Existing Journal, JSON, logs and evidence were not changed.')
+                results.append(dict(run_id=item['run_id'], action='SKIPPED'))
+                break
+            output_func('Enter r, v or s.')
+    return results
 
 
 def project_config_path(project):
@@ -133,8 +210,11 @@ def show_result(console, node, record):
         meta = record.get(f'{stem}_meta')
         if not meta:
             continue
+        if meta.get('present') is False:
+            console(f'  {label}: PASS / N/A · service not present')
+            continue
         if meta.get('status') != 'COLLECTED':
-            console(f'  {label}: COLLECTION FAILED')
+            console(f'  {label}: UNAVAILABLE')
             continue
         counts = meta.get('counts', {})
         delta = meta.get('delta')
@@ -235,6 +315,16 @@ def safe_write_reports(output, data, console):
         console(f"Report generation failed: {exc}. Execution continues; rebuild later with --report {output}")
         return False
 
+
+def safe_checkpoint(output, data, console):
+    """Save live recovery state; never render or retry the terminal HTML."""
+    try:
+        write_checkpoint(output, data)
+        return True
+    except Exception as exc:
+        console(f"Journal checkpoint failed: {exc}. Execution continues; data may be incomplete.")
+        return False
+
 def campaign(options, targets, credentials, confirm=input, transport_factory=Transport, runtime_root=None):
     console = Console()
     console.node_names = [t.key for t in targets]
@@ -323,18 +413,23 @@ def campaign(options, targets, credentials, confirm=input, transport_factory=Tra
             registry.register(output, project=options.project, cycle_mode=options.cycle_mode,
                               channel=options.channel, nodes=[s.target.key for s in runnable])
             atomic_write(output / f'{options.project}_config.snapshot.sh', script.decode('utf-8'))
+            inventory_source = getattr(options, 'inventory', paths.inventory_path(options.project))
+            atomic_write(output / f'{options.project}_inventory.snapshot.csv',
+                         inventory_source.read_text(encoding='utf-8'))
             atomic_write(output / 'issue_policy.snapshot.md', policy_text)
             data = dict(run_id=run_id, project=options.project, started=now(), finished=None,
                         writer_owner=writer_identity(),
                         tool_version=paths.VERSION_FILE.read_text().strip(),
                         state='RUNNING', stop_reason='', cycle_mode=options.cycle_mode, channel=options.channel,
                         limits=dict(loops=options.loops, hours=options.hours), script_sha256=digest(script),
-                        nodes=[s.node for s in sessions])
-            safe_write_reports(output, data, console)
+                        nodes=[s.node for s in sessions],
+                        persistence=dict(state='OK', detail='', history=[]),
+                        report=dict(state='NOT_GENERATED', detail='', history=[]))
+            safe_checkpoint(output, data, console)
             console(f"Campaign started. Output: {output}")
             console(f"Stop after the current POST: ./stop_cycle.sh {run_id}")
             parallel(lambda s: s.start(), runnable, console, 'Start log clearing', display_result=False)
-            safe_write_reports(output, data, console)
+            safe_checkpoint(output, data, console)
             start = time.monotonic()
             number = 0
             while True:
@@ -360,18 +455,13 @@ def campaign(options, targets, credentials, confirm=input, transport_factory=Tra
                 parallel(lambda s, n=number: s.one_loop(n), active, console, f'Loop {number}')
                 for session in active:
                     session.progress = None
-                safe_write_reports(output, data, console)
+                safe_checkpoint(output, data, console)
             data['finished'] = now()
             verdict_fixed = True
             # The execution verdict is persisted on its own first: a later HTML
             # failure must never rewrite COMPLETE to INCOMPLETE. The full report
             # is then attempted without letting a rendering error change the run.
-            try:
-                write_journal(output, data)
-                data['persistence'] = dict(state='OK', detail='')
-            except Exception as exc:
-                data['persistence'] = dict(state='FAILED', detail=f'{type(exc).__name__}: {exc}')
-                console(f"Journal could not be written: {exc}. Recover with --report {output}")
+            safe_checkpoint(output, data, console)
             safe_write_reports(output, data, console)
             verdict = run_status(data)
             console(f"Output: persistence {verdict['persistence']['state']}; report {verdict['report']['state']}")
@@ -389,10 +479,12 @@ def campaign(options, targets, credentials, confirm=input, transport_factory=Tra
             # marks the campaign INCOMPLETE. A report-generation failure happens
             # after the verdict is fixed, so it never reaches here.
             data.update(state='INCOMPLETE', finished=now(), stop_reason='Orchestrator interrupted by an unexpected error; retained all available evidence')
-            try:
-                write_journal(output, data)
-            except Exception as exc:
-                console(f"Journal could not be written: {exc}. Recover with --report {output}")
+            # A catchable abnormal unwind is still a safe terminal point: retain
+            # the final Journal first, then make the single terminal HTML
+            # attempt. SIGKILL/power loss cannot reach this block and is rebuilt
+            # explicitly by the operator on the original controller.
+            safe_checkpoint(output, data, console)
+            safe_write_reports(output, data, console)
             try:
                 if registry:
                     registry.finish('INCOMPLETE')
@@ -683,13 +775,23 @@ def _yellow(text):
     return _c(text, '33')
 
 
+def _console_symbol(symbol, fallback):
+    """Avoid crashing a Windows legacy-codepage console on cosmetic glyphs."""
+    encoding = getattr(sys.stdout, 'encoding', None) or 'utf-8'
+    try:
+        symbol.encode(encoding)
+    except (LookupError, UnicodeEncodeError):
+        return fallback
+    return symbol
+
+
 def _echo(message):
-    print(f"  {_green('\u2714')} {message}")
+    print(f"  {_green(_console_symbol('\u2714', '[OK]'))} {message}")
 
 
 def _echo_kv(label, value):
     """'✔ Label: value' with the chosen value highlighted so it stands out."""
-    print(f"  {_green('\u2714')} {label}: {_cyan(_bold(value))}")
+    print(f"  {_green(_console_symbol('\u2714', '[OK]'))} {label}: {_cyan(_bold(value))}")
 
 
 def cycle_command(mode, channel):
@@ -885,6 +987,8 @@ def parser():
     p.add_argument('--report', type=Path, metavar='CAMPAIGN_DIR', help='Rebuild a stopped campaign report from its journal; do not use during a live run')
     p.add_argument('--journal', type=Path, metavar='CAMPAIGN_JSON',
                    help='Journal to rebuild from; defaults to the campaign journal for CAMPAIGN_DIR')
+    p.add_argument('--export-zip', type=Path, metavar='CAMPAIGN_DIR',
+                   help='Create a delivery ZIP without the external/legacy campaign journal')
     return p
 
 def main(argv=None):
@@ -902,8 +1006,13 @@ def main(argv=None):
             info = rebuild(options.report, journal=options.journal)
             print(f"Report rebuilt: {options.report / 'CYCLE_REVIEW_REPORT.html'} ({info['state']})")
             return 0
+        if options.export_zip:
+            archive = create_delivery_zip(options.export_zip)
+            print(f"Delivery ZIP: {archive}")
+            return 0
         interactive = not arguments
         if interactive:
+            startup_recovery_prompt()
             targets = wizard(options)
         else:
             options.project = {'1': 'neutrino', '2': 'naboo'}.get(options.project, options.project)

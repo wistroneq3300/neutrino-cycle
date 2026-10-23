@@ -1,5 +1,10 @@
 # Vera CPU Rack Cycle：259a80f 完整 code review 與 SIT coverage 複核
 
+> **歷史固定版本審查（非現行規格）：** 本文件只描述 2026-09-30 的
+> `259a80f`。其中 WORSENED 與多次正常 dmesg capture 建議已被
+> 2026-10-24 核准決策取代；現行契約請以 `AGENTS.md`、
+> `dev/IMPLEMENTATION_SPEC.md` 與 `FINAL_HARDENING_2026-10-24.md` 為準。
+
 審查日期：2026-09-30（Asia/Taipei）
 最後核對 main：2026-09-30 21:19:54 +08:00
 Repository：https://github.com/wistroneq3300/vera-cpu-rack-cycle

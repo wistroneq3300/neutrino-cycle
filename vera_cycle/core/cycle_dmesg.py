@@ -95,7 +95,9 @@ def _bundle_event(lines, code, family, severity):
             devices.append(device)
         observations.append(f'{device or "<none>"}|{_strip_count(key)}')
     entries = [dict(line=first[k], count=counts[k], text=k,
-                    device=_bdf_of(k)) for k in order]
+                    device=_bdf_of(k),
+                    observation=f'{_bdf_of(k) or "<none>"}|{_strip_count(k)}')
+               for k in order]
     # The fingerprint identifies the *group of message types*, not the device
     # addresses: it must not change when a run's BDF enumeration differs, or a
     # pre-existing bundle would be reclassified NEW on every boot. Device

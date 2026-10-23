@@ -196,10 +196,11 @@ def issue_baseline(items):
 def classify_against_pre(items, pre_keys):
     """Classify each finding as KNOWN (seen before) or NEW (first seen now).
 
-    Only two classifications exist; the previous WORSENED label was removed
-    because occurrence-count churn (sensor confirmations, retries) made it
-    fire on findings whose content had not actually changed. A finding already
-    present as FAIL stays KNOWN even if its count grows.
+    This baseline helper emits KNOWN/NEW. ``aggregate_issues`` applies the
+    campaign-level RECURRENCE state machine after source availability is known.
+    The previous WORSENED label remains removed because count churn made it fire
+    on findings whose content had not changed; severity transitions are metadata
+    and report segment boundaries instead.
 
     Two baselines are honoured:
 
@@ -1030,15 +1031,123 @@ def _redfish_delta_ids(record):
             ids.add(f'{name}|{entry.get("id", "")}')
     return ids if seen_meta else None
 
+
+def _issue_source(item):
+    """Return the independently observable source for recurrence decisions."""
+    identity = str(item.get('identity', ''))
+    if identity.startswith('EventLog|'):
+        return 'eventlog'
+    if identity.startswith('SEL|'):
+        return 'redfish_sel'
+    code = str(item.get('code', ''))
+    component = str(item.get('component', ''))
+    if code.startswith('DMESG_'):
+        return 'dmesg'
+    if code.startswith('SENSOR_'):
+        return 'sensor'
+    if code == 'HOSTNAME_MISMATCH':
+        return f'hostname:{component}'
+    if code.startswith('SEL_') or component == 'sel':
+        return 'sel'
+    if code.startswith(('PCI', 'BF4', 'NIC_', 'CPU_', 'MEMORY_', 'DIMM_', 'NVME_')):
+        return 'hardware'
+    return component or code
+
+
+def _observation_state(record, source):
+    """AVAILABLE/UNAVAILABLE for a source in one completed record.
+
+    Absence is allowed to prove recovery only when the relevant collection was
+    actually available.  Explicit ``observation_status`` is also a compact,
+    stable hook for recovered records and synthetic regression fixtures.
+    """
+    explicit = record.get('observation_status') or {}
+    if source in explicit:
+        return explicit[source]
+    if source in {'eventlog', 'redfish_sel'}:
+        meta = record.get(f'{source}_meta') or {}
+        delta = meta.get('delta') or {}
+        if delta.get('status') == 'UNAVAILABLE':
+            return 'UNAVAILABLE'
+        if meta.get('present') is False:
+            return 'AVAILABLE'
+        if (meta.get('status') == 'COLLECTED' and meta.get('valid', True)
+                and meta.get('complete', True)):
+            return 'AVAILABLE'
+        return 'UNAVAILABLE'
+    commands = record.get('commands') or {}
+    if source == 'dmesg':
+        command = commands.get('dmesg_clear') or commands.get('dmesg')
+        return 'AVAILABLE' if command and command.get('valid') else 'UNAVAILABLE'
+    if source == 'sensor':
+        attempts = [commands.get(name) for name in ('sensor_confirm', 'sensor_retry', 'sensor')]
+        attempts = [attempt for attempt in attempts if attempt]
+        return 'AVAILABLE' if any(attempt.get('valid') for attempt in attempts) else 'UNAVAILABLE'
+    if source == 'sel':
+        delta = record.get('sel_delta_meta') or {}
+        if delta.get('status') == 'UNAVAILABLE':
+            return 'UNAVAILABLE'
+        command = commands.get('sel')
+        return 'AVAILABLE' if (delta.get('status') == 'COMPARED'
+                               or command and command.get('valid')) else 'UNAVAILABLE'
+    if source.startswith('hostname:'):
+        role = source.split(':', 1)[1]
+        identity = (record.get('identities') or {}).get(role)
+        return 'AVAILABLE' if identity and identity.get('hostname') else 'UNAVAILABLE'
+    if source == 'hardware':
+        if 'hardware_execution_complete' in record:
+            return 'AVAILABLE' if record.get('hardware_execution_complete') else 'UNAVAILABLE'
+    # Older/synthetic complete records may not carry per-source metadata. Their
+    # issue list was historically the only available observation, so preserve
+    # that compatibility unless the record explicitly says POST was incomplete.
+    return 'UNAVAILABLE' if record.get('post_complete') is False else 'AVAILABLE'
+
+
+def _split_dmesg_bundle(item):
+    """Yield one aggregate finding per dmesg (device, message) observation.
+
+    The parser intentionally stores one raw bundle per capture, but report and
+    lifecycle identity must be narrower: two BDFs emitting the same error are
+    two device findings.  Copies are used here so archived record JSON and raw
+    evidence remain byte-for-byte untouched.
+    """
+    entries = item.get('entries') or []
+    if item.get('code') != 'DMESG_BUNDLE' or not entries:
+        yield item
+        return
+    for entry in entries:
+        count = int(entry.get('count', 1) or 1)
+        device = entry.get('device') or ''
+        observation = entry.get('observation') or f'{device or "<none>"}|{entry.get("text", "")}'
+        split = item.copy()
+        split.update(
+            identity=f'dmesg|{observation}',
+            observations=[observation],
+            occurrence_count=count,
+            entries=[entry.copy()],
+            device=[device] if device else [],
+            detail=(f'{item.get("family", "BUNDLE")}: 1 distinct error/fail line(s), '
+                    f'{count} occurrence(s)'),
+            snippet=entry.get('text', ''),
+        )
+        yield split
+
+
 def aggregate_issues(campaign):
     merged = {}
     for node in campaign["nodes"]:
         # Keep the PRE comparison separate from severity and causation.
-        pre_keys = issue_baseline(node['pre']['issues'])
+        pre_items = [split for item in node['pre']['issues']
+                     for split in _split_dmesg_bundle(item)]
+        pre_keys = issue_baseline(pre_items)
+        states = {}
         for record in [node["pre"], *([node['start']] if node.get('start') else []), *node["loops"],
                        dict(phase='RECOVERY', issues=node.get('recovery_issues', []))]:
             delta_ids = _redfish_delta_ids(record)
-            classified = classify_against_pre([i.copy() for i in record['issues']], pre_keys)
+            observations = [split for item in record['issues']
+                            for split in _split_dmesg_bundle(item)]
+            classified = classify_against_pre([i.copy() for i in observations], pre_keys)
+            present = set()
             for item in classified:
                 # Redfish findings classify against this loop's before->POST
                 # delta, not the PRE baseline, so a long-lived event is NEW only
@@ -1057,13 +1166,40 @@ def aggregate_issues(campaign):
                     item['classification'] = 'NEW' if item['per_loop_new'] else 'KNOWN'
                     item['known_reason'] = ('' if item['per_loop_new']
                                             else 'Introduced in an earlier loop of this campaign')
-                key = (node["key"], *issue_key(item))
+                item_key = issue_key(item)
+                key = (node["key"], *item_key)
+                present.add(item_key)
+                state = states.get(item_key)
+                phase = record.get('phase', '')
+                if phase == 'PRE':
+                    item['classification'] = 'KNOWN'
+                    item['known_reason'] = 'Present in PRE baseline'
+                elif state is None:
+                    item['classification'] = 'NEW'
+                    item['known_reason'] = ''
+                elif state.get('confirmed_absent'):
+                    item['classification'] = 'RECURRENCE'
+                    item['known_reason'] = 'Reappeared after a confirmed healthy observation'
+                else:
+                    item['classification'] = 'KNOWN'
+                    item['known_reason'] = 'Continuous or not proven recovered'
+                if state and state.get('severity') != item.get('severity'):
+                    item['severity_changed'] = True
+                    item['previous_severity'] = state.get('severity')
+                    item['current_severity'] = item.get('severity')
+                states[item_key] = dict(
+                    source=_issue_source(item), confirmed_absent=False,
+                    severity=item.get('severity'),
+                )
                 entry = merged.setdefault(key, {**item, "node": node["key"], "occurrences": []})
                 if item["severity"] == "FAIL":
                     entry["severity"] = "FAIL"
-                # NEW wins over KNOWN when the same finding is observed across
-                # phases, so the group surfaces where it was first introduced.
-                if entry.get('classification') != 'NEW':
+                # Preserve the strongest lifecycle label for the group while
+                # each occurrence retains its own exact state. NEW means the
+                # campaign introduced it; RECURRENCE outranks a purely KNOWN
+                # pre-existing/continuous group.
+                lifecycle_rank = {'KNOWN': 0, 'RECURRENCE': 1, 'NEW': 2}
+                if lifecycle_rank.get(item['classification'], 0) > lifecycle_rank.get(entry.get('classification'), 0):
                     entry['classification'] = item['classification']
                     entry['known_reason'] = item['known_reason']
                 if item.get('severity_changed'):
@@ -1072,6 +1208,18 @@ def aggregate_issues(campaign):
                     entry['current_severity'] = item.get('current_severity')
                 entry["occurrences"].append(dict(phase=record["phase"], detail=item["detail"],
                                                   classification=item.get("classification", ""),
+                                                  severity=item.get('severity', 'FAIL'),
+                                                  code=item.get('code', ''),
+                                                  occurrence_count=item.get('occurrence_count', 1),
                                                   evidence=item.get("evidence", ""),
                                                   snippet=item.get("snippet", "")))
+            # A missing finding proves recovery only for a completed loop whose
+            # own source was available. START is identity-only and RECOVERY is a
+            # reconstruction note, so neither can clear hardware/log history.
+            if str(record.get('phase', '')).startswith('LOOP'):
+                for item_key, state in states.items():
+                    if item_key in present:
+                        continue
+                    if _observation_state(record, state['source']) == 'AVAILABLE':
+                        state['confirmed_absent'] = True
     return list(merged.values())

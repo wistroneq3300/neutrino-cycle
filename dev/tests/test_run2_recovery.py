@@ -309,6 +309,9 @@ class DegradedOutputTests(unittest.TestCase):
         self.assertEqual(caught.exception.persistence['state'], 'FAILED')
         self.assertEqual(caught.exception.report['state'], 'READY')
         self.assertTrue((self.root/'CYCLE_REVIEW_REPORT.html').is_file())
+        html = (self.root/'CYCLE_REVIEW_REPORT.html').read_text(encoding='utf-8')
+        self.assertIn('<div class="degraded-banner">', html)
+        self.assertIn('No space left on device', html)
         # The journal from setUp is left untouched, not deleted or half-written.
         self.assertEqual(read_journal_text(self.root)['state'], 'COMPLETE')
 
