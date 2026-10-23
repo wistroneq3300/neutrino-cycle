@@ -283,3 +283,72 @@ with report_writer_lock(sys.argv[1]):
         self.assertEqual(result['nodes'][0]['completed'], 1)
         self.assertEqual(result['state'], 'INCOMPLETE')
         self.assertEqual(status(result)['health'], 'FAIL')
+
+
+class DegradedOutputTests(unittest.TestCase):
+    """Journal and report are written independently; neither breaks the other.
+
+    Regression: both were written in one try block, so a full disk outside the
+    bundle (where the journal lives) also cost the operator the HTML -- the one
+    artefact readable without the tool.
+    """
+
+    setUp = RecoveryTests.setUp
+    save = RecoveryTests.save
+
+    def test_journal_failure_still_renders_report(self):
+        from vera_cycle.reporting.cycle_report import ReportDegraded
+        real = write_json
+        def boom(path, payload):
+            if 'campaign.json' in str(path):
+                raise OSError('No space left on device')
+            return real(path, payload)
+        with patch('vera_cycle.reporting.cycle_report.write_json', boom):
+            with self.assertRaises(ReportDegraded) as caught:
+                write_reports(self.root, self.data)
+        self.assertEqual(caught.exception.persistence['state'], 'FAILED')
+        self.assertEqual(caught.exception.report['state'], 'READY')
+        self.assertTrue((self.root/'CYCLE_REVIEW_REPORT.html').is_file())
+        # The journal from setUp is left untouched, not deleted or half-written.
+        self.assertEqual(read_journal_text(self.root)['state'], 'COMPLETE')
+
+    def test_render_failure_keeps_journal_and_marks_report(self):
+        from vera_cycle.reporting.cycle_report import ReportDegraded
+        with patch('vera_cycle.reporting.cycle_report.render_html', side_effect=ValueError('bad template')):
+            with self.assertRaises(ReportDegraded) as caught:
+                write_reports(self.root, self.data)
+        self.assertEqual(caught.exception.report['state'], 'FAILED')
+        self.assertEqual(caught.exception.persistence['state'], 'OK')
+        # The verdict of record survives a broken template.
+        self.assertTrue(journal_path(self.root).is_file())
+        self.assertEqual(read_journal_text(self.root)['state'], 'COMPLETE')
+
+    def test_node_degraded_archive_is_part_of_run_status(self):
+        from vera_cycle.reporting.cycle_report import run_status
+        self.data['nodes'][0].update(persistence='DEGRADED',
+                                     persistence_detail='tray1_n1/loop0001/report.json: OSError')
+        verdict = run_status(self.data)
+        self.assertEqual(verdict['persistence']['state'], 'DEGRADED')
+        self.assertIn('loop0001/report.json', verdict['persistence']['detail'])
+        self.assertEqual(verdict['execution'], 'COMPLETE')
+        self.assertEqual(verdict['health'], 'FAIL')
+
+    def test_run_status_file_is_written_even_when_journal_fails(self):
+        import json as jsonlib
+        from vera_cycle.reporting.cycle_report import ReportDegraded
+        real = write_json
+        def boom(path, payload):
+            if 'campaign.json' in str(path):
+                raise OSError('disk full')
+            return real(path, payload)
+        with patch('vera_cycle.reporting.cycle_report.write_json', boom):
+            with self.assertRaises(ReportDegraded):
+                write_reports(self.root, self.data)
+        payload = jsonlib.loads((self.root/'run_status.json').read_text())
+        self.assertEqual(payload['persistence']['state'], 'FAILED')
+        self.assertIn('disk full', payload['persistence']['detail'])
+        self.assertIn('Persistence: FAILED', (self.root/'cycle_summary.txt').read_text())
+
+
+def read_journal_text(root):
+    return json.loads(journal_path(root).read_text())

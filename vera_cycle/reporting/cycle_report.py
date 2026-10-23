@@ -210,6 +210,9 @@ DMESG_PHASE_LABELS = {
     'dmesg': 'post',
     'before_action_dmesg': 'before action',
     'dmesg_before_clear': 'before clear',
+    # Read after a boot timeout: the node's last words before it failed to come
+    # back. Without its own label it would be presented as the loop's normal post.
+    'recovery': 'recovery',
 }
 
 
@@ -1287,19 +1290,94 @@ def _write_reports(root, campaign):
     for node in campaign['nodes']:
         for record in [node['pre'], *([node['start']] if node.get('start') else []), *node['loops']]:
             record['missing_evidence'] = [p for p in record['evidence'] if not (root / p).is_file()]
+    # Both outcomes are decided before either is persisted: the journal is the
+    # verdict of record and carries the report's state, so writing it first
+    # would lose that state on the next read (a rebuild reads the journal).
+    parse = {}
+    try:
+        write_json(journal_path(root), campaign)
+        persist_state = dict(state='OK', detail='')
+    except Exception as exc:
+        persist_state = dict(state='FAILED', detail=f'{type(exc).__name__}: {exc}')
+    try:
+        _render_reports(root, campaign, persist_state)
+        parse = dict(state='READY', detail='')
+    except Exception as exc:
+        parse = dict(state='FAILED', detail=f'{type(exc).__name__}: {exc}')
+    campaign['persistence'], campaign['report'] = persist_state, parse
+    if persist_state['state'] == 'OK':
+        # Journal was written before the states were finalized; record them now
+        # so a later rebuild knows the report's fate instead of reporting
+        # NOT_GENERATED for a campaign whose HTML was fine.
+        try:
+            write_json(journal_path(root), campaign)
+        except Exception as exc:
+            persist_state.update(state='FAILED', detail=f'{type(exc).__name__}: {exc}')
+    _write_run_status(root, campaign)
+    if campaign['report']['state'] == 'FAILED' or campaign['persistence']['state'] == 'FAILED':
+        raise ReportDegraded(campaign['persistence'], campaign['report'])
+
+
+class ReportDegraded(RuntimeError):
+    """Publishing failed in one or both independent branches; the run survives."""
+
+    def __init__(self, persistence, report):
+        self.persistence = persistence
+        self.report = report
+        detail = '; '.join(f"{name}: {state['detail']}" for name, state in
+                           (('journal', persistence), ('report', report)) if state['state'] != 'OK')
+        super().__init__(detail)
+
+
+def run_status(campaign):
+    """The four independent verdicts, plus the reason for each held-back one."""
     result = status(campaign)
-    # The journal is independent of HTML generation and is written first. It is
-    # kept outside the bundle (see ``journal_path``) to avoid a 400+ MB file in
-    # every campaign directory; the report carries the same verdict.
-    write_json(journal_path(root), campaign)
+    persistence = campaign.get('persistence') or {}
+    report = campaign.get('report') or {}
+    nodes = [n for n in campaign.get('nodes', []) if n.get('persistence') == 'DEGRADED']
+    if not persistence:
+        persistence = dict(state='OK', detail='')
+    if nodes and persistence.get('state') == 'OK':
+        persistence = dict(state='DEGRADED',
+                           detail=f"{len(nodes)} node(s) could not archive every record: "
+                                  + '; '.join(n['persistence_detail'] for n in nodes if n.get('persistence_detail'))[:500])
+    if not report:
+        report = dict(state='NOT_GENERATED', detail='')
+    return dict(execution=result['completion'], health=result['health'],
+                persistence=persistence, report=report)
+
+
+def _write_run_status(root, campaign):
+    """Small machine-readable verdict file, written even when the journal fails."""
+    status_path = Path(root) / 'run_status.json'
+    payload = run_status(campaign)
+    try:
+        atomic_write(status_path, json.dumps(payload, indent=2, sort_keys=True) + '\n')
+    except Exception:
+        # Nothing further can be done if the bundle itself is unwritable; the
+        # summary line below still carries the same information.
+        pass
+
+
+def _render_reports(root, campaign, persistence_state=None):
+    result = status(campaign)
     lines = [f"Run ID: {campaign['run_id']}", f"Execution: {result['completion']}", f"Health: {result['health']}",
              f"Requested limits: {campaign['limits']}", f"Completed node-loops: {result['completed_node_loops']}",
              f"Attempts: {result['attempted_node_loops']}; boot confirmed: {result['boot_confirmed_node_loops']}; valid cycles: {result['valid_node_cycles']}",
              f"Stop reason: {campaign.get('stop_reason', '')}", f"Unique issues: {len(result['issues'])}", f"Campaign elapsed: {duration(elapsed(campaign['started'], campaign.get('finished')))}"]
+    # ``campaign`` may not yet carry the states (they are set right after the
+    # render), so pass the persistence outcome in explicitly.
+    verdict = run_status(dict(campaign, persistence=persistence_state) if persistence_state else campaign)
+    lines.append(f"Persistence: {verdict['persistence']['state']}"
+                 + (f" ({verdict['persistence']['detail']})" if verdict['persistence']['detail'] else ''))
+    lines.append(f"Report: {verdict['report']['state']}"
+                 + (f" ({verdict['report']['detail']})" if verdict['report']['detail'] else ''))
     for node in campaign['nodes']:
         node_lines = [f"Target: {node['key']}", f"Completed loops: {node['completed']}",
                       f"Attempts: {node.get('attempts', 0)}; boot confirmed: {node.get('boot_confirmed', 0)}; valid cycles: {node.get('valid_cycles', 0)}",
                       f"Blocked: {'; '.join(node['blocked']) or 'No'}", f"Stop reason: {node['stop_reason']}"]
+        if node.get('persistence', 'OK') != 'OK':
+            node_lines.append(f"Persistence: DEGRADED ({node.get('persistence_detail', '')})")
         for record in [node['pre'], *([node['start']] if node.get('start') else []), *node['loops']]:
             node_lines.append(f"{record['phase']}: {record['status']} ({len(record['issues'])} findings)")
         node_lines.extend('Recovery: ' + note for note in node.get('recovery_notes', []))

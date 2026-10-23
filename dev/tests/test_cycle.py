@@ -1091,3 +1091,78 @@ class ConsolePaintTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DegradedOutputTests(unittest.TestCase):
+    """A boot that never comes back must still leave its log behind.
+
+    Regression: the timeout ended the loop immediately. The only record of why
+    the node never returned (a kernel panic, a wedged driver) lived in its ring
+    buffer, and the next operator retry wiped it -- so the most interesting
+    failure of a campaign was also the least documented.
+    """
+
+    setUp = EngineTests.setUp
+    tearDown = EngineTests.tearDown
+    ready = EngineTests.ready
+
+    def test_timeout_retains_boot_log_before_halting(self):
+        self.fake.no_recovery = True
+        self.ready()
+        original = self.fake.ssh
+        def ssh(t, role, cmd, timeout=60, sudo=False):
+            if cmd == 'dmesg -c':
+                return Command(0, '[ 512.0] BUG: soft lockup - CPU#3 stuck for 22s\n')
+            return original(t, role, cmd, timeout, sudo)
+        with patch.object(self.fake, 'ssh', side_effect=ssh):
+            result = self.session.one_loop(1)
+        self.assertFalse(self.session.node['active'])
+        codes = [i['code'] for i in result['issues']]
+        self.assertIn('BOOT_TIMEOUT', codes)
+        self.assertIn('DMESG_KERNEL', codes)
+        kept = next(i for i in result['issues'] if i['code'] == 'DMESG_KERNEL')
+        self.assertEqual(kept['phase'], 'recovery')
+        self.assertIn('soft lockup', (self.session.root / kept['evidence']).read_text())
+        # The verdict is still the timeout, not "the log had a bug".
+        self.assertIn('boot log retained', self.session.node['stop_reason'])
+
+    def test_unreadable_recovery_log_is_info_not_a_second_failure(self):
+        # The node is slow but answering; the recovery read itself fails. That
+        # is a note, not a new FAIL: the loop already failed for the timeout.
+        self.fake.no_recovery = True
+        self.ready()
+        original = self.fake.ssh
+        in_recovery = {'on': False}
+        def ssh(t, role, cmd, timeout=60, sudo=False):
+            if self.session.node.get('stage') == 'Recovery log':
+                in_recovery['on'] = True
+            if cmd == 'dmesg -c' and in_recovery['on']:
+                return Command(255, 'dmesg: read timout', 'NOT_ISSUED')
+            return original(t, role, cmd, timeout, sudo)
+        with patch.object(self.fake, 'ssh', side_effect=ssh):
+            result = self.session.one_loop(1)
+        notes = [i for i in result['issues'] if i['code'] == 'RECOVERY_LOG_FAILED']
+        self.assertEqual(len(notes), 1)
+        self.assertEqual(notes[0]['severity'], 'INFO')
+        self.assertNotIn('boot log retained', self.session.node['stop_reason'])
+        self.assertIn('BOOT_TIMEOUT', [i['code'] for i in result['issues']])
+
+    def test_persistence_failure_marks_degraded_and_keeps_looping(self):
+        # The archive step must never abort a cycle: losing a sidecar is
+        # recoverable with --report, losing the campaign is not.
+        self.ready()
+        # Fail the underlying write, not ``persist`` itself: the point is that
+        # persist's own guard converts it into DEGRADED.
+        import vera_cycle.engine.cycle_engine as engine
+        real = engine.write_json
+        def flaky(path, payload):
+            if 'report.json' in str(path):
+                raise OSError('No space left on device')
+            return real(path, payload)
+        with patch.object(engine, 'write_json', flaky):
+            result = self.session.one_loop(1)
+        self.assertTrue(self.session.node['active'])
+        self.assertEqual(self.session.node['persistence'], 'DEGRADED')
+        self.assertIn('No space left on device', self.session.node['persistence_detail'])
+        self.assertEqual(result['persistence']['state'], 'FAILED')
+        self.assertEqual(result['status'], 'FAIL')   # the loop itself still judged

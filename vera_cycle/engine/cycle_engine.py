@@ -89,6 +89,10 @@ CAPTURES = {
     "system": ("uname -a; cat /etc/os-release; lscpu", False),
 }
 
+class BootNotConfirmed(ConnectionError):
+    """The power action was issued but the OS never came back on a new boot ID."""
+
+
 def new_record(phase):
     return dict(phase=phase, started=now(), finished=None, status="PENDING", issues=[],
                 evidence=[], commands={}, identities={}, pci={}, pci_devices={}, sensors=[], action=[], recovery={},
@@ -107,7 +111,8 @@ class NodeSession:
         # a NodeSession is driven directly (tests, dry-run).
         self.progress = None
         self.node = dict(key=target.key, target=target.__dict__, blocked=[], active=True,
-                         pre=new_record("PRE"), loops=[], completed=0, attempts=0, boot_confirmed=0, valid_cycles=0, stop_reason="", stage="")
+                         pre=new_record("PRE"), loops=[], completed=0, attempts=0, boot_confirmed=0, valid_cycles=0, stop_reason="", stage="",
+                         persistence='OK', persistence_detail='')
         self.baseline = None
         self.pre_issue_keys = {}
         self.upload_attempted = False
@@ -116,6 +121,7 @@ class NodeSession:
         self.dmesg_seen = {}
         self.expected_boot = None
         self.cleanup_safe = True
+        self.persistence_failures = []
 
     def stage(self, text):
         """Report the current phase for this node so the operator can see where
@@ -151,7 +157,25 @@ class NodeSession:
             classify_against_pre(record["issues"], set())
         else:
             classify_against_pre(record["issues"], self.pre_issue_keys)
-        write_json(self.folder(record) / ("pre_report.json" if record["phase"] == "PRE" else "report.json"), record)
+        # A failed write must not abort the loop. Losing this sidecar is
+        # recoverable (--report rebuilds from what did land), but silently
+        # losing it is not: the campaign records DEGRADED and keeps cycling.
+        path = self.folder(record) / ("pre_report.json" if record["phase"] == "PRE" else "report.json")
+        try:
+            write_json(path, record)
+        except Exception as exc:
+            self.note_persistence_failure(f'{path.relative_to(self.root).as_posix()}: {type(exc).__name__}: {exc}')
+            record.setdefault('persistence', {})['state'] = 'FAILED'
+            record['persistence']['detail'] = str(exc)
+            return
+        record.setdefault('persistence', {})['state'] = 'OK'
+
+    def note_persistence_failure(self, detail):
+        """Record that a record could not be archived, without disturbing the run."""
+        self.persistence_failures.append(detail)
+        self.node['persistence'] = 'DEGRADED'
+        self.node['persistence_detail'] = self.persistence_failures[-1]
+
 
     def finish(self, record, preserve_timing=False):
         finished = record.get("finished") if preserve_timing else None
@@ -1295,8 +1319,42 @@ class NodeSession:
             time.sleep(min(self.options.poll_interval, max(0, deadline - time.monotonic())))
         record["recovery"].update(boot_changed=boot_changed, attempts=attempts)
         self.add(record, "BOOT_TIMEOUT", "recovery", f"Selected endpoints did not recover with a changed OS boot ID within {self.options.boot_timeout}s")
-        self.node.update(active=False, stop_reason="Boot recovery timeout")
         return False
+
+    def recover_log_tail(self, record):
+        """Best-effort kernel-log capture after the cycle failed to confirm boot.
+
+        The node is not back, so its kernel log is the only record of why. That
+        window closes as soon as an operator retry runs ``dmesg -C`` again, so
+        it is captured here, at the end of the failed loop, and never inside
+        the verdict: the loop already failed for a known reason and these
+        events are reported for reading, not for judging.
+
+        Skipped when the node answered as unreachable rather than slow --
+        reading a log from a dead node only burns another timeout.
+        """
+        if not record.get('action'):
+            return False   # no power action was issued, so no boot to explain
+        try:
+            self.stage("Recovery log")
+            tail = self.command(record, 'recovery_dmesg', 'os', 'dmesg -c', timeout=60,
+                                save_evidence=True, check=False)
+        except Exception as exc:
+            self.add(record, 'RECOVERY_LOG_FAILED', 'recovery',
+                     f"Boot log could not be read after the failed cycle: {type(exc).__name__}: {exc}",
+                     severity='INFO')
+            return False
+        if tail.state == 'NOT_ISSUED' or tail.code:
+            self.add(record, 'RECOVERY_LOG_FAILED', 'recovery',
+                     f"Boot log could not be read after the failed cycle: exit {tail.code} ({tail.state})",
+                     severity='INFO')
+            return False
+        evidence = record['commands'].get('recovery_dmesg', {}).get('evidence', '')
+        for event in dmesg_issues(tail.output):
+            event['phase'] = 'recovery'
+            event['evidence'] = evidence
+            record['issues'].append(event)
+        return bool(tail.output.strip())
 
     def dispatch(self, record, label, role, cmd, sudo=False, timeout=30):
         record.setdefault("cycle_started", now())
@@ -1368,7 +1426,7 @@ class NodeSession:
                 self.stage("waiting OS boot")
                 recovered = self.wait_boot(record, old_boot, deadline)
                 if not recovered:
-                    raise ConnectionError('Boot recovery was not confirmed; POST hardware execution blocked')
+                    raise BootNotConfirmed('Boot recovery was not confirmed; POST hardware execution blocked')
             else:
                 self.stage(f"{cycle_label} not sent")
                 recovered = False
@@ -1423,7 +1481,10 @@ class NodeSession:
             if isinstance(exc, IdentityUnsafe):
                 self.cleanup_safe = False
             self.add(record, code, "recovery", str(exc))
-            self.node.update(active=False, stop_reason=str(exc))
+            # The cycle is already judged; this only preserves the log that
+            # explains why the node did not come back.
+            kept = (not isinstance(exc, IdentityUnsafe)) and self.recover_log_tail(record)
+            self.node.update(active=False, stop_reason=str(exc) + ('; boot log retained' if kept else ''))
             record["post_complete"] = False
             # BMC evidence can still explain a failed OS recovery; never touch an
             # endpoint whose identity just failed verification.
