@@ -17,7 +17,7 @@ os.environ.setdefault('VERA_CAMPAIGN_TMP', tempfile.mkdtemp(prefix='vera-campaig
 
 from vera_cycle.core.cycle_core import issue, now, write_json
 from vera_cycle.engine.cycle_engine import new_record
-from vera_cycle.reporting.cycle_report import journal_path, rebuild, status, write_reports
+from vera_cycle.reporting.cycle_report import journal_path, rebuild, render_html, status, write_reports
 from vera_cycle.engine.cycle_runtime import RunRegistry
 from vera_cycle.cli import main
 from test_cycle import target
@@ -352,3 +352,50 @@ class DegradedOutputTests(unittest.TestCase):
 
 def read_journal_text(root):
     return json.loads(journal_path(root).read_text())
+
+
+class DegradedBannerTests(unittest.TestCase):
+    """The banner is the only part of the verdict a reader sees without tools.
+
+    It carries persistence failures only. The report's own state cannot be
+    stated inside the report ("was this HTML written?" is unknown until after
+    it is written), so that lives in run_status.json.
+    """
+
+    setUp = RecoveryTests.setUp
+    save = RecoveryTests.save
+
+    BANNER = '<div class="degraded-banner">'
+
+    def test_healthy_campaign_has_no_banner(self):
+        # Matched as an element, not as a substring: the CSS is inlined and
+        # defines .degraded-banner, so a substring test passes when nothing shows.
+        html = render_html(self.data)
+        self.assertNotIn(self.BANNER, html)
+
+    def test_journal_failure_shows_banner(self):
+        self.data['persistence'] = dict(state='FAILED', detail='OSError: No space left on device')
+        html = render_html(self.data)
+        self.assertIn(self.BANNER, html)
+        self.assertIn('No space left on device', html)
+        # The verdict itself must not be rewritten by an output problem.
+        self.assertIn('COMPLETE', html)
+        self.assertIn('FAIL', html)
+
+    def test_node_archive_failure_shows_its_own_row(self):
+        self.data['nodes'][0].update(persistence='DEGRADED',
+                                     persistence_detail='tray1_n1/loop0001/report.json: OSError')
+        html = render_html(self.data)
+        self.assertIn(self.BANNER, html)
+        self.assertIn('tray1_n1/loop0001/report.json', html)
+
+    def test_ok_node_states_do_not_trigger_it(self):
+        self.data['nodes'][0]['persistence'] = 'OK'
+        self.assertNotIn(self.BANNER, render_html(self.data))
+
+    def test_banner_survives_print(self):
+        # Handed over as PDF: the warning must be on paper too.
+        from vera_cycle.reporting.cycle_report import ASSETS
+        css = (ASSETS / 'report.css').read_text()
+        self.assertNotIn('.degraded-banner{display:none', css)
+        self.assertIn('.degraded-banner', css)

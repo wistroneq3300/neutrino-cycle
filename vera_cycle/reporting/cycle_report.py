@@ -1230,6 +1230,34 @@ def issue_cards_compact(items, indices):
     return ''.join(rows) or '<p>No issues recorded.</p>'
 
 
+def _degraded_banner(campaign):
+    """Banner for an output problem the campaign verdict cannot express.
+
+    Only the persistence state is rendered here. The report's own state cannot
+    be: "the HTML was written" is not known until after this HTML is written,
+    so claiming READY inside it would be a guess, and claiming FAILED would be
+    false by construction. The report state lives in run_status.json instead.
+
+    Absent unless something actually failed. A banner that is always there
+    stops being read, and then the one time it matters it is invisible.
+    """
+    nodes = [n for n in campaign.get('nodes', []) if n.get('persistence') not in (None, 'OK')]
+    persistence = campaign.get('persistence') or {}
+    if persistence.get('state') in (None, 'OK') and not nodes:
+        return ''
+    rows = []
+    if persistence.get('state') not in (None, 'OK'):
+        rows.append(f'<li><span class="label">Journal</span>{badge(persistence["state"])} '
+                    f'{esc(persistence.get("detail", ""))}</li>')
+    for node in nodes:
+        rows.append(f'<li><span class="label">{esc(node["key"])}</span>{badge(node["persistence"])} '
+                    f'{esc(node.get("persistence_detail", ""))}</li>')
+    return (f'<div class="degraded-banner"><p><strong>Output degraded</strong> &mdash; '
+            f'the campaign verdict below is unaffected, but this report is incomplete.</p>'
+            f'<ul>{"".join(rows)}</ul>'
+            f'<p class="muted">Rebuild with <code>--report &lt;output&gt;</code> once the cause is resolved.</p></div>')
+
+
 def render_html(campaign, console_log=''):
     result = status(campaign)
     nodes, items = campaign['nodes'], merge_issues(result['issues'])
@@ -1261,9 +1289,10 @@ def render_html(campaign, console_log=''):
     css = (ASSETS / 'report.css').read_text(encoding='utf-8')
     js = (ASSETS / 'report.js').read_text(encoding='utf-8')
     logo = _wistron_logo()
+    banner = _degraded_banner(campaign)
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>{esc(campaign['run_id'])} | Cycle review</title><style>{css}</style></head><body>
     <a class="skip" href="#main">Skip to report</a>{'<div class="sample">SYNTHETIC DEMONSTRATION — no hardware was operated</div>' if campaign.get('synthetic') else ''}
-    <div class="brandbar"><div class="brand-lockup">{logo}<span class="brand-caption">System validation</span></div><span>Engineering / Cycle review</span></div><header><a class="spec-link" href="CYCLE_VALIDATION_SPECIFICATION.html">Validation Specification</a><button id="print-report" class="print-button">Print report</button><h1>Cycle review</h1><div class="runline"><code>{esc(campaign['run_id'])}</code><span class="muted">Started {esc(campaign['started'])}</span></div><nav class="tabs" role="tablist" aria-label="Campaign views">{tab_html}</nav></header>
+    <div class="brandbar"><div class="brand-lockup">{logo}<span class="brand-caption">System validation</span></div><span>Engineering / Cycle review</span></div><header><a class="spec-link" href="CYCLE_VALIDATION_SPECIFICATION.html">Validation Specification</a><button id="print-report" class="print-button">Print report</button><h1>Cycle review</h1>{banner}<div class="runline"><code>{esc(campaign['run_id'])}</code><span class="muted">Started {esc(campaign['started'])}</span></div><nav class="tabs" role="tablist" aria-label="Campaign views">{tab_html}</nav></header>
     <main id="main">{overview}{node_panel}{issues_panel}</main><footer><p>Generated {esc(now())}. Offline report. Keep this HTML with its evidence folders to use log links.</p><p>Hardware script SHA-256: <code>{esc(campaign['script_sha256'])}</code></p></footer><script>{js}</script></body></html>'''
 
 def write_reports(root, campaign):
