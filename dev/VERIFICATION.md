@@ -2,7 +2,13 @@
 
 ## Release 2026.10.24.2 — independent-review corrections
 
-**438 offline tests: 416 PASS, 0 FAIL, 0 ERROR, 22 explicit environment SKIP.**
+**438 offline tests: 437 PASS, 0 FAIL, 0 ERROR, 1 environment SKIP on Linux.**
+The same suite on the Windows validation host used during development reports
+416 PASS and 22 SKIP, because that host has no Bash, no POSIX pseudo-terminal and
+no Linux root/cross-UID environment. Those 22 cases execute and pass on Linux, so
+the 22-SKIP figure describes the Windows host only and must not be read as the
+project's test state. Only one condition genuinely skips on Linux: the interactive
+pseudo-terminal test when no PTY can be allocated.
 The 12 additional regressions reproduce and close independent-review findings
 R1–R5: dmesg alias/count conservation and changing capture membership; Redfish
 logical identity, raw-ID retention, ordering and same-loop worst severity;

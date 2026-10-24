@@ -35,7 +35,7 @@ identified three P1 correctness defects and two P2 trace/display defects. Releas
 
 | Decision | Status | Implementation and verification |
 |---|---|---|
-| ED-CYCLE-01 | Implemented | PRE blank/mismatch blocks before mutation; START mismatch refuses start; loop blank/mismatch is FAIL, remains active, and cannot be washed out by a later good identity check. |
+| ED-CYCLE-01 | Implemented | PRE blank/mismatch blocks before mutation; START mismatch refuses start; the loop's pre-action check is strict, so a blank/mismatch FAILs the loop and stops that node **before any power action**, and the mismatch cannot be washed out by a later good identity check. Other nodes keep running. |
 | ED-CYCLE-02 | Implemented | Normal loop has one final `dmesg -c`, after POST/MCTP work. No normal pre-reboot collection was added; abnormal recovery-tail collection remains. |
 | ED-CYCLE-03 | Implemented | Journal/JSON failure records FAILED/DEGRADED without stopping the cycle; HTML failure is independent of execution/health and retains reason/history. No power retry is triggered. |
 | ED-CYCLE-04 | Implemented | dmesg uses device-qualified observation identities and multiset deltas, preserving same-device repeats, distinct BDFs, raw evidence, and non-duplicated overlap counts. |
@@ -114,7 +114,10 @@ identified three P1 correctness defects and two P2 trace/display defects. Releas
 
 ## Self-review safety invariants
 
-- Power-action dispatch branches and action counts are unchanged; no hostname, log, persistence, HTML, or recovery failure resends power.
+- Power-action dispatch branches and action counts are unchanged, and no hostname, log, persistence,
+  HTML, or recovery failure resends power. "Does not resend" is not sufficient on its own: the loop's
+  pre-action identity check is strict, so a power action is never issued to a host that already reports
+  the wrong hostname. Dispatch still happens after the check, never before it.
 - Normal-loop OS dmesg is read once at the end; the pre-action/early-POST read was not reintroduced and the abnormal recovery tail remains.
 - FAIL/WARN and true occurrence counts survive aggregation; different nodes, BDFs, Redfish services, and errors cannot cross-merge.
 - RECURRENCE requires a confirmed available absence; UNAVAILABLE never marks recovery.

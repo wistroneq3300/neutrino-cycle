@@ -130,6 +130,12 @@ def _strip_bdf(text):
 def _strip_count(text):
     """Drop the counters that make a repeat differ from its first occurrence."""
     text = re.sub(r'\b0x[0-9a-f]+\b', '<hex>', text, flags=re.I)
+    # Process/thread ids in the ``name[1234]:`` prefix. A daemon that logs the
+    # same fault every boot must be one card, not one per PID. Deliberately
+    # narrow: only a bare decimal immediately after the identifier and before
+    # the colon qualifies. PCI ids (``[10de:1234]``) and AER bit numbers
+    # (``AER: [ 6] Bad TLP``) do not match, so they keep their meaning.
+    text = re.sub(r'(?<=[A-Za-z0-9_.\-])\[\d+\](?=:)', '[<pid>]', text)
     return re.sub(r'\b(I/O|QID|error status/mask)\s*\d+', r'\1 <n>', text, flags=re.I)
 
 

@@ -44,6 +44,13 @@ from vera_cycle.reporting.cycle_report import (
 
 from dev.tests.test_cycle import FakeTransport, target
 
+# Every command that can change the physical power state of a node. Tests assert
+# against this set whenever they must prove that no power action was issued.
+POWER_COMMANDS = {
+    'reboot', 'ipmitool power cycle', 'power cycle', 'power reset',
+    '/usr/bin/stbypowerctrl.sh aux_cycle', '/usr/bin/powerctrl.sh power_cycle',
+}
+
 
 class FinalHostnameDecisionTests(unittest.TestCase):
     def setUp(self):
@@ -76,13 +83,32 @@ class FinalHostnameDecisionTests(unittest.TestCase):
         self.fake.mismatch = True
         with self.assertRaises(IdentityUnsafe):
             self.session.start()
-        self.assertFalse(any(cmd in {
-            'reboot', 'ipmitool power cycle', 'power cycle', 'power reset',
-            '/usr/bin/stbypowerctrl.sh aux_cycle',
-            '/usr/bin/powerctrl.sh power_cycle',
-        } for _, _, cmd in self.fake.calls))
+        self.assertFalse(any(cmd in POWER_COMMANDS for _, _, cmd in self.fake.calls))
 
-    def test_loop_hostname_mismatch_is_fail_and_node_continues(self):
+    def test_loop_mismatch_before_action_sends_no_power(self):
+        """A host that already reports the wrong hostname must never be cycled.
+
+        The pre-action identity check is strict (same rule as PRE and START), so
+        the node stops before any power command is issued. Only that node stops.
+        """
+        self.ready()
+        self.fake.mismatch = True          # wrong hostname BEFORE the loop starts
+        self.fake.calls.clear()
+        record = self.session.one_loop(1)
+        self.assertEqual([call for call in self.fake.calls if call[2] in POWER_COMMANDS], [])
+        self.assertFalse(self.session.node['active'])
+        self.assertEqual(self.session.node['attempts'], 0)
+        codes = [issue['code'] for issue in record['issues']]
+        self.assertIn('IDENTITY_UNSAFE', codes)
+        self.assertEqual(record['status'], 'FAIL')
+
+    def test_loop_mismatch_detected_after_action_keeps_prior_history(self):
+        """A mismatch first seen AFTER the power action cannot un-issue it.
+
+        This is the residual case: the pre-action check passed, the action ran,
+        and the node came back as a different machine. The loop is FAIL, the
+        history is retained, and no automatic retry/power is issued.
+        """
         self.ready()
         self.fake.on_action = lambda: setattr(self.fake, 'mismatch', True)
         record = self.session.one_loop(1)
@@ -91,6 +117,8 @@ class FinalHostnameDecisionTests(unittest.TestCase):
         self.assertEqual(record['status'], 'FAIL')
         self.assertTrue(self.session.node['active'])
         self.assertEqual(self.session.node['attempts'], 1)
+        power_calls = [call for call in self.fake.calls if call[2] in POWER_COMMANDS]
+        self.assertEqual(len(power_calls), 1, 'the one approved action, never a retry')
 
     def test_transient_loop_mismatch_cannot_be_washed_out_later_in_round(self):
         self.ready()
@@ -437,6 +465,37 @@ class FinalIssueStateTests(unittest.TestCase):
         item = aggregate_issues(self.campaign([first, unavailable, repeated]))[0]
         self.assertEqual([o['classification'] for o in item['occurrences']],
                          ['NEW', 'KNOWN'])
+
+    def test_card_total_counts_every_loop_not_just_the_first(self):
+        """The card header must report the campaign lifetime, not one loop.
+
+        ``entries`` carries the message breakdown of a single observation, so a
+        card that showed only that sum reported the first loop's count for a
+        finding that recurred in every loop.
+        """
+        records = []
+        for number in range(1, 4):
+            record = new_record(f'LOOP {number}')
+            finding = dmesg_issues('[ 1.0] pcieport 0000:01:00.0: BAR 0: failed to assign\n'
+                                   '[ 2.0] pcieport 0000:01:00.0: BAR 2: failed to assign\n')
+            for event in finding:
+                event.update(boot_id='b', phase='dmesg_clear', evidence='e')
+            record.update(loop=number, status='FAIL', post_complete=True, valid_cycle=True,
+                          issues=finding, duration_seconds=.1)
+            record['identities']['os'] = {'hostname': 'os-n1', 'boot_id': 'b'}
+            record['observation_status'].update(dmesg='AVAILABLE')
+            records.append(record)
+        campaign_data = complete_campaign([report_node('tray1_n1', records)])
+        cards = [i for i in aggregate_issues(campaign_data) if i['code'].startswith('DMESG_')]
+        expected = sum(sum(e['count'] for e in i.get('entries') or [])
+                       for record in records for i in record['issues']
+                       if i['code'].startswith('DMESG_'))
+        self.assertEqual(sum(card['occurrence_count'] for card in cards), expected)
+        for card in cards:
+            self.assertEqual(card['occurrence_count'], 3, 'three loops x one occurrence')
+        page = render_html(campaign_data)
+        self.assertIn('3 occurrence(s)', page)
+        self.assertIn('loop 1-3', page)
 
     def test_empty_pci_inventory_does_not_prove_recovery(self):
         drift = issue('PCI_DRIFT', '0000:01:00.0', 'PRE device -> POST missing')

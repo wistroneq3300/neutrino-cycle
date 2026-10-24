@@ -175,23 +175,28 @@ class RealTerminalTests(unittest.TestCase):
                 os._exit(0)
         return pid, fd
 
-    def test_arrow_and_space_over_pty(self):
-        targets = [target('ETF1', 'n0', 1), target('ETF1', 'n1', 2),
-                   target('ETF2', 'n0', 3), target('ETF2', 'n1', 4)]
-        keys = (b'\x1b[B \x1b[B \r'      # trays: ETF2
-                b'\x1b[B \r')            # ETF2 nodes: n1
-        pid, fd = self._run_child(targets, keys)
-        time.sleep(0.3)
-        try:
-            os.write(fd, keys)
-        except OSError:
-            pass
-        payload = b''
-        deadline = time.time() + 5
+    def _drive(self, fd, buffer, until, keys, deadline_seconds=5):
+        """Send ``keys`` once ``until`` appears, then collect until RESULT.
+
+        Each wizard stage is a separate blocking ``_checklist`` call. Writing the
+        whole multi-stage key script in one burst lets the first checklist
+        consume the second stage's keys, so the flow stalls and the assertion
+        never runs -- which is what previously turned a real failure into an
+        "environment unavailable" skip.
+        """
+        payload = buffer
+        deadline = time.time() + deadline_seconds
+        sent = False
         while time.time() < deadline:
-            ready, _, _ = select_module.select([fd], [], [], 0.5)
+            if not sent and until in payload:
+                try:
+                    os.write(fd, keys)
+                except OSError:
+                    pass
+                sent = True
+            ready, _, _ = select_module.select([fd], [], [], 0.2)
             if not ready:
-                break
+                continue
             try:
                 chunk = os.read(fd, 4096)
             except OSError:
@@ -201,18 +206,40 @@ class RealTerminalTests(unittest.TestCase):
             payload += chunk
             if b'RESULT:' in payload:
                 break
+        return payload, sent
+
+    def test_arrow_and_space_over_pty(self):
+        targets = [target('ETF1', 'n0', 1), target('ETF1', 'n1', 2),
+                   target('ETF2', 'n0', 3), target('ETF2', 'n1', 4)]
+        pid, fd = self._run_child(targets, None)
+        time.sleep(0.4)
         try:
-            os.kill(pid, 9)
-        except OSError:
-            pass
-        try:
-            os.waitpid(pid, 0)
-        except OSError:
-            pass
+            # Stage 1: down/space, down/space, enter -> select both trays. The
+            # checklist loops over the chosen trays in order, so the node prompts
+            # are ETF1 first, then ETF2; each is a separate blocking call and each
+            # needs its own "down, space, enter" (pick n1).
+            payload, sent = self._drive(fd, b'', b'Select trays',
+                                        b'\x1b[B \x1b[B \r')
+            self.assertTrue(sent, 'tray checklist never prompted')
+            for tray in ('ETF1', 'ETF2'):
+                payload, sent = self._drive(
+                    fd, payload, f'Select nodes in {tray}'.encode(), b'\x1b[B \r')
+                self.assertTrue(sent, f'{tray} node checklist never prompted')
+        finally:
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
+            try:
+                os.waitpid(pid, 0)
+            except OSError:
+                pass
         text = payload.decode(errors='replace')
-        if 'RESULT:' not in text:
-            self.skipTest('pseudo-terminal unavailable in this environment')
-        self.assertIn('RESULT:ETF2/n1', text)
+        # The class is guarded by skipUnless(pty is not None): a PTY exists here,
+        # so a missing RESULT is a genuine failure, never an environment excuse.
+        self.assertIn('RESULT:', text, text[-600:])
+        # Both trays were confirmed and each contributed its n1, in tray order.
+        self.assertIn('RESULT:ETF1/n1,ETF2/n1', text)
 
 
 class NoProjectDefaultTests(unittest.TestCase):

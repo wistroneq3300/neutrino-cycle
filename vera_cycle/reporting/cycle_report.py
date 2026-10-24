@@ -272,86 +272,25 @@ def _dmesg_html(item):
     """Render one dmesg finding: phase, line count, per-message entries."""
     entries = item.get('entries') or []
     if entries:
-        count = sum(entry.get('count', 1) for entry in entries)
+        # ``entries`` is the message breakdown of ONE observation, so its sum is
+        # that loop's count, not the campaign's. Showing only it made a six-loop
+        # card claim the first loop's total.
+        loop_count = sum(entry.get('count', 1) for entry in entries)
+        total = item.get('occurrence_count', loop_count)
+        count = loop_count
+        counted = (f'{len(entries)} line(s), {total} occurrence(s) total'
+                   if total and total != loop_count else
+                   f'{len(entries)} line(s), {loop_count} occurrence(s)')
         lines = [entry for entry in entries]
     else:
         count = item.get('occurrence_count', 1)
+        counted = f'1 line(s), {count} occurrence(s)'
         lines = [dict(text=item.get('snippet', '') or item.get('detail', ''), count=1)]
     header = (f'<span class="badge {esc(item.get("severity", "FAIL").lower())}">'
               f'{esc(item.get("severity", "FAIL"))}</span> '
               f'<strong>{esc(display_component(item))}</strong> '
               f'<span class="dmesg-phase">({esc(_dmesg_phase(item))})</span> '
-              f'<span class="muted">{len(lines)} line(s), {count} occurrence(s)</span>')
-    link = f' {evidence_link(item["evidence"])}' if item.get('evidence') else ''
-    body = '<ul class="dmesg-bundle">' + ''.join(
-        f'<li><code>{esc(entry.get("text", ""))}</code>'
-        + (f' <span class="occurrences">×{entry["count"]}</span>' if entry.get('count', 1) > 1 else '')
-        + '</li>' for entry in lines) + '</ul>'
-    if item.get('code') == 'DMESG_NOISE':
-        # Benign-looking lines are retained for review but collapsed: they never
-        # affect health, and expanding dozens of them buries the real findings.
-        return f'<details class="dmesg-block dmesg-noise"><summary>{header}</summary>{body}{link}</details>'
-    return f'<div class="dmesg-block">{header}{link}{body}</div>'
-
-
-def _issue_title(item):
-    """Issue card title: '<node> / <component>'.
-
-    Kernel-log findings carry a code of ``DMESG_*`` and a component that is the
-    parser family (``kernel``, ``mce``, ``pcie``, ...), which reads as a bare
-    device name in the report. Prefix those with ``Dmesg-`` so the source is
-    obvious to whoever reads the HTML, e.g. ``node / Dmesg-kernel``.
-    """
-    node = esc(item.get('node', ''))
-    component = item.get('component', '')
-    code = str(item.get('code', ''))
-    if code == 'DMESG_APEI':
-        # The APEI component is the failing device's BDF (or DIMM/nvme locator),
-        # not a family name. Keep the locator but label it as APEI so the title
-        # says where the source is, e.g. "node / Dmesg-apei:0001:00:00.0".
-        component = f'Dmesg-apei:{component}'
-    elif code.startswith('DMESG_'):
-        # "bundle" is the parser's internal name for the unclassified sweep; show
-        # it as "fail/error" so the operator knows it is the catch-all group of
-        # error/fail lines no family pattern claimed.
-        label = 'fail/error' if component == 'bundle' else component
-        component = 'Dmesg-' + label
-    if code == 'DMESG_BUNDLE' and item.get('device'):
-        component += ':' + ','.join(str(device) for device in item['device'])
-    return f'{node} / {esc(component)}'
-
-
-def _visible_issues(record):
-    """Every finding recorded for this record, in record order.
-
-    Nothing is filtered here: a dmesg family the parser identified (NVMe, EDAC,
-    PCIe/AER, MCE, ...) is a hardware finding, and an earlier version of this
-    function dropped all of them except the catch-all bundle -- so a memory
-    uncorrectable or an NVMe timeout raised the health verdict without ever
-    appearing in the report.
-    """
-    return list(record.get('issues', []))
-
-
-def _dmesg_phase(item):
-    """Operator-facing phase label for one dmesg finding."""
-    return DMESG_PHASE_LABELS.get(str(item.get('phase', '')), 'post')
-
-
-def _dmesg_html(item):
-    """Render one dmesg finding: phase, line count, per-message entries."""
-    entries = item.get('entries') or []
-    if entries:
-        count = sum(entry.get('count', 1) for entry in entries)
-        lines = [entry for entry in entries]
-    else:
-        count = item.get('occurrence_count', 1)
-        lines = [dict(text=item.get('snippet', '') or item.get('detail', ''), count=1)]
-    header = (f'<span class="badge {esc(item.get("severity", "FAIL").lower())}">'
-              f'{esc(item.get("severity", "FAIL"))}</span> '
-              f'<strong>{esc(display_component(item))}</strong> '
-              f'<span class="dmesg-phase">({esc(_dmesg_phase(item))})</span> '
-              f'<span class="muted">{len(lines)} line(s), {count} occurrence(s)</span>')
+              f'<span class="muted">{counted}</span>')
     link = f' {evidence_link(item["evidence"])}' if item.get('evidence') else ''
     body = '<ul class="dmesg-bundle">' + ''.join(
         f'<li><code>{esc(entry.get("text", ""))}</code>'

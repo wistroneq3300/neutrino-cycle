@@ -1504,10 +1504,15 @@ class NodeSession:
         self.node["loops"].append(record)
         self.persist(record)
         try:
-            # Re-verify every selected endpoint before issuing another power action.
+            # Re-verify every selected endpoint before issuing another power
+            # action. This check is strict for the same reason PRE and START are:
+            # a machine that reports the wrong hostname is not the machine the
+            # operator reviewed, so it must not be power-cycled. Raising
+            # IdentityUnsafe deactivates only this node; the other nodes continue.
             for role, _, _ in self.target.endpoints():
                 self.identity(record, role, role + "_before_cycle",
-                              save_evidence=False, record_command=False)
+                              save_evidence=False, record_command=False,
+                              strict_hostname=True)
             if self.expected_boot and record['identities']['os']['boot_id'] != self.expected_boot:
                 raise IdentityUnsafe('Unexpected OS boot transition between captures')
             # Kernel log is read ONCE per loop, at the end (after MCTP stress), so

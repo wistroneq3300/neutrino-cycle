@@ -1114,9 +1114,16 @@ def _observation_state(record, source):
         field = {'pci': 'pci', 'network': 'network_ifaces',
                  'usb': 'usb', 'bmc_usb': 'bmc_usb'}[source]
         content = record.get(field)
-        if source == 'pci':
-            return 'AVAILABLE' if bool(content) else 'UNAVAILABLE'
-        return 'AVAILABLE' if field in record and content is not None else 'UNAVAILABLE'
+        # An empty inventory is never proof of absence for any of these: a real
+        # node always lists at least a loopback interface, a root hub and a
+        # bridge. ``parse_*`` returns the same empty mapping for "genuinely no
+        # devices" and for "output was a connection error / truncated / not
+        # understood", so an empty result means the observation did not happen.
+        # Treating it as AVAILABLE marked every open drift as recovered and
+        # manufactured a RECURRENCE when the device came back.
+        if not content:
+            return 'UNAVAILABLE'
+        return 'AVAILABLE' if field in record else 'UNAVAILABLE'
     if source == 'sensor':
         # A failed confirmation invalidates an earlier successful read: it was
         # requested precisely because the first dataset looked incomplete.
@@ -1273,7 +1280,13 @@ def aggregate_issues(campaign):
                     source=_issue_source(item), confirmed_absent=False,
                     severity=item.get('severity'),
                 ))
-                entry = merged.setdefault(key, {**item, "node": node["key"], "occurrences": []})
+                entry = merged.setdefault(key, {**item, "node": node["key"],
+                                                "occurrences": [], "occurrence_count": 0})
+                # Lifetime total across every loop of the campaign. The card
+                # header shows this, so seeding it from the first observation
+                # (as the old setdefault did) reported one loop's count as the
+                # campaign total.
+                entry["occurrence_count"] += int(item.get('occurrence_count', 1) or 1)
                 if item["severity"] == "FAIL":
                     entry["severity"] = "FAIL"
                 # Preserve the strongest lifecycle label for the group while
