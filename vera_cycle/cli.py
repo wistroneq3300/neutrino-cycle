@@ -350,6 +350,13 @@ def campaign(options, targets, credentials, confirm=input, transport_factory=Tra
         console(f"Planned output: {output}")
         console(f"Project config: {options.config_script.resolve()}")
         console("Selected targets: " + ', '.join(t.key for t in targets))
+        # Operators read the console while standing at a rack; a bare node name
+        # does not tell them which machine to walk to. Print the endpoint map up
+        # front so the OS and BMC addresses of every target are visible before
+        # any action is issued.
+        for target in targets:
+            console(f"  Target {target.key}: os={target.os_ip or '-'} ({target.os_hostname or '-'})"
+                    f"  bmc={target.bmc_ip or '-'} ({target.bmc_hostname or '-'})")
         console(f"Mode: {options.cycle_mode}; channel: {options.channel}; loops: {options.loops or 'unlimited'}; hours: {options.hours or 'unlimited'}")
         if options.cycle_mode == 'reboot' and options.channel == 'outband':
             console("Outband reboot uses BMC power reset.")
@@ -655,6 +662,10 @@ def _checklist(title, items, preselected, read_key, out=sys.stdout, multi=True,
                require=False):
     """Arrow-key selection list. Space selects, Enter confirms.
 
+    ``items`` may be plain labels or ``(label, value)`` pairs. A pair shows
+    ``label`` in the list while returning ``value``, so an operator-facing label
+    can carry the endpoint addresses without inventing a new selection format.
+
     `multi=True` toggles items independently (trays, nodes). `multi=False`
     enforces a single choice: selecting one clears the previous one, so the
     cursor can move freely without losing the current pick.
@@ -663,23 +674,26 @@ def _checklist(title, items, preselected, read_key, out=sys.stdout, multi=True,
     lives here, so the interaction is testable by injecting a scripted reader.
     Returns the list of chosen item labels (empty is allowed).
     """
-    chosen = [bool(preselected.get(item, False)) for item in items]
+    entries = [item if isinstance(item, tuple) else (item, item) for item in items]
+    labels = [label for label, _ in entries]
+    values = [value for _, value in entries]
+    chosen = [bool(preselected.get(value, False)) for value in values]
     cursor = 0
     rendered = 0
     warning = ''
 
     def selected():
-        return [item for item, flag in zip(items, chosen) if flag]
+        return [value for value, flag in zip(values, chosen) if flag]
 
     def draw():
         nonlocal rendered, warning
         hint = _dim("  \u2191/\u2193 move  \u00b7  SPACE select  \u00b7  ENTER confirm")
         lines = [_bold(title), hint]
-        for index, item in enumerate(items):
+        for index, label in enumerate(labels):
             box = _green('[v]') if chosen[index] else '[ ]'
             pointer = _cyan('\u276f') if index == cursor else ' '
-            label = item if index == cursor else _dim(item)
-            lines.append(f"  {pointer} {box} {label}")
+            text = label if index == cursor else _dim(label)
+            lines.append(f"  {pointer} {box} {text}")
         picked = selected()
         summary = ', '.join(picked) if picked else _dim('(nothing selected yet)')
         lines.append(f"  {_yellow('\u2192')} {_bold(summary)}")
@@ -698,16 +712,16 @@ def _checklist(title, items, preselected, read_key, out=sys.stdout, multi=True,
     while True:
         token = read_key()
         if token == 'up':
-            cursor = (cursor - 1) % len(items)
+            cursor = (cursor - 1) % len(labels)
         elif token == 'down':
-            cursor = (cursor + 1) % len(items)
+            cursor = (cursor + 1) % len(labels)
         elif token == 'space':
             if multi:
                 chosen[cursor] = not chosen[cursor]
             else:
                 # Single choice: selecting one clears the rest.
                 picked = not chosen[cursor]
-                chosen = [False] * len(items)
+                chosen = [False] * len(labels)
                 chosen[cursor] = picked
         elif token == 'enter':
             if require and not selected():
@@ -865,6 +879,24 @@ def _group_by_tray(targets):
     return trays, nodes
 
 
+def _tray_label(tray, tray_targets):
+    """'Neutrino0  os 10.36.72.2 .4 .10 .8' -- every OS address, spelled out.
+
+    Abbreviating the range as '3-9' hid the addresses an operator actually
+    needs, and the n2 row breaks the numeric order, so a compressed span was
+    misleading. Listing them in full is short enough for a 4-node tray.
+    """
+    os_ips = [t.os_ip for t in tray_targets if t.os_ip]
+    if not os_ips:
+        return tray
+    return f'{tray}  os ' + ' '.join(os_ips)
+
+
+def _node_label(target):
+    """'n0  os 10.36.72.2  bmc 10.36.72.3' -- the machine, not just its name."""
+    return f'{target.node}  os {target.os_ip or "-"}'
+
+
 def _tui_select_targets(targets, read_key, out=sys.stdout):
     """Full-screen selection: pick trays, then per-tray nodes.
 
@@ -872,19 +904,28 @@ def _tui_select_targets(targets, read_key, out=sys.stdout):
     already accepts tray/node, so the core stays untouched.
     """
     trays, nodes = _group_by_tray(targets)
+    members = {}
+    for target in targets:
+        members.setdefault(target.tray, []).append(target)
     if len(trays) == 1:
         # Single tray: skip the tray step, only ask which nodes.
         chosen_trays = trays
         _echo(f'Only one tray present ({trays[0]}); selecting its nodes.')
     else:
-        chosen_trays = _checklist('Select trays', trays, {}, read_key, out,
+        # The label carries the BMC range so an operator can find the tray;
+        # the returned value stays the bare tray name.
+        entries = [(_tray_label(t, members[t]), t) for t in trays]
+        chosen_trays = _checklist('Select trays', entries, {}, read_key, out,
                                   require=True)
         _echo(f'Trays: {", ".join(chosen_trays)}')
     selected = []
     for tray in chosen_trays:
         # require=True: Enter with nothing picked re-prompts, so a node must be
         # chosen explicitly instead of defaulting to every node.
-        picked = _checklist(f'Select nodes in {tray}', nodes[tray], {}, read_key, out,
+        entries = []
+        for target in members[tray]:
+            entries.append((_node_label(target), target.node))
+        picked = _checklist(f'Select nodes in {tray}', entries, {}, read_key, out,
                             require=True)
         _echo(f'{tray}: {", ".join(picked)}')
         selected.extend(f'{tray}/{node}' for node in picked)
