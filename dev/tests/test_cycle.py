@@ -549,9 +549,16 @@ class PureTests(unittest.TestCase):
             self.assertFalse(inventory_blocks(load_inventory(path)))
         shipped=load_inventory(paths.inventory_path('neutrino'))
         self.assertTrue(shipped)
-        # All four rows are provisioned now (n0 included), so every node runs.
+        # Every shipped row must be usable: no target may be blocked, and every
+        # tray must expose the full n0..n3 set. Asserting the shape rather than a
+        # literal node list keeps this test valid as trays are added or removed.
         blocked=inventory_blocks(shipped)
-        self.assertEqual(sorted(t.node for t in shipped if t.key not in blocked),['n0','n1','n2','n3'])
+        self.assertEqual(blocked, {}, f'blocked targets: {blocked}')
+        by_tray={}
+        for item in shipped:
+            by_tray.setdefault(item.tray, []).append(item.node)
+        for tray, nodes in by_tray.items():
+            self.assertEqual(sorted(nodes), ['n0','n1','n2','n3'], f'{tray} is incomplete')
 
 class EngineTests(unittest.TestCase):
     def setUp(self):
