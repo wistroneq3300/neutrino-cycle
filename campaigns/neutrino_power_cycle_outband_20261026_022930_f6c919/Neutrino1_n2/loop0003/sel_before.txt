@@ -1,0 +1,8 @@
+UTC+8: 2026-10-26T02:38:51+08:00
+Role: oob
+Command: sel list
+Exit: 0
+State: RETURNED
+Duration: 0.69s
+
+SEL has no entries

@@ -1,0 +1,46 @@
+Run ID: neutrino_aux_cycle_inband_20261025_223351_0387b1
+Execution: INCOMPLETE
+Health: FAIL
+Requested limits: {'loops': 5, 'hours': 0.0}
+Completed node-loops: 6
+Attempts: 7; boot confirmed: 6; valid cycles: 6
+Stop reason: Operator requested stop after the current POST
+Unique issues: 123
+Campaign elapsed: 00:21:42
+Persistence: OK
+Report: READY
+Target: Neutrino0_n0
+Completed loops: 2
+Attempts: 2; boot confirmed: 2; valid cycles: 2
+Blocked: No
+Stop reason: 
+PRE: FAIL (5 findings)
+START: PASS (0 findings)
+LOOP 1: FAIL (9 findings)
+LOOP 2: FAIL (11 findings)
+Target: Neutrino0_n1
+Completed loops: 0
+Attempts: 1; boot confirmed: 0; valid cycles: 0
+Blocked: No
+Stop reason: Boot recovery was not confirmed; POST hardware execution blocked
+PRE: FAIL (5 findings)
+START: PASS (0 findings)
+LOOP 1: FAIL (6 findings)
+Target: Neutrino0_n2
+Completed loops: 2
+Attempts: 2; boot confirmed: 2; valid cycles: 2
+Blocked: No
+Stop reason: 
+PRE: FAIL (5 findings)
+START: PASS (0 findings)
+LOOP 1: FAIL (9 findings)
+LOOP 2: FAIL (10 findings)
+Target: Neutrino0_n3
+Completed loops: 2
+Attempts: 2; boot confirmed: 2; valid cycles: 2
+Blocked: No
+Stop reason: 
+PRE: FAIL (5 findings)
+START: PASS (0 findings)
+LOOP 1: FAIL (9 findings)
+LOOP 2: FAIL (10 findings)

@@ -1,0 +1,7 @@
+UTC+8: 2026-10-26T03:05:29+08:00
+Role: os
+Command: test -f /var/tmp/vera-neutrino_power_cycle_outband_20261026_022930_f6c919-Neutrino1_n1-41d4dbdffa87.sh && test ! -L /var/tmp/vera-neutrino_power_cycle_outband_20261026_022930_f6c919-Neutrino1_n1-41d4dbdffa87.sh && test "$(stat -c %u:%a /var/tmp/vera-neutrino_power_cycle_outband_20261026_022930_f6c919-Neutrino1_n1-41d4dbdffa87.sh)" = "$(id -u):700"
+Exit: 0
+State: RETURNED
+Duration: 1.20s
+

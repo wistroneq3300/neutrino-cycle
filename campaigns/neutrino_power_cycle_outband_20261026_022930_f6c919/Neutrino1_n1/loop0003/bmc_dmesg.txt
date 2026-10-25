@@ -1,0 +1,70 @@
+UTC+8: 2026-10-26T02:42:27+08:00
+Role: bmc
+Command: dmesg -c | grep -iE 'mctp|musb|error -71|USB disconnect|usb device|renamed from|reset|timeout' || true
+Exit: 0
+State: RETURNED
+Duration: 2.53s
+
+[78716.081982] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: unexpected rx urb status: -71, requeuing
+[78716.096477] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.105764] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: unexpected rx urb status: -71, requeuing
+[78716.114780] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: RX packet DROPPED (error -71) - real error
+[78716.127169] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: unexpected rx urb status: -71, requeuing
+[78716.136216] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.145672] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: unexpected rx urb status: -71, requeuing
+[78716.154682] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: RX packet DROPPED (error -71) - real error
+[78716.167314] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: unexpected rx urb status: -71, requeuing
+[78716.176404] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.185796] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: unexpected rx urb status: -71, requeuing
+[78716.194741] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: RX packet DROPPED (error -71) - real error
+[78716.207166] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: unexpected rx urb status: -71, requeuing
+[78716.216221] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.225643] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: unexpected rx urb status: -71, requeuing
+[78716.234670] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: RX packet DROPPED (error -71) - real error
+[78716.247189] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: unexpected rx urb status: -71, requeuing
+[78716.256284] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.265798] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: unexpected rx urb status: -71, requeuing
+[78716.274818] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: RX packet DROPPED (error -71) - real error
+[78716.286883] usb 1-1.2.1: USB disconnect, device number 12
+[78716.293281] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.293399] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: RX packet DROPPED (error -71) - real error
+[78716.315428] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.319677] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.323933] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.328173] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.364548] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.377924] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.391304] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.404557] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.417805] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.431175] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.444416] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.457814] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.471182] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.484433] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.497807] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.511182] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.524414] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.537802] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.551181] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.564435] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.577809] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.591180] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.604552] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.617928] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.631308] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.644675] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.657931] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.671318] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.684541] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.697805] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.711178] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: RX packet DROPPED (error -71) - real error
+[78716.720855] usb 1-1.2.2: USB disconnect, device number 13
+[78732.880297] usb 1-1.2.1: new high-speed USB device number 14 using ehci-platform
+[78733.021651] usb 1-1.2.1: New USB device found, idVendor=0955, idProduct=7410, bcdDevice= 0.05
+[78733.031415] usb 1-1.2.1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[78733.300468] usb 1-1.2.2: new high-speed USB device number 15 using ehci-platform
+[78733.380810] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: renamed from mctpusb0
+[78733.442678] usb 1-1.2.2: New USB device found, idVendor=0955, idProduct=7410, bcdDevice= 0.05
+[78733.452542] usb 1-1.2.2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[78733.887143] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: renamed from mctpusb0

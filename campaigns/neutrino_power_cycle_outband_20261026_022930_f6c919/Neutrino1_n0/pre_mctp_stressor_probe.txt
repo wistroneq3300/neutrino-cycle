@@ -1,0 +1,8 @@
+UTC+8: 2026-10-26T02:30:14+08:00
+Role: bmc
+Command: test -x /usr/local/bin/mctp-stressor-p5032.sh && sha256sum /usr/local/bin/mctp-stressor-p5032.sh
+Exit: 0
+State: RETURNED
+Duration: 1.51s
+
+7ef152c63309fd212865cfc735b35df55924e5a097aa466a901de8716b3a608e  /usr/local/bin/mctp-stressor-p5032.sh

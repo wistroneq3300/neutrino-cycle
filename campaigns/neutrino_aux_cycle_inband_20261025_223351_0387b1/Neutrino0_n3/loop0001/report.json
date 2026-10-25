@@ -1,0 +1,4795 @@
+{
+  "phase": "LOOP 1",
+  "started": "2026-10-25T22:35:43+08:00",
+  "finished": "2026-10-25T22:41:42+08:00",
+  "status": "FAIL",
+  "issues": [
+    {
+      "code": "NET_DRIFT",
+      "component": "network",
+      "detail": "Network interface usb0 present at PRE is absent after the loop",
+      "severity": "FAIL",
+      "evidence": "Neutrino0_n3/loop0001/network.txt",
+      "snippet": "PRE interface usb0: 6: usb0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000",
+      "classification": "NEW",
+      "known_reason": ""
+    },
+    {
+      "code": "BF4_MISSING",
+      "component": "BF4",
+      "detail": "Expected exactly 1 physical card(s); detected 0",
+      "severity": "FAIL",
+      "evidence": "Neutrino0_n3/loop0001/hardware.txt",
+      "snippet": "measured BF4 actual=0, expected 1 \u2014 pci_functions=0",
+      "classification": "KNOWN",
+      "known_reason": "Present in PRE baseline"
+    },
+    {
+      "code": "SENSOR_DUPLICATE",
+      "component": "PrMo0CPU0EnfEDP0",
+      "detail": "2 rows share this sensor name; review each row",
+      "severity": "WARN",
+      "evidence": "Neutrino0_n3/loop0001/sensor.txt",
+      "snippet": "line 10: PrMo0CPU0EnfEDP0 | 588.000    | Watts      | ok    | na        | na        | na        | na        | na        | na\nline 11: PrMo0CPU0EnfEDP0 | 901.600    | Watts      | ok    | na        | na        | na        | na        | na        | na",
+      "classification": "KNOWN",
+      "known_reason": "Present in PRE baseline"
+    },
+    {
+      "code": "SENSOR_DUPLICATE",
+      "component": "PrMo0CPU1EnfEDP0",
+      "detail": "2 rows share this sensor name; review each row",
+      "severity": "WARN",
+      "evidence": "Neutrino0_n3/loop0001/sensor.txt",
+      "snippet": "line 13: PrMo0CPU1EnfEDP0 | 588.000    | Watts      | ok    | na        | na        | na        | na        | na        | na\nline 14: PrMo0CPU1EnfEDP0 | 901.600    | Watts      | ok    | na        | na        | na        | na        | na        | na",
+      "classification": "KNOWN",
+      "known_reason": "Present in PRE baseline"
+    },
+    {
+      "code": "SENSOR_DUPLICATE",
+      "component": "PrMo0MeCn0MeTem0",
+      "detail": "4 rows share this sensor name; review each row",
+      "severity": "WARN",
+      "evidence": "Neutrino0_n3/loop0001/sensor.txt",
+      "snippet": "line 47: PrMo0MeCn0MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na\nline 48: PrMo0MeCn0MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na\nline 49: PrMo0MeCn0MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na\nline 50: PrMo0MeCn0MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na",
+      "classification": "KNOWN",
+      "known_reason": "Present in PRE baseline"
+    },
+    {
+      "code": "SENSOR_DUPLICATE",
+      "component": "PrMo0MeCn1MeTem0",
+      "detail": "4 rows share this sensor name; review each row",
+      "severity": "WARN",
+      "evidence": "Neutrino0_n3/loop0001/sensor.txt",
+      "snippet": "line 59: PrMo0MeCn1MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na\nline 60: PrMo0MeCn1MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na\nline 61: PrMo0MeCn1MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na\nline 62: PrMo0MeCn1MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na",
+      "classification": "KNOWN",
+      "known_reason": "Present in PRE baseline"
+    },
+    {
+      "code": "REDFISH_WARNING",
+      "component": "eventlog",
+      "detail": "Redfish EventLog: 11 Chassis intrusion detected at 2026-07-28 20:37:08",
+      "severity": "WARN",
+      "evidence": "Neutrino0_n3/loop0001/eventlog.txt",
+      "snippet": "11 | Warning | 2026-07-28T20:39:16.634+00:00 | Chassis intrusion detected at 2026-07-28 20:37:08",
+      "identity": "EventLog|11|Chassis intrusion detected at 2026-07-28 20:37:08",
+      "classification": "NEW",
+      "known_reason": ""
+    },
+    {
+      "code": "DMESG_NOISE",
+      "component": "bundle",
+      "family": "BUNDLE",
+      "subtype": "errors",
+      "device": [],
+      "source": "",
+      "native_severity": "unknown",
+      "native_severities": [
+        "unknown"
+      ],
+      "severity": "INFO",
+      "fingerprint": "a8bdd3c6972c3c10e8f29bab484cdca0fc47bc1fd6732a1f692554fb1226db1c",
+      "detail": "BUNDLE: 4 distinct error/fail line(s), 4 occurrence(s)",
+      "evidence": "Neutrino0_n3/loop0001/dmesg_clear.txt",
+      "snippet": "dmesg line 2102: CPU features: detected: WFx with timeout",
+      "raw_start": 2102,
+      "raw_end": 3375,
+      "raw_lines": [
+        2102,
+        3215,
+        3218,
+        3375
+      ],
+      "raw": "CPU features: detected: WFx with timeout\nEINJ: Error INJection is initialized.\nERST: Error Record Serialization Table (ERST) support is initialized.\nsbsa-gwdt sbsa-gwdt.0: Initialized with 10s timeout @ 1000000000 Hz, action=0.",
+      "observations": [
+        "<none>|CPU features: detected: WFx with timeout",
+        "<none>|ERST: Error Record Serialization Table (ERST) support is initialized.",
+        "<none>|EINJ: Error INJection is initialized.",
+        "<none>|sbsa-gwdt sbsa-gwdt.0: Initialized with 10s timeout @ 1000000000 Hz, action=0."
+      ],
+      "occurrence_count": 4,
+      "entries": [
+        {
+          "line": 2102,
+          "count": 1,
+          "text": "CPU features: detected: WFx with timeout",
+          "device": "",
+          "observation": "<none>|CPU features: detected: WFx with timeout"
+        },
+        {
+          "line": 3215,
+          "count": 1,
+          "text": "ERST: Error Record Serialization Table (ERST) support is initialized.",
+          "device": "",
+          "observation": "<none>|ERST: Error Record Serialization Table (ERST) support is initialized."
+        },
+        {
+          "line": 3218,
+          "count": 1,
+          "text": "EINJ: Error INJection is initialized.",
+          "device": "",
+          "observation": "<none>|EINJ: Error INJection is initialized."
+        },
+        {
+          "line": 3375,
+          "count": 1,
+          "text": "sbsa-gwdt sbsa-gwdt.0: Initialized with 10s timeout @ 1000000000 Hz, action=0.",
+          "device": "",
+          "observation": "<none>|sbsa-gwdt sbsa-gwdt.0: Initialized with 10s timeout @ 1000000000 Hz, action=0."
+        }
+      ],
+      "boot_id": "dc9256b9-a32f-4bf6-9b78-f7baf812278d",
+      "phase": "dmesg_clear",
+      "new_observations": [
+        "<none>|CPU features: detected: WFx with timeout",
+        "<none>|ERST: Error Record Serialization Table (ERST) support is initialized.",
+        "<none>|EINJ: Error INJection is initialized.",
+        "<none>|sbsa-gwdt sbsa-gwdt.0: Initialized with 10s timeout @ 1000000000 Hz, action=0."
+      ],
+      "classification": "NEW",
+      "known_reason": ""
+    },
+    {
+      "code": "DMESG_BUNDLE",
+      "component": "bundle",
+      "family": "BUNDLE",
+      "subtype": "errors",
+      "device": [
+        "0001:00:00.0",
+        "0002:00:00.0",
+        "0002:01:00.0",
+        "0002:02:00.0",
+        "0002:20:00.0",
+        "0003:00:00.0",
+        "0004:00:00.0",
+        "0004:40:00.0",
+        "0004:80:00.0",
+        "0004:c0:00.0",
+        "0005:00:00.0",
+        "0006:00:00.0",
+        "0009:00:00.0",
+        "000a:00:00.0",
+        "000a:20:00.0",
+        "000b:00:00.0",
+        "000c:00:00.0",
+        "000d:00:00.0",
+        "000e:00:00.0"
+      ],
+      "source": "",
+      "native_severity": "unknown",
+      "native_severities": [
+        "unknown"
+      ],
+      "severity": "FAIL",
+      "fingerprint": "18d953abfa8354f05ffebf22a01ed56e9d0fada656c8427c40790ecd8326a7fd",
+      "detail": "BUNDLE: 27 distinct error/fail line(s), 62 occurrence(s)",
+      "evidence": "Neutrino0_n3/loop0001/dmesg_clear.txt",
+      "snippet": "dmesg line 2535: PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+      "raw_start": 2535,
+      "raw_end": 3719,
+      "raw_lines": [
+        2535,
+        2547,
+        2594,
+        2598,
+        2602,
+        2643,
+        2677,
+        2713,
+        2748,
+        2781,
+        2814,
+        2847,
+        2880,
+        2913,
+        2944,
+        2975,
+        3008,
+        3043,
+        3077,
+        3110,
+        3311,
+        3313,
+        3579,
+        3633,
+        3681,
+        3717,
+        3719
+      ],
+      "raw": "PCI: OF: of_root node is NULL, cannot create PCI host bridge node\nipmi_si: Unable to find any System Interface(s)\nipmi_ssif dmi-ipmi-ssif.1: probe with driver ipmi_ssif failed with error -17\nipmi_ssif i2c-IPI0001:00: ipmi_ssif: Unable to clear message flags: 0 3 c1\nipmi_ssif i2c-IPI0001:01: ipmi_ssif: Unable to clear message flags: 0 3 c1\nmlx_compat: module verification failed: signature and/or required key missing - tainting kernel\npci <bdf>: BAR 2 [io  size <hex>]: failed to assign\npci <bdf>: bridge window [io  size <hex>]: failed to assign\ntegra-bpmp NVDA3001:00: debugfs initialization failed: -27\ntegra-bpmp NVDA3001:01: debugfs initialization failed: -27",
+      "observations": [
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "0001:00:00.0|pci 0001:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0001:00:00.0|pci 0001:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:00:00.0|pci 0002:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:00:00.0|pci 0002:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:01:00.0|pci 0002:01:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:01:00.0|pci 0002:01:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:02:00.0|pci 0002:02:00.0: BAR 2 [io  size <hex>]: failed to assign",
+        "0002:02:00.0|pci 0002:02:00.0: BAR 2 [io  size <hex>]: failed to assign",
+        "0002:20:00.0|pci 0002:20:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:20:00.0|pci 0002:20:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0003:00:00.0|pci 0003:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0003:00:00.0|pci 0003:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:00:00.0|pci 0004:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:00:00.0|pci 0004:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:40:00.0|pci 0004:40:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:40:00.0|pci 0004:40:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:80:00.0|pci 0004:80:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:80:00.0|pci 0004:80:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:c0:00.0|pci 0004:c0:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:c0:00.0|pci 0004:c0:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0005:00:00.0|pci 0005:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0005:00:00.0|pci 0005:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0006:00:00.0|pci 0006:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0006:00:00.0|pci 0006:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0009:00:00.0|pci 0009:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0009:00:00.0|pci 0009:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000a:00:00.0|pci 000a:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000a:00:00.0|pci 000a:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000a:20:00.0|pci 000a:20:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000a:20:00.0|pci 000a:20:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000b:00:00.0|pci 000b:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000b:00:00.0|pci 000b:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000c:00:00.0|pci 000c:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000c:00:00.0|pci 000c:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000d:00:00.0|pci 000d:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000d:00:00.0|pci 000d:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000e:00:00.0|pci 000e:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000e:00:00.0|pci 000e:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "<none>|tegra-bpmp NVDA3001:00: debugfs initialization failed: -27",
+        "<none>|tegra-bpmp NVDA3001:01: debugfs initialization failed: -27",
+        "<none>|ipmi_ssif dmi-ipmi-ssif.1: probe with driver ipmi_ssif failed with error -17",
+        "<none>|ipmi_si: Unable to find any System Interface(s)",
+        "<none>|ipmi_ssif i2c-IPI0001:00: ipmi_ssif: Unable to clear message flags: 0 3 c1",
+        "<none>|ipmi_ssif i2c-IPI0001:01: ipmi_ssif: Unable to clear message flags: 0 3 c1",
+        "<none>|mlx_compat: module verification failed: signature and/or required key missing - tainting kernel"
+      ],
+      "occurrence_count": 62,
+      "entries": [
+        {
+          "line": 2535,
+          "count": 17,
+          "text": "PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+          "device": "",
+          "observation": "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node"
+        },
+        {
+          "line": 2547,
+          "count": 2,
+          "text": "pci 0001:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0001:00:00.0",
+          "observation": "0001:00:00.0|pci 0001:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2594,
+          "count": 2,
+          "text": "pci 0002:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0002:00:00.0",
+          "observation": "0002:00:00.0|pci 0002:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2598,
+          "count": 2,
+          "text": "pci 0002:01:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0002:01:00.0",
+          "observation": "0002:01:00.0|pci 0002:01:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2602,
+          "count": 2,
+          "text": "pci 0002:02:00.0: BAR 2 [io  size <hex>]: failed to assign",
+          "device": "0002:02:00.0",
+          "observation": "0002:02:00.0|pci 0002:02:00.0: BAR 2 [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2643,
+          "count": 2,
+          "text": "pci 0002:20:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0002:20:00.0",
+          "observation": "0002:20:00.0|pci 0002:20:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2677,
+          "count": 2,
+          "text": "pci 0003:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0003:00:00.0",
+          "observation": "0003:00:00.0|pci 0003:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2713,
+          "count": 2,
+          "text": "pci 0004:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0004:00:00.0",
+          "observation": "0004:00:00.0|pci 0004:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2748,
+          "count": 2,
+          "text": "pci 0004:40:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0004:40:00.0",
+          "observation": "0004:40:00.0|pci 0004:40:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2781,
+          "count": 2,
+          "text": "pci 0004:80:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0004:80:00.0",
+          "observation": "0004:80:00.0|pci 0004:80:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2814,
+          "count": 2,
+          "text": "pci 0004:c0:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0004:c0:00.0",
+          "observation": "0004:c0:00.0|pci 0004:c0:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2847,
+          "count": 2,
+          "text": "pci 0005:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0005:00:00.0",
+          "observation": "0005:00:00.0|pci 0005:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2880,
+          "count": 2,
+          "text": "pci 0006:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0006:00:00.0",
+          "observation": "0006:00:00.0|pci 0006:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2913,
+          "count": 2,
+          "text": "pci 0009:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "0009:00:00.0",
+          "observation": "0009:00:00.0|pci 0009:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2944,
+          "count": 2,
+          "text": "pci 000a:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "000a:00:00.0",
+          "observation": "000a:00:00.0|pci 000a:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 2975,
+          "count": 2,
+          "text": "pci 000a:20:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "000a:20:00.0",
+          "observation": "000a:20:00.0|pci 000a:20:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 3008,
+          "count": 2,
+          "text": "pci 000b:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "000b:00:00.0",
+          "observation": "000b:00:00.0|pci 000b:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 3043,
+          "count": 2,
+          "text": "pci 000c:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "000c:00:00.0",
+          "observation": "000c:00:00.0|pci 000c:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 3077,
+          "count": 2,
+          "text": "pci 000d:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "000d:00:00.0",
+          "observation": "000d:00:00.0|pci 000d:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 3110,
+          "count": 2,
+          "text": "pci 000e:00:00.0: bridge window [io  size <hex>]: failed to assign",
+          "device": "000e:00:00.0",
+          "observation": "000e:00:00.0|pci 000e:00:00.0: bridge window [io  size <hex>]: failed to assign"
+        },
+        {
+          "line": 3311,
+          "count": 1,
+          "text": "tegra-bpmp NVDA3001:00: debugfs initialization failed: -27",
+          "device": "",
+          "observation": "<none>|tegra-bpmp NVDA3001:00: debugfs initialization failed: -27"
+        },
+        {
+          "line": 3313,
+          "count": 1,
+          "text": "tegra-bpmp NVDA3001:01: debugfs initialization failed: -27",
+          "device": "",
+          "observation": "<none>|tegra-bpmp NVDA3001:01: debugfs initialization failed: -27"
+        },
+        {
+          "line": 3579,
+          "count": 1,
+          "text": "ipmi_ssif dmi-ipmi-ssif.1: probe with driver ipmi_ssif failed with error -17",
+          "device": "",
+          "observation": "<none>|ipmi_ssif dmi-ipmi-ssif.1: probe with driver ipmi_ssif failed with error -17"
+        },
+        {
+          "line": 3633,
+          "count": 1,
+          "text": "ipmi_si: Unable to find any System Interface(s)",
+          "device": "",
+          "observation": "<none>|ipmi_si: Unable to find any System Interface(s)"
+        },
+        {
+          "line": 3681,
+          "count": 1,
+          "text": "ipmi_ssif i2c-IPI0001:00: ipmi_ssif: Unable to clear message flags: 0 3 c1",
+          "device": "",
+          "observation": "<none>|ipmi_ssif i2c-IPI0001:00: ipmi_ssif: Unable to clear message flags: 0 3 c1"
+        },
+        {
+          "line": 3717,
+          "count": 1,
+          "text": "ipmi_ssif i2c-IPI0001:01: ipmi_ssif: Unable to clear message flags: 0 3 c1",
+          "device": "",
+          "observation": "<none>|ipmi_ssif i2c-IPI0001:01: ipmi_ssif: Unable to clear message flags: 0 3 c1"
+        },
+        {
+          "line": 3719,
+          "count": 1,
+          "text": "mlx_compat: module verification failed: signature and/or required key missing - tainting kernel",
+          "device": "",
+          "observation": "<none>|mlx_compat: module verification failed: signature and/or required key missing - tainting kernel"
+        }
+      ],
+      "boot_id": "dc9256b9-a32f-4bf6-9b78-f7baf812278d",
+      "phase": "dmesg_clear",
+      "new_observations": [
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "<none>|PCI: OF: of_root node is NULL, cannot create PCI host bridge node",
+        "0001:00:00.0|pci 0001:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0001:00:00.0|pci 0001:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:00:00.0|pci 0002:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:00:00.0|pci 0002:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:01:00.0|pci 0002:01:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:01:00.0|pci 0002:01:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:02:00.0|pci 0002:02:00.0: BAR 2 [io  size <hex>]: failed to assign",
+        "0002:02:00.0|pci 0002:02:00.0: BAR 2 [io  size <hex>]: failed to assign",
+        "0002:20:00.0|pci 0002:20:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0002:20:00.0|pci 0002:20:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0003:00:00.0|pci 0003:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0003:00:00.0|pci 0003:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:00:00.0|pci 0004:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:00:00.0|pci 0004:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:40:00.0|pci 0004:40:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:40:00.0|pci 0004:40:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:80:00.0|pci 0004:80:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:80:00.0|pci 0004:80:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:c0:00.0|pci 0004:c0:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0004:c0:00.0|pci 0004:c0:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0005:00:00.0|pci 0005:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0005:00:00.0|pci 0005:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0006:00:00.0|pci 0006:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0006:00:00.0|pci 0006:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0009:00:00.0|pci 0009:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "0009:00:00.0|pci 0009:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000a:00:00.0|pci 000a:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000a:00:00.0|pci 000a:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000a:20:00.0|pci 000a:20:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000a:20:00.0|pci 000a:20:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000b:00:00.0|pci 000b:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000b:00:00.0|pci 000b:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000c:00:00.0|pci 000c:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000c:00:00.0|pci 000c:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000d:00:00.0|pci 000d:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000d:00:00.0|pci 000d:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000e:00:00.0|pci 000e:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "000e:00:00.0|pci 000e:00:00.0: bridge window [io  size <hex>]: failed to assign",
+        "<none>|tegra-bpmp NVDA3001:00: debugfs initialization failed: -27",
+        "<none>|tegra-bpmp NVDA3001:01: debugfs initialization failed: -27",
+        "<none>|ipmi_ssif dmi-ipmi-ssif.1: probe with driver ipmi_ssif failed with error -17",
+        "<none>|ipmi_si: Unable to find any System Interface(s)",
+        "<none>|ipmi_ssif i2c-IPI0001:00: ipmi_ssif: Unable to clear message flags: 0 3 c1",
+        "<none>|ipmi_ssif i2c-IPI0001:01: ipmi_ssif: Unable to clear message flags: 0 3 c1",
+        "<none>|mlx_compat: module verification failed: signature and/or required key missing - tainting kernel"
+      ],
+      "classification": "NEW",
+      "known_reason": ""
+    }
+  ],
+  "evidence": [
+    "Neutrino0_n3/loop0001/sel_before.txt",
+    "Neutrino0_n3/loop0001/cycle_command.txt",
+    "Neutrino0_n3/loop0001/pci.txt",
+    "Neutrino0_n3/loop0001/pci_tree.txt",
+    "Neutrino0_n3/loop0001/pci_verbose.txt",
+    "Neutrino0_n3/loop0001/disks.txt",
+    "Neutrino0_n3/loop0001/nvme.txt",
+    "Neutrino0_n3/loop0001/usb.txt",
+    "Neutrino0_n3/loop0001/memory.txt",
+    "Neutrino0_n3/loop0001/network.txt",
+    "Neutrino0_n3/loop0001/firmware.txt",
+    "Neutrino0_n3/loop0001/system.txt",
+    "Neutrino0_n3/loop0001/bmc_usb.txt",
+    "Neutrino0_n3/loop0001/script_safety.txt",
+    "Neutrino0_n3/loop0001/script_sha256.txt",
+    "Neutrino0_n3/loop0001/hardware.txt",
+    "Neutrino0_n3/loop0001/sensor.txt",
+    "Neutrino0_n3/loop0001/sel.txt",
+    "Neutrino0_n3/loop0001/sel_delta.txt",
+    "Neutrino0_n3/loop0001/eventlog.txt",
+    "Neutrino0_n3/loop0001/redfish_sel.txt",
+    "Neutrino0_n3/loop0001/eventlog_delta.txt",
+    "Neutrino0_n3/loop0001/bmc_firmware.txt",
+    "Neutrino0_n3/loop0001/power.txt",
+    "Neutrino0_n3/loop0001/host_power.txt",
+    "Neutrino0_n3/loop0001/os_after_checks.txt",
+    "Neutrino0_n3/loop0001/mctp_stress_16.txt",
+    "Neutrino0_n3/loop0001/mctp_stress_17.txt",
+    "Neutrino0_n3/loop0001/bmc_dmesg.txt",
+    "Neutrino0_n3/loop0001/dmesg_clear.txt"
+  ],
+  "commands": {
+    "sel_before": {
+      "command": "sel list",
+      "role": "oob",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/sel_before.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "cycle_command": {
+      "command": "/usr/bin/stbypowerctrl.sh aux_cycle",
+      "role": "bmc",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/cycle_command.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "pci": {
+      "command": "lspci -Dnn",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/pci.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "pci_tree": {
+      "command": "lspci -Dtv",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/pci_tree.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "pci_verbose": {
+      "command": "lspci -Dvvv",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/pci_verbose.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "disks": {
+      "command": "lsblk",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/disks.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "nvme": {
+      "command": "nvme list",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/nvme.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "usb": {
+      "command": "lsusb",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/usb.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "memory": {
+      "command": "free -m",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/memory.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "network": {
+      "command": "ip address show",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/network.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "firmware": {
+      "command": "dmidecode -t bios",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/firmware.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "system": {
+      "command": "uname -a; cat /etc/os-release; lscpu",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/system.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "bmc_usb": {
+      "command": "lsusb -tv",
+      "role": "bmc",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/bmc_usb.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "script_safety": {
+      "command": "test -f /var/tmp/vera-neutrino_aux_cycle_inband_20261025_223351_0387b1-Neutrino0_n3-41d4dbdffa87.sh && test ! -L /var/tmp/vera-neutrino_aux_cycle_inband_20261025_223351_0387b1-Neutrino0_n3-41d4dbdffa87.sh && test \"$(stat -c %u:%a /var/tmp/vera-neutrino_aux_cycle_inband_20261025_223351_0387b1-Neutrino0_n3-41d4dbdffa87.sh)\" = \"$(id -u):700\"",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/script_safety.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "script_sha256": {
+      "command": "sha256sum /var/tmp/vera-neutrino_aux_cycle_inband_20261025_223351_0387b1-Neutrino0_n3-41d4dbdffa87.sh",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/script_sha256.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "hardware": {
+      "command": "MEMORY_MIN_RATIO=0.9 bash /var/tmp/vera-neutrino_aux_cycle_inband_20261025_223351_0387b1-Neutrino0_n3-41d4dbdffa87.sh",
+      "role": "os",
+      "code": 1,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/hardware.txt",
+      "valid": false,
+      "output_excerpt": "K|NIC_SLOT|slot=0004:40:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=0004:80:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=0004:c0:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=0005:00:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=0006:00:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=0009:00:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=000a:00:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=000a:20:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=000b:00:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=000c:00:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=000d:00:00.0|state=PRESENT\nCHECK|NIC_SLOT|slot=000e:00:00.0|state=PRESENT\nCHECK|BF4|actual=0|exact=1|pci_functions=0\nISSUE|BF4_MISSING|BF4|Expected exactly 1 physical card(s); detected 0\nCHECK|PCIeFAB|actual=17|minimum=17\nCHECK|USB|actual=1|minimum=1\nCHECK|BMC|actual=1|minimum=1\nCHECK|PCIE_LINK|bdf=0002:02:00.0|state=unsupported\nCHECK|PCIE_LINK|bdf=0002:21:00.0|state=evaluated|lnksta=\t\tLnkSta:\tSpeed 5GT/s, Width x1\nCHECK|PCIE_LINK|bdf=0004:01:00.0|state=evaluated|lnksta=\t\tLnkSta:\tSpeed 32GT/s, Width x4\nCHECK|PCIE_LINK|bdf=000c:01:00.0|state=evaluated|lnksta=\t\tLnkSta:\tSpeed 32GT/s, Width x4\n\n[Evidence] BIOS-firmware\n# dmidecode 3.6\nGetting SMBIOS data from sysfs.\nSMBIOS 3.8.0 present.\n# SMBIOS implementations newer than version 3.7.0 are not\n# fully supported by this version of dmidecode.\n\nHandle 0x0001, DMI type 0, 26 bytes\nBIOS Information\n\tVendor: NVIDIA\n\tVersion: NV_SBIOS: 06.07.01.A2, OEM_SBIOS: 06.07.01.A2\n\tRelease Date: Wed Sep 23 09:53:31 PM UTC 2026\n\tROM Size: 128 MB\n\tCharacteristics:\n\t\tPCI is supported\n\t\tPNP is supported\n\t\tBIOS is upgradeable\n\t\tBIOS shadowing is allowed\n\t\tBoot from CD is supported\n\t\tSelectable boot is supported\n\t\tSerial services are supported (int 14h)\n\t\tACPI is supported\n\t\tTargeted content distribution is supported\n\t\tUEFI is supported\n\tFirmware Revision: 26.10\n\nHandle 0x001B, DMI type 13, 22 bytes\nBIOS Language Information\n\tLanguage Description Format: Abbreviated\n\tInstallable Languages: 1\n\t\tenUS\n\tCurrently Installed Language: enUS\n\n[Fail] 1 issue(s)\nRESULT|FAIL\n"
+    },
+    "sensor": {
+      "command": "sensor list",
+      "role": "oob",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/sensor.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "sel": {
+      "command": "sel list",
+      "role": "oob",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/sel.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "eventlog": {
+      "command": "redfish EventLog (/redfish/v1/Systems/System_0/LogServices/EventLog/Entries)",
+      "role": "oob",
+      "code": 0,
+      "state": "COLLECTED",
+      "evidence": "Neutrino0_n3/loop0001/eventlog.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "redfish_sel": {
+      "command": "redfish SEL (/redfish/v1/Systems/System_0/LogServices/SEL/Entries)",
+      "role": "oob",
+      "code": 0,
+      "state": "COLLECTED",
+      "evidence": "Neutrino0_n3/loop0001/redfish_sel.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "bmc_firmware": {
+      "command": "mc info",
+      "role": "oob",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/bmc_firmware.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "power": {
+      "command": "power status",
+      "role": "oob",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/power.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "host_power": {
+      "command": "/usr/bin/powerctrl.sh power_status",
+      "role": "bmc",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/host_power.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "os_after_checks": {
+      "command": "printf 'HOSTNAME='; hostname; printf 'BOOT_ID='; cat /proc/sys/kernel/random/boot_id",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/os_after_checks.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "mctp_stress_16": {
+      "command": "/usr/local/bin/mctp-stressor-p5032.sh 16 --stop-pldmd",
+      "role": "bmc",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/mctp_stress_16.txt",
+      "valid": true,
+      "output_excerpt": "P5032 CPU0 / EID 16: 10 loops plus baseline; timeout 10s\n Transport|  EID|                                              UUID|Supported MCTP Types\n       SPI|   10|            \"0812041e-1a01-1b32-bee6-6ed0133bf198\"|  1 5 126 127\n     SMBus|   11|            \"23d657f0-6fa1-433b-a7f3-176acc803f89\"|  0       \n       USB|   16|            \"a4b00c3b-427f-4da3-b4b6-7a967d171955\"|  1 5 6 126 127\n       USB|   17|            \"9a82c5bb-eb8a-41b6-92a7-2c722fda6b12\"|  1 5 6 126 127\n       USB|   20|            \"16c7f28f-5d70-c88c-9b72-65f642dc1b86\"|  1 5 126 127\n       USB|   60|            \"343f9432-aaa4-ff8d-bca7-2246b6731a62\"|  1 5 126 127\n       USB|   61|            \"00000000-0000-0000-0000-00000000003d\"|  0 1 4 5 6\n       USB|   62|            \"00000000-0000-0000-0000-00000000003e\"|  0 1 4 5 6\n       USB|    8|            \"23d657f0-6fa1-433b-a7f3-176acc803f89\"|  0       \n       SPI|    9|            \"23d657f0-6fa1-433b-a7f3-176acc803f89\"|  0       \npldmd.service state: active\nCapturing baseline GetFirmwareParameters response\nBaseline raw output:\npldmSendRecv: pldmtool: <6> Tx: 80 05 02 \npldmtool: <6> Rx: 00 05 02 00 00 00 00 00 02 00 01 08 00 00 30 30 30 30 30 30 30 30 0a 00 02 00 00 a2 01 07 06 01 0b 00 00 00 00 00 00 00 00 00 00 00 00 01 0b 00 00 00 00 00 00 00 00 3a 00 00 00 00 00 30 36 2e 30 37 2e 30 31 2e 41 32 30 30 2e 30 30 2e 30 30 2e 30 30 0a 00 01 02 00 a2 01 07 06 01 0b 00 00 00 00 00 00 00 00 00 00 00 00 01 0b 00 00 00 00 00 00 00 00 3a 00 00 00 00 00 30 36 2e 30 37 2e 30 31 2e 41 32 30 30 2e 30 30 2e 30 30 2e 30 30 \nPASS iteration=1/10\nPASS iteration=2/10\nPASS iteration=3/10\nPASS iteration=4/10\nPASS iteration=5/10\nPASS iteration=6/10\nPASS iteration=7/10\nPASS iteration=8/10\nPASS iteration=9/10\nPASS iteration=10/10\nSUMMARY cpu=CPU0 eid=16 attempted=10 passed=10 failed=0\nRestoring pldmd.service\n"
+    },
+    "mctp_stress_17": {
+      "command": "/usr/local/bin/mctp-stressor-p5032.sh 17 --stop-pldmd",
+      "role": "bmc",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/mctp_stress_17.txt",
+      "valid": true,
+      "output_excerpt": "P5032 CPU1 / EID 17: 10 loops plus baseline; timeout 10s\n Transport|  EID|                                              UUID|Supported MCTP Types\n       SPI|   10|            \"0812041e-1a01-1b32-bee6-6ed0133bf198\"|  1 5 126 127\n     SMBus|   11|            \"23d657f0-6fa1-433b-a7f3-176acc803f89\"|  0       \n       USB|   16|            \"a4b00c3b-427f-4da3-b4b6-7a967d171955\"|  1 5 6 126 127\n       USB|   17|            \"9a82c5bb-eb8a-41b6-92a7-2c722fda6b12\"|  1 5 6 126 127\n       USB|   20|            \"16c7f28f-5d70-c88c-9b72-65f642dc1b86\"|  1 5 126 127\n       USB|   60|            \"343f9432-aaa4-ff8d-bca7-2246b6731a62\"|  1 5 126 127\n       USB|   61|            \"00000000-0000-0000-0000-00000000003d\"|  0 1 4 5 6\n       USB|   62|            \"00000000-0000-0000-0000-00000000003e\"|  0 1 4 5 6\n       USB|    8|            \"23d657f0-6fa1-433b-a7f3-176acc803f89\"|  0       \n       SPI|    9|            \"23d657f0-6fa1-433b-a7f3-176acc803f89\"|  0       \npldmd.service state: active\nCapturing baseline GetFirmwareParameters response\nBaseline raw output:\npldmSendRecv: pldmtool: <6> Tx: 80 05 02 \npldmtool: <6> Rx: 00 05 02 00 00 00 00 00 02 00 01 08 00 00 30 30 30 30 30 30 30 30 0a 00 02 00 00 a2 01 07 06 01 0b 00 00 00 00 00 00 00 00 00 00 00 00 01 0b 00 00 00 00 00 00 00 00 3a 00 00 00 00 00 30 36 2e 30 37 2e 30 31 2e 41 32 30 30 2e 30 30 2e 30 30 2e 30 30 0a 00 01 02 00 a2 01 07 06 01 0b 00 00 00 00 00 00 00 00 00 00 00 00 01 0b 00 00 00 00 00 00 00 00 3a 00 00 00 00 00 30 36 2e 30 37 2e 30 31 2e 41 32 30 30 2e 30 30 2e 30 30 2e 30 30 \nPASS iteration=1/10\nPASS iteration=2/10\nPASS iteration=3/10\nPASS iteration=4/10\nPASS iteration=5/10\nPASS iteration=6/10\nPASS iteration=7/10\nPASS iteration=8/10\nPASS iteration=9/10\nPASS iteration=10/10\nSUMMARY cpu=CPU1 eid=17 attempted=10 passed=10 failed=0\nRestoring pldmd.service\n"
+    },
+    "bmc_dmesg": {
+      "command": "dmesg -c | grep -iE 'mctp|musb|error -71|USB disconnect|usb device|renamed from|reset|timeout' || true",
+      "role": "bmc",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/bmc_dmesg.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "dmesg_clear": {
+      "command": "dmesg -c",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n3/loop0001/dmesg_clear.txt",
+      "valid": true,
+      "output_excerpt": ""
+    }
+  },
+  "identities": {
+    "bmc": {
+      "hostname": "vc-256-bmc-n3",
+      "boot_id": "158c513b-6460-4fdf-806a-3a71dcaad3cc"
+    },
+    "os": {
+      "hostname": "Neutrino0-n3",
+      "boot_id": "dc9256b9-a32f-4bf6-9b78-f7baf812278d"
+    }
+  },
+  "identity_observations": [
+    {
+      "role": "bmc",
+      "stage": "bmc_before_cycle",
+      "expected": "vc-256-bmc-n3",
+      "actual": "vc-256-bmc-n3",
+      "result": "MATCH"
+    },
+    {
+      "role": "os",
+      "stage": "os_before_cycle",
+      "expected": "Neutrino0-n3",
+      "actual": "Neutrino0-n3",
+      "result": "MATCH"
+    },
+    {
+      "role": "os",
+      "stage": "os_after_cycle",
+      "expected": "Neutrino0-n3",
+      "actual": "Neutrino0-n3",
+      "result": "MATCH"
+    },
+    {
+      "role": "bmc",
+      "stage": "bmc_after_cycle",
+      "expected": "vc-256-bmc-n3",
+      "actual": "vc-256-bmc-n3",
+      "result": "MATCH"
+    },
+    {
+      "role": "os",
+      "stage": "os_after_checks",
+      "expected": "Neutrino0-n3",
+      "actual": "Neutrino0-n3",
+      "result": "MATCH"
+    }
+  ],
+  "observation_status": {
+    "pci": "AVAILABLE",
+    "usb": "AVAILABLE",
+    "network": "AVAILABLE",
+    "bmc_usb": "AVAILABLE",
+    "sensor": "AVAILABLE",
+    "dmesg": "AVAILABLE"
+  },
+  "pci": {
+    "0001:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "0001:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0002:00:00.0": {
+      "id": "10de:2f98",
+      "raw": "0002:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f98]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0002:01:00.0": {
+      "id": "1a03:1150",
+      "raw": "0002:01:00.0 PCI bridge [0604]: ASPEED Technology, Inc. AST1150 PCI-to-PCI Bridge [1a03:1150] (rev 06)",
+      "device_name": "ASPEED Technology, Inc. AST1150 PCI-to-PCI Bridge",
+      "raw_name": "ASPEED Technology, Inc. AST1150 PCI-to-PCI Bridge",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0002:02:00.0": {
+      "id": "1a03:2000",
+      "raw": "0002:02:00.0 VGA compatible controller [0300]: ASPEED Technology, Inc. ASPEED Graphics Family [1a03:2000] (rev 52)",
+      "device_name": "ASPEED Technology, Inc. ASPEED Graphics Family",
+      "raw_name": "ASPEED Technology, Inc. ASPEED Graphics Family",
+      "class_name": "VGA compatible controller",
+      "class_id": "0300"
+    },
+    "0002:20:00.0": {
+      "id": "10de:2f98",
+      "raw": "0002:20:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f98]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0002:21:00.0": {
+      "id": "1912:0014",
+      "raw": "0002:21:00.0 USB controller [0c03]: Renesas Electronics Corp. uPD720201 USB 3.0 Host Controller [1912:0014] (rev 03)",
+      "device_name": "Renesas Electronics Corp. uPD720201 USB 3.0 Host Controller",
+      "raw_name": "Renesas Electronics Corp. uPD720201 USB 3.0 Host Controller",
+      "class_name": "USB controller",
+      "class_id": "0c03"
+    },
+    "0003:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "0003:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0004:00:00.0": {
+      "id": "10de:2f97",
+      "raw": "0004:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f97]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0004:01:00.0": {
+      "id": "144d:a900",
+      "raw": "0004:01:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa [144d:a900]",
+      "device_name": "Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa",
+      "raw_name": "Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa",
+      "class_name": "Non-Volatile memory controller",
+      "class_id": "0108"
+    },
+    "0004:40:00.0": {
+      "id": "10de:2f97",
+      "raw": "0004:40:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f97]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0004:80:00.0": {
+      "id": "10de:2f97",
+      "raw": "0004:80:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f97]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0004:c0:00.0": {
+      "id": "10de:2f97",
+      "raw": "0004:c0:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f97]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0005:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "0005:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0006:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "0006:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "0009:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "0009:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "000a:00:00.0": {
+      "id": "10de:2f98",
+      "raw": "000a:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f98]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "000a:20:00.0": {
+      "id": "10de:2f98",
+      "raw": "000a:20:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f98]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "000b:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "000b:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "000c:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "000c:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "000c:01:00.0": {
+      "id": "144d:a900",
+      "raw": "000c:01:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa [144d:a900]",
+      "device_name": "Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa",
+      "raw_name": "Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa",
+      "class_name": "Non-Volatile memory controller",
+      "class_id": "0108"
+    },
+    "000d:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "000d:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    },
+    "000e:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "000e:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604"
+    }
+  },
+  "pci_devices": {
+    "0001:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "0001:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0001:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0002:00:00.0": {
+      "id": "10de:2f98",
+      "raw": "0002:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f98]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0002:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #1, Speed 64GT/s, Width x2, ASPM not supported",
+      "link_current": "Speed 5GT/s, Width x1",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0002:01:00.0": {
+      "id": "1a03:1150",
+      "raw": "0002:01:00.0 PCI bridge [0604]: ASPEED Technology, Inc. AST1150 PCI-to-PCI Bridge [1a03:1150] (rev 06)",
+      "device_name": "ASPEED Technology, Inc. AST1150 PCI-to-PCI Bridge",
+      "raw_name": "ASPEED Technology, Inc. AST1150 PCI-to-PCI Bridge",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0002:01:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "PCI-Express to PCI/PCI-X Bridge",
+      "link_capability": "Port #0, Speed 5GT/s, Width x1, ASPM L0s L1, Exit Latency L0s <1us, L1 <64us",
+      "link_current": "Speed 5GT/s, Width x1",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0002:02:00.0": {
+      "id": "1a03:2000",
+      "raw": "0002:02:00.0 VGA compatible controller [0300]: ASPEED Technology, Inc. ASPEED Graphics Family [1a03:2000] (rev 52)",
+      "device_name": "Embedded Video Controller",
+      "raw_name": "ASPEED Technology, Inc. ASPEED Graphics Family",
+      "class_name": "VGA compatible controller",
+      "class_id": "0300",
+      "bdf": "0002:02:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": true,
+      "access_denied": false,
+      "pcie_type": null,
+      "link_capability": null,
+      "link_current": null,
+      "link_result": "N/A",
+      "link_reason": "Verbose record shows no PCIe Express/link capability for this display function"
+    },
+    "0002:20:00.0": {
+      "id": "10de:2f98",
+      "raw": "0002:20:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f98]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0002:20:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #6, Speed 64GT/s, Width x2, ASPM not supported",
+      "link_current": "Speed 5GT/s, Width x1",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0002:21:00.0": {
+      "id": "1912:0014",
+      "raw": "0002:21:00.0 USB controller [0c03]: Renesas Electronics Corp. uPD720201 USB 3.0 Host Controller [1912:0014] (rev 03)",
+      "device_name": "Renesas Electronics Corp. uPD720201 USB 3.0 Host Controller",
+      "raw_name": "Renesas Electronics Corp. uPD720201 USB 3.0 Host Controller",
+      "class_name": "USB controller",
+      "class_id": "0c03",
+      "bdf": "0002:21:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Endpoint",
+      "link_capability": "Port #0, Speed 5GT/s, Width x1, ASPM L0s L1, Exit Latency L0s <4us, L1 unlimited",
+      "link_current": "Speed 5GT/s, Width x1",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0003:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "0003:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0003:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0004:00:00.0": {
+      "id": "10de:2f97",
+      "raw": "0004:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f97]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0004:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot+)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed 32GT/s, Width x4",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0004:01:00.0": {
+      "id": "144d:a900",
+      "raw": "0004:01:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa [144d:a900]",
+      "device_name": "Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa",
+      "raw_name": "Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa",
+      "class_name": "Non-Volatile memory controller",
+      "class_id": "0108",
+      "bdf": "0004:01:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Endpoint",
+      "link_capability": "Port #0, Speed 32GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed 32GT/s, Width x4",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0004:40:00.0": {
+      "id": "10de:2f97",
+      "raw": "0004:40:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f97]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0004:40:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #1, Speed 64GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0004:80:00.0": {
+      "id": "10de:2f97",
+      "raw": "0004:80:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f97]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0004:80:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #2, Speed 64GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0004:c0:00.0": {
+      "id": "10de:2f97",
+      "raw": "0004:c0:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f97]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0004:c0:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #3, Speed 64GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0005:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "0005:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0005:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0006:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "0006:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0006:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0009:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "0009:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "0009:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "000a:00:00.0": {
+      "id": "10de:2f98",
+      "raw": "000a:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f98]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "000a:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #1, Speed 64GT/s, Width x2, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "000a:20:00.0": {
+      "id": "10de:2f98",
+      "raw": "000a:20:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f98]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "000a:20:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #6, Speed 64GT/s, Width x2, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "000b:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "000b:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "000b:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "000c:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "000c:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "000c:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed 32GT/s, Width x4",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "000c:01:00.0": {
+      "id": "144d:a900",
+      "raw": "000c:01:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa [144d:a900]",
+      "device_name": "Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa",
+      "raw_name": "Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa",
+      "class_name": "Non-Volatile memory controller",
+      "class_id": "0108",
+      "bdf": "000c:01:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Endpoint",
+      "link_capability": "Port #0, Speed 32GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed 32GT/s, Width x4",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "000d:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "000d:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "000d:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "000e:00:00.0": {
+      "id": "10de:2f95",
+      "raw": "000e:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:2f95]",
+      "device_name": "NVIDIA Corporation Device",
+      "raw_name": "NVIDIA Corporation Device",
+      "class_name": "PCI bridge",
+      "class_id": "0604",
+      "bdf": "000e:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    }
+  },
+  "sensors": [
+    {
+      "name": "Chass0HSCCurren0",
+      "reading": "1.404",
+      "unit": "Amps",
+      "status": "ok",
+      "line": 1,
+      "raw": "Chass0HSCCurren0 | 1.404      | Amps       | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "TrFroIO0HSC0Cur0",
+      "reading": "1.092",
+      "unit": "Amps",
+      "status": "ok",
+      "line": 2,
+      "raw": "TrFroIO0HSC0Cur0 | 1.092      | Amps       | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "NVMeE1SSSD0STS0",
+      "reading": "0x1",
+      "unit": "discrete",
+      "status": "0x0100",
+      "line": 3,
+      "raw": "NVMeE1SSSD0STS0  | 0x1        | discrete   | 0x0100| na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "NVMeE1SSSD1STS0",
+      "reading": "0x1",
+      "unit": "discrete",
+      "status": "0x0100",
+      "line": 4,
+      "raw": "NVMeE1SSSD1STS0  | 0x1        | discrete   | 0x0100| na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CpuFre0",
+      "reading": "2924000000.000",
+      "unit": "Hz",
+      "status": "ok",
+      "line": 5,
+      "raw": "PrMo0CPU0CpuFre0 | 2924000000.000 | Hz         | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CpuFre0",
+      "reading": "2908600000.000",
+      "unit": "Hz",
+      "status": "ok",
+      "line": 6,
+      "raw": "PrMo0CPU1CpuFre0 | 2908600000.000 | Hz         | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0MemCnt0Fre0",
+      "reading": "4299500000.000",
+      "unit": "Hz",
+      "status": "ok",
+      "line": 7,
+      "raw": "PrMo0MemCnt0Fre0 | 4299500000.000 | Hz         | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0MemCnt1Fre0",
+      "reading": "4299500000.000",
+      "unit": "Hz",
+      "status": "ok",
+      "line": 8,
+      "raw": "PrMo0MemCnt1Fre0 | 4299500000.000 | Hz         | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "Chassi0HSCPower0",
+      "reading": "70.800",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 9,
+      "raw": "Chassi0HSCPower0 | 70.800     | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0EnfEDP0",
+      "reading": "588.000",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 10,
+      "raw": "PrMo0CPU0EnfEDP0 | 588.000    | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0EnfEDP0",
+      "reading": "901.600",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 11,
+      "raw": "PrMo0CPU0EnfEDP0 | 901.600    | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "ProMod0CPU0Powe0",
+      "reading": "117.600",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 12,
+      "raw": "ProMod0CPU0Powe0 | 117.600    | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1EnfEDP0",
+      "reading": "588.000",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 13,
+      "raw": "PrMo0CPU1EnfEDP0 | 588.000    | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1EnfEDP0",
+      "reading": "901.600",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 14,
+      "raw": "PrMo0CPU1EnfEDP0 | 901.600    | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "ProMod0CPU1Powe0",
+      "reading": "117.600",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 15,
+      "raw": "ProMod0CPU1Powe0 | 117.600    | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0Vre0CpuPow0",
+      "reading": "39.200",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 16,
+      "raw": "PrMo0Vre0CpuPow0 | 39.200     | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0Vre0SocPow0",
+      "reading": "0.000",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 17,
+      "raw": "PrMo0Vre0SocPow0 | 0.000      | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0Vre1CpuPow0",
+      "reading": "39.200",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 18,
+      "raw": "PrMo0Vre1CpuPow0 | 39.200     | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0Vre1SocPow0",
+      "reading": "0.000",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 19,
+      "raw": "PrMo0Vre1SocPow0 | 0.000      | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "TrFroIO0HSC0Pow0",
+      "reading": "59.000",
+      "unit": "Watts",
+      "status": "ok",
+      "line": 20,
+      "raw": "TrFroIO0HSC0Pow0 | 59.000     | Watts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "BMC0_Temp_0",
+      "reading": "40.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 21,
+      "raw": "BMC0_Temp_0      | 40.000     | degrees C  | ok    | na        | na        | 5.000     | 90.000    | 93.000    | na        "
+    },
+    {
+      "name": "BusBar_0_Temp_0",
+      "reading": "93.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 22,
+      "raw": "BusBar_0_Temp_0  | 93.000     | degrees C  | ok    | na        | na        | na        | 100.000   | 107.000   | na        "
+    },
+    {
+      "name": "Chassis0HSCTemp0",
+      "reading": "18.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 23,
+      "raw": "Chassis0HSCTemp0 | 18.000     | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "NVMeE1SSSD0Temp0",
+      "reading": "27.888",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 24,
+      "raw": "NVMeE1SSSD0Temp0 | 27.888     | degrees C  | ok    | na        | na        | 4.980     | 75.198    | 78.186    | na        "
+    },
+    {
+      "name": "NVMeE1SSSD1Temp0",
+      "reading": "26.892",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 25,
+      "raw": "NVMeE1SSSD1Temp0 | 26.892     | degrees C  | ok    | na        | na        | 4.980     | 75.198    | 78.186    | na        "
+    },
+    {
+      "name": "PrMo0CP0CoOvTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 26,
+      "raw": "PrMo0CP0CoOvTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0Die0Tem0",
+      "reading": "26.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 27,
+      "raw": "PrMo0CP0Die0Tem0 | 26.000     | degrees C  | ok    | na        | na        | na        | 127.000   | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0SocTem0",
+      "reading": "27.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 28,
+      "raw": "PrMo0CPU0SocTem0 | 27.000     | degrees C  | ok    | na        | na        | na        | 127.000   | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0SyOvTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 29,
+      "raw": "PrMo0CP0SyOvTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0TemAvg0",
+      "reading": "25.500",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 30,
+      "raw": "PrMo0CPU0TemAvg0 | 25.500     | degrees C  | ok    | na        | na        | na        | 90.180    | 93.120    | na        "
+    },
+    {
+      "name": "PrMo0CPU0TemLim0",
+      "reading": "66.660",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 31,
+      "raw": "PrMo0CPU0TemLim0 | 66.660     | degrees C  | ok    | na        | -3.900    | -1.940    | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CoOvTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 32,
+      "raw": "PrMo0CP1CoOvTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1Die0Tem0",
+      "reading": "25.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 33,
+      "raw": "PrMo0CP1Die0Tem0 | 25.000     | degrees C  | ok    | na        | na        | na        | 127.000   | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1SocTem0",
+      "reading": "26.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 34,
+      "raw": "PrMo0CPU1SocTem0 | 26.000     | degrees C  | ok    | na        | na        | na        | 127.000   | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1SyOvTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 35,
+      "raw": "PrMo0CP1SyOvTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1TemAvg0",
+      "reading": "24.520",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 36,
+      "raw": "PrMo0CPU1TemAvg0 | 24.520     | degrees C  | ok    | na        | na        | na        | 90.180    | 93.120    | na        "
+    },
+    {
+      "name": "PrMo0CPU1TemLim0",
+      "reading": "67.640",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 37,
+      "raw": "PrMo0CPU1TemLim0 | 67.640     | degrees C  | ok    | na        | -3.900    | -1.940    | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0ExtSMA0Tem0",
+      "reading": "29.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 38,
+      "raw": "PrMo0ExtSMA0Tem0 | 29.000     | degrees C  | ok    | na        | na        | na        | 127.000   | na        | na        "
+    },
+    {
+      "name": "PrMo0MeCn0DrTem0",
+      "reading": "28.440",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 39,
+      "raw": "PrMo0MeCn0DrTem0 | 28.440     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn0DrTem1",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 40,
+      "raw": "PrMo0MeCn0DrTem1 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn0DrTem2",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 41,
+      "raw": "PrMo0MeCn0DrTem2 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn0DrTem3",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 42,
+      "raw": "PrMo0MeCn0DrTem3 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn0DrTem4",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 43,
+      "raw": "PrMo0MeCn0DrTem4 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn0DrTem5",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 44,
+      "raw": "PrMo0MeCn0DrTem5 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn0DrTem6",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 45,
+      "raw": "PrMo0MeCn0DrTem6 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn0DrTem7",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 46,
+      "raw": "PrMo0MeCn0DrTem7 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn0MeTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 47,
+      "raw": "PrMo0MeCn0MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0MeCn0MeTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 48,
+      "raw": "PrMo0MeCn0MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0MeCn0MeTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 49,
+      "raw": "PrMo0MeCn0MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0MeCn0MeTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 50,
+      "raw": "PrMo0MeCn0MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0MeCn1DrTem0",
+      "reading": "28.440",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 51,
+      "raw": "PrMo0MeCn1DrTem0 | 28.440     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn1DrTem1",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 52,
+      "raw": "PrMo0MeCn1DrTem1 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn1DrTem2",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 53,
+      "raw": "PrMo0MeCn1DrTem2 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn1DrTem3",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 54,
+      "raw": "PrMo0MeCn1DrTem3 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn1DrTem4",
+      "reading": "28.440",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 55,
+      "raw": "PrMo0MeCn1DrTem4 | 28.440     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn1DrTem5",
+      "reading": "28.440",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 56,
+      "raw": "PrMo0MeCn1DrTem5 | 28.440     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn1DrTem6",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 57,
+      "raw": "PrMo0MeCn1DrTem6 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn1DrTem7",
+      "reading": "27.460",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 58,
+      "raw": "PrMo0MeCn1DrTem7 | 27.460     | degrees C  | ok    | na        | na        | na        | 85.280    | 88.220    | na        "
+    },
+    {
+      "name": "PrMo0MeCn1MeTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 59,
+      "raw": "PrMo0MeCn1MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0MeCn1MeTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 60,
+      "raw": "PrMo0MeCn1MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0MeCn1MeTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 61,
+      "raw": "PrMo0MeCn1MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0MeCn1MeTem0",
+      "reading": "104.880",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 62,
+      "raw": "PrMo0MeCn1MeTem0 | 104.880    | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "ProModuSMA0Temp0",
+      "reading": "32.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 63,
+      "raw": "ProModuSMA0Temp0 | 32.000     | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "SMM_0_Temp_0",
+      "reading": "30.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 64,
+      "raw": "SMM_0_Temp_0     | 30.000     | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "E1S_SMA0_Temp",
+      "reading": "39.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 65,
+      "raw": "E1S_SMA0_Temp    | 39.000     | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "StoraBackplTemp0",
+      "reading": "32.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 66,
+      "raw": "StoraBackplTemp0 | 32.000     | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "TrFroIO0HSC0Tem0",
+      "reading": "19.000",
+      "unit": "degrees C",
+      "status": "ok",
+      "line": 67,
+      "raw": "TrFroIO0HSC0Tem0 | 19.000     | degrees C  | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CorUti0",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 68,
+      "raw": "PrMo0CPU0CorUti0 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CorUti1",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 69,
+      "raw": "PrMo0CPU0CorUti1 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CorUti2",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 70,
+      "raw": "PrMo0CPU0CorUti2 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CorUti3",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 71,
+      "raw": "PrMo0CPU0CorUti3 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CorUti4",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 72,
+      "raw": "PrMo0CPU0CorUti4 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CorUti5",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 73,
+      "raw": "PrMo0CPU0CorUti5 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CorUti6",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 74,
+      "raw": "PrMo0CPU0CorUti6 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CorUti7",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 75,
+      "raw": "PrMo0CPU0CorUti7 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CorUti8",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 76,
+      "raw": "PrMo0CPU0CorUti8 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU0CorUti9",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 77,
+      "raw": "PrMo0CPU0CorUti9 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti10",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 78,
+      "raw": "PrMo0CP0CorUti10 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti11",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 79,
+      "raw": "PrMo0CP0CorUti11 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti12",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 80,
+      "raw": "PrMo0CP0CorUti12 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti13",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 81,
+      "raw": "PrMo0CP0CorUti13 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti14",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 82,
+      "raw": "PrMo0CP0CorUti14 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti15",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 83,
+      "raw": "PrMo0CP0CorUti15 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti16",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 84,
+      "raw": "PrMo0CP0CorUti16 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti17",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 85,
+      "raw": "PrMo0CP0CorUti17 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti18",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 86,
+      "raw": "PrMo0CP0CorUti18 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti19",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 87,
+      "raw": "PrMo0CP0CorUti19 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti20",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 88,
+      "raw": "PrMo0CP0CorUti20 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti21",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 89,
+      "raw": "PrMo0CP0CorUti21 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti22",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 90,
+      "raw": "PrMo0CP0CorUti22 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti23",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 91,
+      "raw": "PrMo0CP0CorUti23 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti24",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 92,
+      "raw": "PrMo0CP0CorUti24 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti25",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 93,
+      "raw": "PrMo0CP0CorUti25 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti26",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 94,
+      "raw": "PrMo0CP0CorUti26 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti27",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 95,
+      "raw": "PrMo0CP0CorUti27 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti28",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 96,
+      "raw": "PrMo0CP0CorUti28 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti29",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 97,
+      "raw": "PrMo0CP0CorUti29 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti30",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 98,
+      "raw": "PrMo0CP0CorUti30 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti31",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 99,
+      "raw": "PrMo0CP0CorUti31 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti32",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 100,
+      "raw": "PrMo0CP0CorUti32 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti33",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 101,
+      "raw": "PrMo0CP0CorUti33 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti34",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 102,
+      "raw": "PrMo0CP0CorUti34 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti35",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 103,
+      "raw": "PrMo0CP0CorUti35 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti36",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 104,
+      "raw": "PrMo0CP0CorUti36 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti37",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 105,
+      "raw": "PrMo0CP0CorUti37 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti38",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 106,
+      "raw": "PrMo0CP0CorUti38 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti39",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 107,
+      "raw": "PrMo0CP0CorUti39 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti40",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 108,
+      "raw": "PrMo0CP0CorUti40 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti41",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 109,
+      "raw": "PrMo0CP0CorUti41 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti42",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 110,
+      "raw": "PrMo0CP0CorUti42 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti43",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 111,
+      "raw": "PrMo0CP0CorUti43 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti44",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 112,
+      "raw": "PrMo0CP0CorUti44 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti45",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 113,
+      "raw": "PrMo0CP0CorUti45 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti46",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 114,
+      "raw": "PrMo0CP0CorUti46 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti47",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 115,
+      "raw": "PrMo0CP0CorUti47 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti48",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 116,
+      "raw": "PrMo0CP0CorUti48 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti49",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 117,
+      "raw": "PrMo0CP0CorUti49 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti50",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 118,
+      "raw": "PrMo0CP0CorUti50 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti51",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 119,
+      "raw": "PrMo0CP0CorUti51 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti52",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 120,
+      "raw": "PrMo0CP0CorUti52 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti53",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 121,
+      "raw": "PrMo0CP0CorUti53 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti54",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 122,
+      "raw": "PrMo0CP0CorUti54 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti55",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 123,
+      "raw": "PrMo0CP0CorUti55 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti56",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 124,
+      "raw": "PrMo0CP0CorUti56 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti57",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 125,
+      "raw": "PrMo0CP0CorUti57 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti58",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 126,
+      "raw": "PrMo0CP0CorUti58 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti59",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 127,
+      "raw": "PrMo0CP0CorUti59 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti60",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 128,
+      "raw": "PrMo0CP0CorUti60 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti61",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 129,
+      "raw": "PrMo0CP0CorUti61 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti62",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 130,
+      "raw": "PrMo0CP0CorUti62 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti63",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 131,
+      "raw": "PrMo0CP0CorUti63 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti64",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 132,
+      "raw": "PrMo0CP0CorUti64 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti65",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 133,
+      "raw": "PrMo0CP0CorUti65 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti66",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 134,
+      "raw": "PrMo0CP0CorUti66 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti67",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 135,
+      "raw": "PrMo0CP0CorUti67 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti68",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 136,
+      "raw": "PrMo0CP0CorUti68 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti69",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 137,
+      "raw": "PrMo0CP0CorUti69 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti70",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 138,
+      "raw": "PrMo0CP0CorUti70 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti71",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 139,
+      "raw": "PrMo0CP0CorUti71 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti72",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 140,
+      "raw": "PrMo0CP0CorUti72 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti73",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 141,
+      "raw": "PrMo0CP0CorUti73 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti74",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 142,
+      "raw": "PrMo0CP0CorUti74 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti75",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 143,
+      "raw": "PrMo0CP0CorUti75 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti76",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 144,
+      "raw": "PrMo0CP0CorUti76 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti77",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 145,
+      "raw": "PrMo0CP0CorUti77 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti78",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 146,
+      "raw": "PrMo0CP0CorUti78 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti79",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 147,
+      "raw": "PrMo0CP0CorUti79 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti80",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 148,
+      "raw": "PrMo0CP0CorUti80 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti81",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 149,
+      "raw": "PrMo0CP0CorUti81 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti82",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 150,
+      "raw": "PrMo0CP0CorUti82 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti83",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 151,
+      "raw": "PrMo0CP0CorUti83 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti84",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 152,
+      "raw": "PrMo0CP0CorUti84 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti85",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 153,
+      "raw": "PrMo0CP0CorUti85 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti86",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 154,
+      "raw": "PrMo0CP0CorUti86 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP0CorUti87",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 155,
+      "raw": "PrMo0CP0CorUti87 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CorUti0",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 156,
+      "raw": "PrMo0CPU1CorUti0 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CorUti1",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 157,
+      "raw": "PrMo0CPU1CorUti1 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CorUti2",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 158,
+      "raw": "PrMo0CPU1CorUti2 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CorUti3",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 159,
+      "raw": "PrMo0CPU1CorUti3 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CorUti4",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 160,
+      "raw": "PrMo0CPU1CorUti4 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CorUti5",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 161,
+      "raw": "PrMo0CPU1CorUti5 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CorUti6",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 162,
+      "raw": "PrMo0CPU1CorUti6 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CorUti7",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 163,
+      "raw": "PrMo0CPU1CorUti7 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CorUti8",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 164,
+      "raw": "PrMo0CPU1CorUti8 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CPU1CorUti9",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 165,
+      "raw": "PrMo0CPU1CorUti9 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti10",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 166,
+      "raw": "PrMo0CP1CorUti10 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti11",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 167,
+      "raw": "PrMo0CP1CorUti11 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti12",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 168,
+      "raw": "PrMo0CP1CorUti12 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti13",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 169,
+      "raw": "PrMo0CP1CorUti13 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti14",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 170,
+      "raw": "PrMo0CP1CorUti14 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti15",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 171,
+      "raw": "PrMo0CP1CorUti15 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti16",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 172,
+      "raw": "PrMo0CP1CorUti16 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti17",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 173,
+      "raw": "PrMo0CP1CorUti17 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti18",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 174,
+      "raw": "PrMo0CP1CorUti18 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti19",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 175,
+      "raw": "PrMo0CP1CorUti19 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti20",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 176,
+      "raw": "PrMo0CP1CorUti20 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti21",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 177,
+      "raw": "PrMo0CP1CorUti21 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti22",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 178,
+      "raw": "PrMo0CP1CorUti22 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti23",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 179,
+      "raw": "PrMo0CP1CorUti23 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti24",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 180,
+      "raw": "PrMo0CP1CorUti24 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti25",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 181,
+      "raw": "PrMo0CP1CorUti25 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti26",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 182,
+      "raw": "PrMo0CP1CorUti26 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti27",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 183,
+      "raw": "PrMo0CP1CorUti27 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti28",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 184,
+      "raw": "PrMo0CP1CorUti28 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti29",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 185,
+      "raw": "PrMo0CP1CorUti29 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti30",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 186,
+      "raw": "PrMo0CP1CorUti30 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti31",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 187,
+      "raw": "PrMo0CP1CorUti31 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti32",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 188,
+      "raw": "PrMo0CP1CorUti32 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti33",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 189,
+      "raw": "PrMo0CP1CorUti33 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti34",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 190,
+      "raw": "PrMo0CP1CorUti34 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti35",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 191,
+      "raw": "PrMo0CP1CorUti35 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti36",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 192,
+      "raw": "PrMo0CP1CorUti36 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti37",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 193,
+      "raw": "PrMo0CP1CorUti37 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti38",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 194,
+      "raw": "PrMo0CP1CorUti38 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti39",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 195,
+      "raw": "PrMo0CP1CorUti39 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti40",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 196,
+      "raw": "PrMo0CP1CorUti40 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti41",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 197,
+      "raw": "PrMo0CP1CorUti41 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti42",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 198,
+      "raw": "PrMo0CP1CorUti42 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti43",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 199,
+      "raw": "PrMo0CP1CorUti43 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti44",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 200,
+      "raw": "PrMo0CP1CorUti44 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti45",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 201,
+      "raw": "PrMo0CP1CorUti45 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti46",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 202,
+      "raw": "PrMo0CP1CorUti46 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti47",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 203,
+      "raw": "PrMo0CP1CorUti47 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti48",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 204,
+      "raw": "PrMo0CP1CorUti48 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti49",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 205,
+      "raw": "PrMo0CP1CorUti49 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti50",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 206,
+      "raw": "PrMo0CP1CorUti50 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti51",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 207,
+      "raw": "PrMo0CP1CorUti51 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti52",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 208,
+      "raw": "PrMo0CP1CorUti52 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti53",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 209,
+      "raw": "PrMo0CP1CorUti53 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti54",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 210,
+      "raw": "PrMo0CP1CorUti54 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti55",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 211,
+      "raw": "PrMo0CP1CorUti55 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti56",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 212,
+      "raw": "PrMo0CP1CorUti56 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti57",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 213,
+      "raw": "PrMo0CP1CorUti57 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti58",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 214,
+      "raw": "PrMo0CP1CorUti58 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti59",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 215,
+      "raw": "PrMo0CP1CorUti59 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti60",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 216,
+      "raw": "PrMo0CP1CorUti60 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti61",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 217,
+      "raw": "PrMo0CP1CorUti61 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti62",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 218,
+      "raw": "PrMo0CP1CorUti62 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti63",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 219,
+      "raw": "PrMo0CP1CorUti63 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti64",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 220,
+      "raw": "PrMo0CP1CorUti64 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti65",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 221,
+      "raw": "PrMo0CP1CorUti65 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti66",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 222,
+      "raw": "PrMo0CP1CorUti66 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti67",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 223,
+      "raw": "PrMo0CP1CorUti67 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti68",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 224,
+      "raw": "PrMo0CP1CorUti68 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti69",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 225,
+      "raw": "PrMo0CP1CorUti69 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti70",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 226,
+      "raw": "PrMo0CP1CorUti70 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti71",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 227,
+      "raw": "PrMo0CP1CorUti71 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti72",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 228,
+      "raw": "PrMo0CP1CorUti72 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti73",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 229,
+      "raw": "PrMo0CP1CorUti73 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti74",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 230,
+      "raw": "PrMo0CP1CorUti74 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti75",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 231,
+      "raw": "PrMo0CP1CorUti75 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti76",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 232,
+      "raw": "PrMo0CP1CorUti76 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti77",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 233,
+      "raw": "PrMo0CP1CorUti77 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti78",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 234,
+      "raw": "PrMo0CP1CorUti78 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti79",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 235,
+      "raw": "PrMo0CP1CorUti79 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti80",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 236,
+      "raw": "PrMo0CP1CorUti80 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti81",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 237,
+      "raw": "PrMo0CP1CorUti81 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti82",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 238,
+      "raw": "PrMo0CP1CorUti82 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti83",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 239,
+      "raw": "PrMo0CP1CorUti83 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti84",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 240,
+      "raw": "PrMo0CP1CorUti84 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti85",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 241,
+      "raw": "PrMo0CP1CorUti85 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti86",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 242,
+      "raw": "PrMo0CP1CorUti86 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0CP1CorUti87",
+      "reading": "0.024",
+      "unit": "percent",
+      "status": "ok",
+      "line": 243,
+      "raw": "PrMo0CP1CorUti87 | 0.024      | percent    | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "Chass0HSCVoltag0",
+      "reading": "49.560",
+      "unit": "Volts",
+      "status": "ok",
+      "line": 244,
+      "raw": "Chass0HSCVoltag0 | 49.560     | Volts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "Chass0LeakDetec0",
+      "reading": "1.729",
+      "unit": "Volts",
+      "status": "ok",
+      "line": 245,
+      "raw": "Chass0LeakDetec0 | 1.729      | Volts      | ok    | na        | 1.600     | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0Vre0CpuVol0",
+      "reading": "0.937",
+      "unit": "Volts",
+      "status": "ok",
+      "line": 246,
+      "raw": "PrMo0Vre0CpuVol0 | 0.937      | Volts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0Vre0SocVol0",
+      "reading": "0.831",
+      "unit": "Volts",
+      "status": "ok",
+      "line": 247,
+      "raw": "PrMo0Vre0SocVol0 | 0.831      | Volts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0Vre1CpuVol0",
+      "reading": "0.930",
+      "unit": "Volts",
+      "status": "ok",
+      "line": 248,
+      "raw": "PrMo0Vre1CpuVol0 | 0.930      | Volts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "PrMo0Vre1SocVol0",
+      "reading": "0.831",
+      "unit": "Volts",
+      "status": "ok",
+      "line": 249,
+      "raw": "PrMo0Vre1SocVol0 | 0.831      | Volts      | ok    | na        | na        | na        | na        | na        | na        "
+    },
+    {
+      "name": "RTCBatterVoltag0",
+      "reading": "2.904",
+      "unit": "Volts",
+      "status": "ok",
+      "line": 250,
+      "raw": "RTCBatterVoltag0 | 2.904      | Volts      | ok    | na        | 2.000     | na        | na        | na        | na        "
+    },
+    {
+      "name": "TrFroIO0HSC0Vol0",
+      "reading": "50.740",
+      "unit": "Volts",
+      "status": "ok",
+      "line": 251,
+      "raw": "TrFroIO0HSC0Vol0 | 50.740     | Volts      | ok    | na        | na        | na        | na        | na        | na        "
+    }
+  ],
+  "action": [
+    {
+      "command": "/usr/bin/stbypowerctrl.sh aux_cycle",
+      "role": "bmc",
+      "state": "SENT",
+      "code": 0
+    }
+  ],
+  "recovery": {
+    "old_boot_id": "3eba1966-f94c-4bd8-9790-852ddc8ceecc",
+    "boot_changed": true,
+    "new_boot_id": "dc9256b9-a32f-4bf6-9b78-f7baf812278d",
+    "attempts": 21,
+    "post_entry_boot_id": "dc9256b9-a32f-4bf6-9b78-f7baf812278d"
+  },
+  "sel_evidence_schema": 1,
+  "loop": 1,
+  "revision": 58,
+  "persistence": {
+    "state": "OK"
+  },
+  "sel_before_valid": true,
+  "sel_before_meta": {
+    "phase": "BEFORE_CYCLE",
+    "status": "COLLECTED",
+    "valid": true,
+    "command": "sel list",
+    "state": "RETURNED",
+    "code": 0,
+    "evidence": "Neutrino0_n3/loop0001/sel_before.txt",
+    "event_count": 0,
+    "reason": ""
+  },
+  "redfish_before": {
+    "available": true,
+    "eventlog": [
+      {
+        "id": "1",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:35:04.701+00:00",
+        "message": "xyz.openbmc_project.Logging.Cleared",
+        "resolved": false
+      }
+    ],
+    "sel": [],
+    "eventlog_valid": true,
+    "sel_valid": true
+  },
+  "redfish_before_meta": {
+    "phase": "BEFORE_CYCLE",
+    "status": "COLLECTED",
+    "available": true,
+    "eventlog_count": 1,
+    "sel_count": 0,
+    "eventlog_valid": true,
+    "sel_valid": true
+  },
+  "cycle_started": "2026-10-25T22:35:47+08:00",
+  "boot_confirmed": true,
+  "hardware_execution_complete": true,
+  "pci_verbose": {
+    "0001:00:00.0": {
+      "bdf": "0001:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f95 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0002:00:00.0": {
+      "bdf": "0002:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f98 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #1, Speed 64GT/s, Width x2, ASPM not supported",
+      "link_current": "Speed 5GT/s, Width x1",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0002:01:00.0": {
+      "bdf": "0002:01:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: ASPEED Technology, Inc. AST1150 PCI-to-PCI Bridge (rev 06) (prog-if 00 [Normal decode])",
+      "pcie_type": "PCI-Express to PCI/PCI-X Bridge",
+      "link_capability": "Port #0, Speed 5GT/s, Width x1, ASPM L0s L1, Exit Latency L0s <1us, L1 <64us",
+      "link_current": "Speed 5GT/s, Width x1",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0002:02:00.0": {
+      "bdf": "0002:02:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": true,
+      "access_denied": false,
+      "device_name": "Embedded Video Controller",
+      "pcie_type": null,
+      "link_capability": null,
+      "link_current": null,
+      "link_result": "UNKNOWN",
+      "link_reason": "Verbose record is insufficient to determine link applicability"
+    },
+    "0002:20:00.0": {
+      "bdf": "0002:20:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f98 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #6, Speed 64GT/s, Width x2, ASPM not supported",
+      "link_current": "Speed 5GT/s, Width x1",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0002:21:00.0": {
+      "bdf": "0002:21:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "USB controller: Renesas Electronics Corp. uPD720201 USB 3.0 Host Controller (rev 03) (prog-if 30 [XHCI])",
+      "pcie_type": "Endpoint",
+      "link_capability": "Port #0, Speed 5GT/s, Width x1, ASPM L0s L1, Exit Latency L0s <4us, L1 unlimited",
+      "link_current": "Speed 5GT/s, Width x1",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0003:00:00.0": {
+      "bdf": "0003:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f95 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0004:00:00.0": {
+      "bdf": "0004:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f97 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot+)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed 32GT/s, Width x4",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0004:01:00.0": {
+      "bdf": "0004:01:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "Non-Volatile memory controller: Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa (prog-if 02 [NVM Express])",
+      "pcie_type": "Endpoint",
+      "link_capability": "Port #0, Speed 32GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed 32GT/s, Width x4",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "0004:40:00.0": {
+      "bdf": "0004:40:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f97 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #1, Speed 64GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0004:80:00.0": {
+      "bdf": "0004:80:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f97 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #2, Speed 64GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0004:c0:00.0": {
+      "bdf": "0004:c0:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f97 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #3, Speed 64GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0005:00:00.0": {
+      "bdf": "0005:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f95 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0006:00:00.0": {
+      "bdf": "0006:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f95 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "0009:00:00.0": {
+      "bdf": "0009:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f95 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "000a:00:00.0": {
+      "bdf": "000a:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f98 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #1, Speed 64GT/s, Width x2, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "000a:20:00.0": {
+      "bdf": "000a:20:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f98 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #6, Speed 64GT/s, Width x2, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "000b:00:00.0": {
+      "bdf": "000b:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f95 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "000c:00:00.0": {
+      "bdf": "000c:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f95 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed 32GT/s, Width x4",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "000c:01:00.0": {
+      "bdf": "000c:01:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "Non-Volatile memory controller: Samsung Electronics Co Ltd NVMe SSD Controller PM9DXa (prog-if 02 [NVM Express])",
+      "pcie_type": "Endpoint",
+      "link_capability": "Port #0, Speed 32GT/s, Width x4, ASPM not supported",
+      "link_current": "Speed 32GT/s, Width x4",
+      "link_result": "PASS",
+      "link_reason": "Current link status was evaluated"
+    },
+    "000d:00:00.0": {
+      "bdf": "000d:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f95 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    },
+    "000e:00:00.0": {
+      "bdf": "000e:00:00.0",
+      "verbose_available": true,
+      "capabilities_seen": true,
+      "device_name_explicit": false,
+      "access_denied": false,
+      "device_name": "PCI bridge: NVIDIA Corporation Device 2f95 (prog-if 00 [Normal decode])",
+      "pcie_type": "Root Port (Slot-)",
+      "link_capability": "Port #0, Speed 64GT/s, Width x16, ASPM not supported",
+      "link_current": "Speed unknown, Width x0",
+      "link_result": "FAIL",
+      "link_reason": "Current link reports unknown speed or x0 width"
+    }
+  },
+  "usb": {
+    "1d6b:0002": {
+      "id": "1d6b:0002",
+      "raw": "Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub",
+      "description": "Linux Foundation 2.0 root hub"
+    },
+    "1d6b:0107": {
+      "id": "1d6b:0107",
+      "raw": "Bus 001 Device 002: ID 1d6b:0107 Linux Foundation USB Virtual Hub",
+      "description": "Linux Foundation USB Virtual Hub"
+    },
+    "0525:a4a2": {
+      "id": "0525:a4a2",
+      "raw": "Bus 001 Device 003: ID 0525:a4a2 Netchip Technology, Inc. Linux-USB Ethernet/RNDIS Gadget",
+      "description": "Netchip Technology, Inc. Linux-USB Ethernet/RNDIS Gadget"
+    },
+    "1d6b:0003": {
+      "id": "1d6b:0003",
+      "raw": "Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub",
+      "description": "Linux Foundation 3.0 root hub"
+    },
+    "0bda:8153": {
+      "id": "0bda:8153",
+      "raw": "Bus 002 Device 002: ID 0bda:8153 Realtek Semiconductor Corp. RTL8153 Gigabit Ethernet Adapter",
+      "description": "Realtek Semiconductor Corp. RTL8153 Gigabit Ethernet Adapter"
+    }
+  },
+  "network_ifaces": {
+    "lo": {
+      "name": "lo",
+      "flags": "LOOPBACK,UP,LOWER_UP",
+      "raw": "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000"
+    },
+    "enx46a78f4bd771": {
+      "name": "enx46a78f4bd771",
+      "flags": "BROADCAST,MULTICAST",
+      "raw": "2: enx46a78f4bd771: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000"
+    },
+    "enx4831068c8752": {
+      "name": "enx4831068c8752",
+      "flags": "BROADCAST,MULTICAST,UP,LOWER_UP",
+      "raw": "3: enx4831068c8752: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000"
+    },
+    "virbr0": {
+      "name": "virbr0",
+      "flags": "NO-CARRIER,BROADCAST,MULTICAST,UP",
+      "raw": "4: virbr0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc htb state DOWN group default qlen 1000"
+    }
+  },
+  "bmc_usb": {
+    "001 1d6b:0002": {
+      "path": "001",
+      "id": "1d6b:0002",
+      "raw": "ID 1d6b:0002",
+      "description": ""
+    },
+    "001-1 0424:2514": {
+      "path": "001-1",
+      "id": "0424:2514",
+      "raw": "ID 0424:2514",
+      "description": ""
+    },
+    "001-1.1 0424:2514": {
+      "path": "001-1.1",
+      "id": "0424:2514",
+      "raw": "ID 0424:2514",
+      "description": ""
+    },
+    "001-1.2 0424:2514": {
+      "path": "001-1.2",
+      "id": "0424:2514",
+      "raw": "ID 0424:2514",
+      "description": ""
+    },
+    "001-1.2.1 0955:7410": {
+      "path": "001-1.2.1",
+      "id": "0955:7410",
+      "raw": "ID 0955:7410",
+      "description": ""
+    },
+    "001-1.2.2 0955:7410": {
+      "path": "001-1.2.2",
+      "id": "0955:7410",
+      "raw": "ID 0955:7410",
+      "description": ""
+    },
+    "001-1.2.3 10c4:ea71": {
+      "path": "001-1.2.3",
+      "id": "10c4:ea71",
+      "raw": "ID 10c4:ea71",
+      "description": ""
+    },
+    "001-1.2.4 0955:cf11": {
+      "path": "001-1.2.4",
+      "id": "0955:cf11",
+      "raw": "ID 0955:cf11",
+      "description": ""
+    },
+    "001-1.3 0955:cf11": {
+      "path": "001-1.3",
+      "id": "0955:cf11",
+      "raw": "ID 0955:cf11",
+      "description": ""
+    }
+  },
+  "hardware_checks": {
+    "CPU": "PASS",
+    "CPU_ONLINE": "PASS",
+    "DIMM": "PASS",
+    "MEMORY_VISIBLE": "PASS",
+    "NVMe": "PASS",
+    "BF4": "FAIL",
+    "PCIeFAB": "PASS",
+    "USB": "PASS",
+    "BMC": "PASS",
+    "PCIE_LINK/0002:02:00.0": "UNSUPPORTED",
+    "PCIE_LINK/0002:21:00.0": "PASS",
+    "PCIE_LINK/0004:01:00.0": "PASS",
+    "PCIE_LINK/000c:01:00.0": "PASS"
+  },
+  "hardware_check_details": {
+    "CPU": {
+      "name": "CPU",
+      "values": {
+        "actual": "2",
+        "minimum": "2"
+      },
+      "raw": "CHECK|CPU|actual=2|minimum=2",
+      "status": "PASS"
+    },
+    "CPU_ONLINE": {
+      "name": "CPU_ONLINE",
+      "values": {
+        "sockets": "2",
+        "logical": "352",
+        "online": "352",
+        "smbios_threads": "352",
+        "row_errors": "0",
+        "missing_socket": "0"
+      },
+      "raw": "CHECK|CPU_ONLINE|sockets=2|logical=352|online=352|smbios_threads=352|row_errors=0|missing_socket=0",
+      "status": "PASS"
+    },
+    "DIMM": {
+      "name": "DIMM",
+      "values": {
+        "actual": "16",
+        "exact": "16"
+      },
+      "raw": "CHECK|DIMM|actual=16|exact=16",
+      "status": "PASS"
+    },
+    "MEMORY_VISIBLE": {
+      "name": "MEMORY_VISIBLE",
+      "values": {
+        "installed_kib": "1610612736",
+        "visible_kib": "1598780672",
+        "minimum_ratio": "0.9"
+      },
+      "raw": "CHECK|MEMORY_VISIBLE|installed_kib=1610612736|visible_kib=1598780672|minimum_ratio=0.9",
+      "status": "PASS"
+    },
+    "NVMe": {
+      "name": "NVMe",
+      "values": {
+        "actual": "2",
+        "minimum": "2"
+      },
+      "raw": "CHECK|NVMe|actual=2|minimum=2",
+      "status": "PASS"
+    },
+    "BF4": {
+      "name": "BF4",
+      "values": {
+        "actual": "0",
+        "exact": "1",
+        "pci_functions": "0"
+      },
+      "raw": "CHECK|BF4|actual=0|exact=1|pci_functions=0",
+      "status": "FAIL"
+    },
+    "PCIeFAB": {
+      "name": "PCIeFAB",
+      "values": {
+        "actual": "17",
+        "minimum": "17"
+      },
+      "raw": "CHECK|PCIeFAB|actual=17|minimum=17",
+      "status": "PASS"
+    },
+    "USB": {
+      "name": "USB",
+      "values": {
+        "actual": "1",
+        "minimum": "1"
+      },
+      "raw": "CHECK|USB|actual=1|minimum=1",
+      "status": "PASS"
+    },
+    "BMC": {
+      "name": "BMC",
+      "values": {
+        "actual": "1",
+        "minimum": "1"
+      },
+      "raw": "CHECK|BMC|actual=1|minimum=1",
+      "status": "PASS"
+    },
+    "PCIE_LINK/0002:02:00.0": {
+      "name": "PCIE_LINK",
+      "values": {
+        "bdf": "0002:02:00.0",
+        "state": "unsupported"
+      },
+      "raw": "CHECK|PCIE_LINK|bdf=0002:02:00.0|state=unsupported",
+      "status": "UNSUPPORTED"
+    },
+    "PCIE_LINK/0002:21:00.0": {
+      "name": "PCIE_LINK",
+      "values": {
+        "bdf": "0002:21:00.0",
+        "state": "evaluated",
+        "lnksta": "\t\tLnkSta:\tSpeed 5GT/s, Width x1"
+      },
+      "raw": "CHECK|PCIE_LINK|bdf=0002:21:00.0|state=evaluated|lnksta=\t\tLnkSta:\tSpeed 5GT/s, Width x1",
+      "status": "PASS"
+    },
+    "PCIE_LINK/0004:01:00.0": {
+      "name": "PCIE_LINK",
+      "values": {
+        "bdf": "0004:01:00.0",
+        "state": "evaluated",
+        "lnksta": "\t\tLnkSta:\tSpeed 32GT/s, Width x4"
+      },
+      "raw": "CHECK|PCIE_LINK|bdf=0004:01:00.0|state=evaluated|lnksta=\t\tLnkSta:\tSpeed 32GT/s, Width x4",
+      "status": "PASS"
+    },
+    "PCIE_LINK/000c:01:00.0": {
+      "name": "PCIE_LINK",
+      "values": {
+        "bdf": "000c:01:00.0",
+        "state": "evaluated",
+        "lnksta": "\t\tLnkSta:\tSpeed 32GT/s, Width x4"
+      },
+      "raw": "CHECK|PCIE_LINK|bdf=000c:01:00.0|state=evaluated|lnksta=\t\tLnkSta:\tSpeed 32GT/s, Width x4",
+      "status": "PASS"
+    }
+  },
+  "nic_slots": {
+    "0001:00:00.0": "PRESENT",
+    "0002:00:00.0": "PRESENT",
+    "0002:20:00.0": "PRESENT",
+    "0003:00:00.0": "PRESENT",
+    "0004:00:00.0": "PRESENT",
+    "0004:40:00.0": "PRESENT",
+    "0004:80:00.0": "PRESENT",
+    "0004:c0:00.0": "PRESENT",
+    "0005:00:00.0": "PRESENT",
+    "0006:00:00.0": "PRESENT",
+    "0009:00:00.0": "PRESENT",
+    "000a:00:00.0": "PRESENT",
+    "000a:20:00.0": "PRESENT",
+    "000b:00:00.0": "PRESENT",
+    "000c:00:00.0": "PRESENT",
+    "000d:00:00.0": "PRESENT",
+    "000e:00:00.0": "PRESENT"
+  },
+  "script_verified": true,
+  "sel_post_meta": {
+    "phase": "POST",
+    "status": "COLLECTED",
+    "valid": true,
+    "command": "sel list",
+    "state": "RETURNED",
+    "code": 0,
+    "evidence": "Neutrino0_n3/loop0001/sel.txt",
+    "event_count": 0,
+    "reason": ""
+  },
+  "sel_status": "REVIEW REQUIRED",
+  "sel_events": [],
+  "sel_delta_meta": {
+    "phase": "LOOP",
+    "status": "COMPARED",
+    "valid": true,
+    "new_event_count": 0,
+    "evidence": "Neutrino0_n3/loop0001/sel_delta.txt",
+    "reason": "Before-cycle and POST SEL snapshots were valid"
+  },
+  "redfish_system_id": "System_0",
+  "redfish_services": [
+    "DebugTokenService",
+    "Dump",
+    "EventLog",
+    "HostLogger",
+    "PostCodes",
+    "SEL"
+  ],
+  "eventlog_meta": {
+    "phase": "COLLECT",
+    "status": "COLLECTED",
+    "present": true,
+    "verdict": "WARN",
+    "counts": {
+      "Critical": 0,
+      "Warning": 1,
+      "OK": 21,
+      "Other": 0
+    },
+    "evidence": "Neutrino0_n3/loop0001/eventlog.txt",
+    "entries": [
+      {
+        "id": "1",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:35:04.701+00:00",
+        "message": "xyz.openbmc_project.Logging.Cleared",
+        "resolved": false
+      },
+      {
+        "id": "2",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:09.761+00:00",
+        "message": "BMC Boot",
+        "resolved": false
+      },
+      {
+        "id": "3",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:10+00:00",
+        "message": "The resource `Host0` has powered on.",
+        "resolved": false
+      },
+      {
+        "id": "4",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:11.780+00:00",
+        "message": "PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x70C0C001).",
+        "resolved": false
+      },
+      {
+        "id": "5",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:11.838+00:00",
+        "message": "PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x70C0C003).",
+        "resolved": false
+      },
+      {
+        "id": "6",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:11.908+00:00",
+        "message": "PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 0, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x70C1C003).",
+        "resolved": false
+      },
+      {
+        "id": "7",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:12.280+00:00",
+        "message": "PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x71C0C001).",
+        "resolved": false
+      },
+      {
+        "id": "8",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:12.711+00:00",
+        "message": "PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x71C0C003).",
+        "resolved": false
+      },
+      {
+        "id": "9",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:13.094+00:00",
+        "message": "PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 1, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x71C1C003).",
+        "resolved": false
+      },
+      {
+        "id": "10",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:15+00:00",
+        "message": "BMC firmware rebooted due to reason BMC power-on reset.",
+        "resolved": false
+      },
+      {
+        "id": "11",
+        "severity": "Warning",
+        "severity_key": "warning",
+        "created": "2026-07-28T20:39:16.634+00:00",
+        "message": "Chassis intrusion detected at 2026-07-28 20:37:08",
+        "resolved": false
+      },
+      {
+        "id": "12",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:17+00:00",
+        "message": "Chassis Intrusion Reset.",
+        "resolved": false
+      },
+      {
+        "id": "13",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:18+00:00",
+        "message": "The resource `Host0` has powered on.",
+        "resolved": false
+      },
+      {
+        "id": "14",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:41+00:00",
+        "message": "A platform error occurred.",
+        "resolved": false
+      },
+      {
+        "id": "15",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:39:41+00:00",
+        "message": "A platform error occurred.",
+        "resolved": false
+      },
+      {
+        "id": "16",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:40:09+00:00",
+        "message": "The resource has been created successfully.",
+        "resolved": false
+      },
+      {
+        "id": "17",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:40:26+00:00",
+        "message": "The property SecureCurrentBoot was assigned the value 'Disabled' due to modification by the service.",
+        "resolved": false
+      },
+      {
+        "id": "18",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:40:26+00:00",
+        "message": "The property SecureBootEnable was assigned the value '0' due to modification by the service.",
+        "resolved": false
+      },
+      {
+        "id": "19",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:40:26+00:00",
+        "message": "The property SecureBootMode was assigned the value 'Setup' due to modification by the service.",
+        "resolved": false
+      },
+      {
+        "id": "20",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:40:28+00:00",
+        "message": "The resource has been removed successfully.",
+        "resolved": false
+      },
+      {
+        "id": "21",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:40:52+00:00",
+        "message": "The resource has been created successfully.",
+        "resolved": false
+      },
+      {
+        "id": "22",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:40:53+00:00",
+        "message": "The resource has been created successfully.",
+        "resolved": false
+      }
+    ],
+    "path": "/redfish/v1/Systems/System_0/LogServices/EventLog/Entries",
+    "complete": true,
+    "valid": true,
+    "reason": "",
+    "delta": {
+      "status": "COMPARED",
+      "new_count": 21,
+      "new_entries": [
+        {
+          "id": "2",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:09.761+00:00",
+          "message": "BMC Boot",
+          "resolved": false
+        },
+        {
+          "id": "3",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:10+00:00",
+          "message": "The resource `Host0` has powered on.",
+          "resolved": false
+        },
+        {
+          "id": "4",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:11.780+00:00",
+          "message": "PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x70C0C001).",
+          "resolved": false
+        },
+        {
+          "id": "5",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:11.838+00:00",
+          "message": "PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x70C0C003).",
+          "resolved": false
+        },
+        {
+          "id": "6",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:11.908+00:00",
+          "message": "PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 0, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x70C1C003).",
+          "resolved": false
+        },
+        {
+          "id": "7",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:12.280+00:00",
+          "message": "PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x71C0C001).",
+          "resolved": false
+        },
+        {
+          "id": "8",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:12.711+00:00",
+          "message": "PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x71C0C003).",
+          "resolved": false
+        },
+        {
+          "id": "9",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:13.094+00:00",
+          "message": "PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 1, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x71C1C003).",
+          "resolved": false
+        },
+        {
+          "id": "10",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:15+00:00",
+          "message": "BMC firmware rebooted due to reason BMC power-on reset.",
+          "resolved": false
+        },
+        {
+          "id": "11",
+          "severity": "Warning",
+          "severity_key": "warning",
+          "created": "2026-07-28T20:39:16.634+00:00",
+          "message": "Chassis intrusion detected at 2026-07-28 20:37:08",
+          "resolved": false
+        },
+        {
+          "id": "12",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:17+00:00",
+          "message": "Chassis Intrusion Reset.",
+          "resolved": false
+        },
+        {
+          "id": "13",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:18+00:00",
+          "message": "The resource `Host0` has powered on.",
+          "resolved": false
+        },
+        {
+          "id": "14",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:41+00:00",
+          "message": "A platform error occurred.",
+          "resolved": false
+        },
+        {
+          "id": "15",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:39:41+00:00",
+          "message": "A platform error occurred.",
+          "resolved": false
+        },
+        {
+          "id": "16",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:40:09+00:00",
+          "message": "The resource has been created successfully.",
+          "resolved": false
+        },
+        {
+          "id": "17",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:40:26+00:00",
+          "message": "The property SecureCurrentBoot was assigned the value 'Disabled' due to modification by the service.",
+          "resolved": false
+        },
+        {
+          "id": "18",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:40:26+00:00",
+          "message": "The property SecureBootEnable was assigned the value '0' due to modification by the service.",
+          "resolved": false
+        },
+        {
+          "id": "19",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:40:26+00:00",
+          "message": "The property SecureBootMode was assigned the value 'Setup' due to modification by the service.",
+          "resolved": false
+        },
+        {
+          "id": "20",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:40:28+00:00",
+          "message": "The resource has been removed successfully.",
+          "resolved": false
+        },
+        {
+          "id": "21",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:40:52+00:00",
+          "message": "The resource has been created successfully.",
+          "resolved": false
+        },
+        {
+          "id": "22",
+          "severity": "OK",
+          "severity_key": "ok",
+          "created": "2026-07-28T20:40:53+00:00",
+          "message": "The resource has been created successfully.",
+          "resolved": false
+        }
+      ],
+      "reason": "Before-cycle and POST snapshots compared by content"
+    }
+  },
+  "eventlog_entries": [
+    {
+      "id": "1",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:35:04.701+00:00",
+      "message": "xyz.openbmc_project.Logging.Cleared",
+      "resolved": false
+    },
+    {
+      "id": "2",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:09.761+00:00",
+      "message": "BMC Boot",
+      "resolved": false
+    },
+    {
+      "id": "3",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:10+00:00",
+      "message": "The resource `Host0` has powered on.",
+      "resolved": false
+    },
+    {
+      "id": "4",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:11.780+00:00",
+      "message": "PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x70C0C001).",
+      "resolved": false
+    },
+    {
+      "id": "5",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:11.838+00:00",
+      "message": "PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x70C0C003).",
+      "resolved": false
+    },
+    {
+      "id": "6",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:11.908+00:00",
+      "message": "PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 0, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x70C1C003).",
+      "resolved": false
+    },
+    {
+      "id": "7",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:12.280+00:00",
+      "message": "PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x71C0C001).",
+      "resolved": false
+    },
+    {
+      "id": "8",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:12.711+00:00",
+      "message": "PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x71C0C003).",
+      "resolved": false
+    },
+    {
+      "id": "9",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:13.094+00:00",
+      "message": "PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 1, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x71C1C003).",
+      "resolved": false
+    },
+    {
+      "id": "10",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:15+00:00",
+      "message": "BMC firmware rebooted due to reason BMC power-on reset.",
+      "resolved": false
+    },
+    {
+      "id": "11",
+      "severity": "Warning",
+      "severity_key": "warning",
+      "created": "2026-07-28T20:39:16.634+00:00",
+      "message": "Chassis intrusion detected at 2026-07-28 20:37:08",
+      "resolved": false
+    },
+    {
+      "id": "12",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:17+00:00",
+      "message": "Chassis Intrusion Reset.",
+      "resolved": false
+    },
+    {
+      "id": "13",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:18+00:00",
+      "message": "The resource `Host0` has powered on.",
+      "resolved": false
+    },
+    {
+      "id": "14",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:41+00:00",
+      "message": "A platform error occurred.",
+      "resolved": false
+    },
+    {
+      "id": "15",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:39:41+00:00",
+      "message": "A platform error occurred.",
+      "resolved": false
+    },
+    {
+      "id": "16",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:40:09+00:00",
+      "message": "The resource has been created successfully.",
+      "resolved": false
+    },
+    {
+      "id": "17",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:40:26+00:00",
+      "message": "The property SecureCurrentBoot was assigned the value 'Disabled' due to modification by the service.",
+      "resolved": false
+    },
+    {
+      "id": "18",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:40:26+00:00",
+      "message": "The property SecureBootEnable was assigned the value '0' due to modification by the service.",
+      "resolved": false
+    },
+    {
+      "id": "19",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:40:26+00:00",
+      "message": "The property SecureBootMode was assigned the value 'Setup' due to modification by the service.",
+      "resolved": false
+    },
+    {
+      "id": "20",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:40:28+00:00",
+      "message": "The resource has been removed successfully.",
+      "resolved": false
+    },
+    {
+      "id": "21",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:40:52+00:00",
+      "message": "The resource has been created successfully.",
+      "resolved": false
+    },
+    {
+      "id": "22",
+      "severity": "OK",
+      "severity_key": "ok",
+      "created": "2026-07-28T20:40:53+00:00",
+      "message": "The resource has been created successfully.",
+      "resolved": false
+    }
+  ],
+  "redfish_sel_meta": {
+    "phase": "COLLECT",
+    "status": "COLLECTED",
+    "present": true,
+    "verdict": "PASS",
+    "counts": {
+      "Critical": 0,
+      "Warning": 0,
+      "OK": 0,
+      "Other": 0
+    },
+    "evidence": "Neutrino0_n3/loop0001/redfish_sel.txt",
+    "entries": [],
+    "path": "/redfish/v1/Systems/System_0/LogServices/SEL/Entries",
+    "complete": true,
+    "valid": true,
+    "reason": "",
+    "delta": {
+      "status": "COMPARED",
+      "new_count": 0,
+      "new_entries": [],
+      "reason": "Before-cycle and POST snapshots compared by content"
+    }
+  },
+  "redfish_sel_entries": [],
+  "eventlog_delta_ids": [
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "2",
+    "20",
+    "21",
+    "22",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9"
+  ],
+  "redfish_delta_ids": [
+    "EventLog|10",
+    "EventLog|11",
+    "EventLog|12",
+    "EventLog|13",
+    "EventLog|14",
+    "EventLog|15",
+    "EventLog|16",
+    "EventLog|17",
+    "EventLog|18",
+    "EventLog|19",
+    "EventLog|2",
+    "EventLog|20",
+    "EventLog|21",
+    "EventLog|22",
+    "EventLog|3",
+    "EventLog|4",
+    "EventLog|5",
+    "EventLog|6",
+    "EventLog|7",
+    "EventLog|8",
+    "EventLog|9"
+  ],
+  "power_on": true,
+  "independent_checks_complete": true,
+  "post_complete": true,
+  "valid_cycle": true,
+  "duration_seconds": 355.0,
+  "check_summary": {
+    "sel_before": "PASS",
+    "cycle_command": "PASS",
+    "pci": "PASS",
+    "pci_tree": "PASS",
+    "pci_verbose": "PASS",
+    "disks": "PASS",
+    "nvme": "PASS",
+    "usb": "PASS",
+    "memory": "PASS",
+    "network": "FAIL",
+    "firmware": "PASS",
+    "system": "PASS",
+    "bmc_usb": "PASS",
+    "script_safety": "PASS",
+    "script_sha256": "PASS",
+    "hardware": "FAIL",
+    "sensor": "WARN",
+    "sel": "PASS",
+    "eventlog": "WARN",
+    "redfish_sel": "PASS",
+    "bmc_firmware": "PASS",
+    "power": "PASS",
+    "host_power": "PASS",
+    "os_after_checks": "PASS",
+    "mctp_stress_16": "PASS",
+    "mctp_stress_17": "PASS",
+    "bmc_dmesg": "PASS",
+    "dmesg_clear": "PASS",
+    "CPU": "PASS",
+    "CPU_ONLINE": "PASS",
+    "DIMM": "PASS",
+    "MEMORY_VISIBLE": "PASS",
+    "NVMe": "PASS",
+    "BF4": "FAIL",
+    "PCIeFAB": "PASS",
+    "USB": "PASS",
+    "BMC": "PASS",
+    "PCIE_LINK/0002:02:00.0": "UNSUPPORTED",
+    "PCIE_LINK/0002:21:00.0": "PASS",
+    "PCIE_LINK/0004:01:00.0": "PASS",
+    "PCIE_LINK/000c:01:00.0": "PASS",
+    "dmesg": "FAIL"
+  },
+  "dmesg_delta": {
+    "WARN": 0,
+    "FAIL": 62
+  },
+  "dmesg_native_error_counts": {
+    "WARN": 0,
+    "FAIL": 0
+  }
+}

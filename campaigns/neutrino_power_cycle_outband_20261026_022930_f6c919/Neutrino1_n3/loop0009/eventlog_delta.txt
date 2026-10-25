@@ -1,0 +1,19 @@
+153 | OK | The resource has been removed successfully.
+154 | OK | The resource has been removed successfully.
+155 | OK | The resource `Host0` has powered off.
+156 | OK | The resource `Host0` has powered on.
+157 | OK | PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x70C0C001).
+158 | OK | PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x70C0C003).
+159 | OK | PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 0, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x70C1C003).
+160 | OK | PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x71C0C001).
+161 | OK | PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x71C0C003).
+162 | OK | PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 1, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x71C1C003).
+163 | OK | A platform error occurred.
+164 | OK | A platform error occurred.
+165 | OK | The resource has been created successfully.
+166 | OK | The property SecureCurrentBoot was assigned the value 'Disabled' due to modification by the service.
+167 | OK | The property SecureBootEnable was assigned the value '0' due to modification by the service.
+168 | OK | The property SecureBootMode was assigned the value 'Setup' due to modification by the service.
+169 | OK | The resource has been removed successfully.
+170 | OK | The resource has been created successfully.
+171 | OK | The resource has been created successfully.

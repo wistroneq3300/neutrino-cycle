@@ -4,7 +4,6 @@ __pycache__/
 screenlog.*
 cycle_test*/
 dryrun_*/
-campaigns/
 .vera-pre-*/
 .impeccable/review/
 .impeccable/mocks/
@@ -13,3 +12,12 @@ test-results/
 .openhands/
 ux-bak/
 .agent_notes/
+
+# Campaigns stay ignored by default (AGENTS.md: generated evidence is never
+# committed). Real evidence is published on purpose to this branch only, with
+# SSH state and writer locks excluded:
+#   git add -f campaigns && git reset -- campaigns/**/.ssh campaigns/**/.report-writer.lock
+#   git commit -m "evidence: <run ids>"
+campaigns/
+campaigns/**/.ssh/
+campaigns/**/.report-writer.lock

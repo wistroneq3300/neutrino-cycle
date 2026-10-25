@@ -1,0 +1,77 @@
+UTC+8: 2026-10-26T02:46:48+08:00
+Role: bmc
+Command: /usr/bin/powerctrl.sh power_cycle
+Exit: 0
+State: RETURNED
+Duration: 11.52s
+
+Power Cycle Host
+For detailed logging, use: 'journalctl -u xyz.openbmc_project.Chassis.Control.Power@0'
+Starting log capture...
+Power cycle request sent successfully
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Host transition to Reboot requested
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Forceful Power Cycle Request received. Initiating forceful shutdown
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Commencing Forceful sequence.
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: B0_M0_SHDN_REQ_L_3V3-O set to 1
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Asserting Board 0 CPU Shutdown Force. Starting CPU Shutdown OK Watchdog Timer. Transitioning to PowerState::waitForCPUShutdownOk
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: B0_M0_SHDN_FORCE_L-O set to 0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Starting timer ForcefulCpuShutdownOkWatchdogMs
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: ForcefulCpuShutdownOkWatchdogMs timer started with 100ms timeout
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Host0: Moving to "Wait for CPU Shutdown OK" state
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Board0CpuShutdownOk GPIO event: value=0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Canceling CPU Shutdown OK Watchdog Timer
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: CPU Shutdown OK received from Board 0. Asserting Pre System Reset line. Transitioning to wait for CPU Reset assertion...
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: B0_M0_IOX_PRE_SYS_RST_N-O set to 0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Starting timer CpuResetWatchdogMs
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: CpuResetWatchdogMs timer started with 2000ms timeout
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Host0: Moving to "Wait for CPU Reset Assert" state
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: ForcefulCpuShutdownOkWatchdogMs timer canceled
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: CpuResetIndicator GPIO event: value=0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: handleWaitForCPUResetAssert: CPU reset indicator assert event received
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Canceling CPU Reset Watchdog Timer
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: CPU Reset Indicator asserted - CPUs entered reset
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Canceling CPU Reset Watchdog Timer
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: CPU Reset Indicator Asserted. CPUs are in reset. De-asserting Run Power Enable and USB Power Enable. Starting HPM Power Good Watchdog Timer. Transitioning to PowerState::waitForHPMPowerGoodDeAssert.
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: B0_M0_RUN_PWR_EN-O set to 0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: HOST_RDY_PWR_EN-O set to 0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Starting timer HPMPowerGoodWatchdogMs
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: HPMPowerGoodWatchdogMs timer started with 10000ms timeout
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Host0: Moving to "Wait for HPM Power Good De-Assert" state
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: CpuResetWatchdogMs timer canceled
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Board0RunPowerPG GPIO event: value=0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Canceling HPM Power Good Watchdog Timer
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: HPM Board 0 Run Power Good de-asserted. PDBMainPowerOk is currently asserted. De-asserting PDB Main Power Enable. Starting PDB Main Power OK Watchdog Timer. Transitioning to PowerState::waitForPDBMainPowerOff to wait for de-assertion.
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Host0: Moving to "Wait for PDB Main Power Off" state
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: P54V_HSC_EN-O set to 0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Starting timer PdbMainPowerOkWatchdogMs
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: PdbMainPowerOkWatchdogMs timer started with 1000ms timeout
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Canceling POH Counter Timer
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Moving os state to xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive stage
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: RestartCause set to xyz.openbmc_project.State.Host.RestartCause.RemoteCommand
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Host system DC power is off
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: HPMPowerGoodWatchdogMs timer canceled
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: POH timer canceled
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Canceling POH Counter Timer
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Moving os state to xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive stage
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: RestartCause set to xyz.openbmc_project.State.Host.RestartCause.RemoteCommand
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Host system DC power is off
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: PDBMainPowerOk GPIO event: value=0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Canceling PDB Main Power OK Watchdog Timer
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Forceful Power Cycle Shutdown complete. Starting power cycle delay timer. Transitioning to PowerState::waitForPowerCycleDelay.
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Setting GPIOs to default state for host state OFF
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: B0_M0_SHDN_FORCE_L-O set to 1
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: B0_M0_SHDN_REQ_L_3V3-O set to 1
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: B0_M0_IOX_PRE_SYS_RST_N-O set to 0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: B0_M0_RUN_PWR_EN-O set to 0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: HOST_RDY_PWR_EN-O set to 0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: P54V_HSC_EN-O set to 0
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Starting timer PowerCycleDelayMs
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: PowerCycleDelayMs timer started with 15000ms timeout
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Host0: Moving to "Wait for Power Cycle Delay" state
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: PdbMainPowerOkWatchdogMs timer canceled
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Canceling POH Counter Timer
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Moving os state to xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive stage
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: RestartCause set to xyz.openbmc_project.State.Host.RestartCause.RemoteCommand
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Host system DC power is off
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: CPU Boot Done state changed to: DE-ASSERTED
+Oct 25 18:46:30 vc-256-bmc-n0 x86-power-control[1425]: Event CPU Boot Done de-assert rejected - power cycle delay in progress

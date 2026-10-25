@@ -1,0 +1,31 @@
+UTC+8: 2026-10-26T02:34:26+08:00
+Role: oob
+Source: Redfish EventLog
+Path: /redfish/v1/Systems/System_0/LogServices/EventLog/Entries
+Pages: 1
+Valid: True
+Complete: True
+Entries: 19
+Verdict: PASS
+Counts: Critical=0 Warning=0 OK=19
+Reason: 
+
+1 | OK | 2026-10-25T18:29:32.088+00:00 | xyz.openbmc_project.Logging.Cleared
+2 | OK | 2026-10-25T18:31:17+00:00 | The resource `Host0` has powered off.
+3 | OK | 2026-10-25T18:31:18+00:00 | The resource `Host0` has powered on.
+4 | OK | 2026-10-25T18:31:19.495+00:00 | PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x70C0C001).
+5 | OK | 2026-10-25T18:31:19.522+00:00 | PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x70C0C003).
+6 | OK | 2026-10-25T18:31:19.535+00:00 | PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 0, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x70C1C003).
+7 | OK | 2026-10-25T18:31:19.980+00:00 | PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x71C0C001).
+8 | OK | 2026-10-25T18:31:19.996+00:00 | PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x71C0C003).
+9 | OK | 2026-10-25T18:31:20.011+00:00 | PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 1, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x71C1C003).
+10 | OK | 2026-10-25T18:31:36+00:00 | A platform error occurred.
+11 | OK | 2026-10-25T18:31:37+00:00 | A platform error occurred.
+12 | OK | 2026-10-25T18:32:17+00:00 | The resource has been created successfully.
+13 | OK | 2026-10-25T18:32:34+00:00 | The property SecureCurrentBoot was assigned the value 'Disabled' due to modification by the service.
+14 | OK | 2026-10-25T18:32:34+00:00 | The property SecureBootEnable was assigned the value '0' due to modification by the service.
+15 | OK | 2026-10-25T18:32:34+00:00 | The property SecureBootMode was assigned the value 'Setup' due to modification by the service.
+16 | OK | 2026-10-25T18:32:36+00:00 | The resource has been removed successfully.
+17 | OK | 2026-10-25T18:32:38+00:00 | The resource has been removed successfully.
+18 | OK | 2026-10-25T18:33:00+00:00 | The resource has been created successfully.
+19 | OK | 2026-10-25T18:33:01+00:00 | The resource has been created successfully.

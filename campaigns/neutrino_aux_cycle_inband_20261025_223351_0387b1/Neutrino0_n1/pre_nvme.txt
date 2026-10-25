@@ -1,0 +1,11 @@
+UTC+8: 2026-10-25T22:34:07+08:00
+Role: os
+Command: nvme list
+Exit: 0
+State: RETURNED
+Duration: 1.20s
+
+Node                  Generic               SN                   Model                                    Namespace  Usage                      Format           FW Rev  
+--------------------- --------------------- -------------------- ---------------------------------------- ---------- -------------------------- ---------------- --------
+/dev/nvme0n1          /dev/ng0n1            S7UTNU0L932093       SAMSUNG MZTL63T8HFLT-00AW7               0x1        384.08  GB /   3.84  TB    512   B +  0 B   LDDL5U2Q
+/dev/nvme1n1          /dev/ng1n1            S7UTNU0L932037       SAMSUNG MZTL63T8HFLT-00AW7               0x1         72.88  GB /   3.84  TB    512   B +  0 B   LDDL5U2Q

@@ -1,0 +1,10 @@
+UTC+8: 2026-10-25T22:40:33+08:00
+Role: os
+Command: free -m
+Exit: 0
+State: RETURNED
+Duration: 1.19s
+
+               total        used        free      shared  buff/cache   available
+Mem:         1561309       17370     1548433         120         832     1543938
+Swap:              0           0           0

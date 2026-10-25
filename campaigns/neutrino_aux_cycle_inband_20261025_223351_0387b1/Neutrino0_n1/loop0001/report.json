@@ -1,0 +1,238 @@
+{
+  "phase": "LOOP 1",
+  "started": "2026-10-25T22:35:43+08:00",
+  "finished": "2026-10-25T22:51:14+08:00",
+  "status": "FAIL",
+  "issues": [
+    {
+      "code": "BOOT_TIMEOUT",
+      "component": "recovery",
+      "detail": "Selected endpoints did not recover with a changed OS boot ID within 900s",
+      "severity": "FAIL",
+      "evidence": "",
+      "snippet": "",
+      "classification": "NEW",
+      "known_reason": ""
+    },
+    {
+      "code": "NODE_UNAVAILABLE",
+      "component": "recovery",
+      "detail": "Boot recovery was not confirmed; POST hardware execution blocked",
+      "severity": "FAIL",
+      "evidence": "",
+      "snippet": "",
+      "classification": "NEW",
+      "known_reason": ""
+    },
+    {
+      "code": "RECOVERY_LOG_FAILED",
+      "component": "recovery",
+      "detail": "Boot log could not be read after the failed cycle: exit 124 (NOT_ISSUED)",
+      "severity": "INFO",
+      "evidence": "",
+      "snippet": "",
+      "classification": "NEW",
+      "known_reason": ""
+    },
+    {
+      "code": "BMC_UNAVAILABLE",
+      "component": "recovery",
+      "detail": "bmc identity unavailable: exit 124 (NOT_ISSUED)",
+      "severity": "FAIL",
+      "evidence": "",
+      "snippet": "",
+      "classification": "NEW",
+      "known_reason": ""
+    },
+    {
+      "code": "COLLECTION_FAILED",
+      "component": "dmesg_clear",
+      "detail": "Exit 124 (NOT_ISSUED); see evidence",
+      "severity": "FAIL",
+      "evidence": "Neutrino0_n1/loop0001/dmesg_clear.txt",
+      "snippet": "\nTimeoutError: timed out",
+      "classification": "NEW",
+      "known_reason": ""
+    },
+    {
+      "code": "DMESG_COLLECT_FAILED",
+      "component": "dmesg",
+      "detail": "Kernel log collection failed: exit 124 (NOT_ISSUED)",
+      "severity": "WARN",
+      "evidence": "Neutrino0_n1/loop0001/dmesg_clear.txt",
+      "snippet": "",
+      "classification": "NEW",
+      "known_reason": ""
+    }
+  ],
+  "evidence": [
+    "Neutrino0_n1/loop0001/sel_before.txt",
+    "Neutrino0_n1/loop0001/cycle_command.txt",
+    "Neutrino0_n1/loop0001/recovery_dmesg.txt",
+    "Neutrino0_n1/loop0001/bmc_failure_identity.txt",
+    "Neutrino0_n1/loop0001/dmesg_clear.txt"
+  ],
+  "commands": {
+    "sel_before": {
+      "command": "sel list",
+      "role": "oob",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n1/loop0001/sel_before.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "cycle_command": {
+      "command": "/usr/bin/stbypowerctrl.sh aux_cycle",
+      "role": "bmc",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino0_n1/loop0001/cycle_command.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "recovery_dmesg": {
+      "command": "dmesg -c",
+      "role": "os",
+      "code": 124,
+      "state": "NOT_ISSUED",
+      "evidence": "Neutrino0_n1/loop0001/recovery_dmesg.txt",
+      "valid": false,
+      "output_excerpt": "\nTimeoutError: timed out"
+    },
+    "bmc_failure_identity": {
+      "command": "printf 'HOSTNAME='; hostname; printf 'BOOT_ID='; cat /proc/sys/kernel/random/boot_id",
+      "role": "bmc",
+      "code": 124,
+      "state": "NOT_ISSUED",
+      "evidence": "Neutrino0_n1/loop0001/bmc_failure_identity.txt",
+      "valid": false,
+      "output_excerpt": "\nTimeoutError: timed out"
+    },
+    "dmesg_clear": {
+      "command": "dmesg -c",
+      "role": "os",
+      "code": 124,
+      "state": "NOT_ISSUED",
+      "evidence": "Neutrino0_n1/loop0001/dmesg_clear.txt",
+      "valid": false,
+      "output_excerpt": "\nTimeoutError: timed out"
+    }
+  },
+  "identities": {
+    "bmc": {
+      "hostname": "vc-256-bmc-n1",
+      "boot_id": "4f06a7f7-5328-40e3-8f99-2307e52feb9d"
+    },
+    "os": {
+      "hostname": "Neutrino0-n1",
+      "boot_id": "5ec8d276-4d55-4151-9b86-fe729bd5793a"
+    }
+  },
+  "identity_observations": [
+    {
+      "role": "bmc",
+      "stage": "bmc_before_cycle",
+      "expected": "vc-256-bmc-n1",
+      "actual": "vc-256-bmc-n1",
+      "result": "MATCH"
+    },
+    {
+      "role": "os",
+      "stage": "os_before_cycle",
+      "expected": "Neutrino0-n1",
+      "actual": "Neutrino0-n1",
+      "result": "MATCH"
+    },
+    {
+      "role": "bmc",
+      "stage": "bmc_failure_identity",
+      "expected": "vc-256-bmc-n1",
+      "actual": "",
+      "result": "UNAVAILABLE"
+    }
+  ],
+  "observation_status": {
+    "dmesg": "UNAVAILABLE"
+  },
+  "pci": {},
+  "pci_devices": {},
+  "sensors": [],
+  "action": [
+    {
+      "command": "/usr/bin/stbypowerctrl.sh aux_cycle",
+      "role": "bmc",
+      "state": "SENT",
+      "code": 0
+    }
+  ],
+  "recovery": {
+    "old_boot_id": "5ec8d276-4d55-4151-9b86-fe729bd5793a",
+    "boot_changed": false,
+    "attempts": 61
+  },
+  "sel_evidence_schema": 1,
+  "loop": 1,
+  "revision": 72,
+  "persistence": {
+    "state": "OK"
+  },
+  "sel_before_valid": true,
+  "sel_before": "SEL has no entries\n",
+  "sel_before_meta": {
+    "phase": "BEFORE_CYCLE",
+    "status": "COLLECTED",
+    "valid": true,
+    "command": "sel list",
+    "state": "RETURNED",
+    "code": 0,
+    "evidence": "Neutrino0_n1/loop0001/sel_before.txt",
+    "event_count": 0,
+    "reason": ""
+  },
+  "redfish_before": {
+    "available": true,
+    "eventlog": [
+      {
+        "id": "1",
+        "severity": "OK",
+        "severity_key": "ok",
+        "created": "2026-07-28T20:35:03.856+00:00",
+        "message": "xyz.openbmc_project.Logging.Cleared",
+        "resolved": false
+      }
+    ],
+    "sel": [],
+    "eventlog_valid": true,
+    "sel_valid": true
+  },
+  "redfish_before_meta": {
+    "phase": "BEFORE_CYCLE",
+    "status": "COLLECTED",
+    "available": true,
+    "eventlog_count": 1,
+    "sel_count": 0,
+    "eventlog_valid": true,
+    "sel_valid": true
+  },
+  "cycle_started": "2026-10-25T22:35:47+08:00",
+  "post_complete": false,
+  "duration_seconds": 927.0,
+  "check_summary": {
+    "sel_before": "PASS",
+    "cycle_command": "PASS",
+    "recovery_dmesg": "FAIL",
+    "bmc_failure_identity": "FAIL",
+    "dmesg_clear": "FAIL",
+    "recovery": "FAIL",
+    "dmesg": "FAIL"
+  },
+  "dmesg_delta": {
+    "WARN": 1,
+    "FAIL": 0
+  },
+  "dmesg_native_error_counts": {
+    "WARN": 0,
+    "FAIL": 0
+  }
+}

@@ -1,0 +1,8 @@
+UTC+8: 2026-10-26T02:29:34+08:00
+Role: os
+Command: id -u
+Exit: 0
+State: RETURNED
+Duration: 1.18s
+
+0

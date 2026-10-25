@@ -1,0 +1,56 @@
+UTC+8: 2026-10-25T22:56:54+08:00
+Role: oob
+Source: Redfish EventLog
+Path: /redfish/v1/Systems/System_0/LogServices/EventLog/Entries
+Pages: 1
+Valid: True
+Complete: True
+Entries: 44
+Verdict: WARN
+Counts: Critical=0 Warning=2 OK=42
+Reason: 
+
+1 | OK | 2026-07-28T20:35:04.361+00:00 | xyz.openbmc_project.Logging.Cleared
+2 | OK | 2026-07-28T20:39:10.577+00:00 | BMC Boot
+3 | OK | 2026-07-28T20:39:11+00:00 | The resource `Host0` has powered on.
+4 | OK | 2026-07-28T20:39:14.586+00:00 | PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x71C0C001).
+5 | OK | 2026-07-28T20:39:14.710+00:00 | PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x71C0C003).
+6 | OK | 2026-07-28T20:39:14.860+00:00 | PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 1, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x71C1C003).
+7 | OK | 2026-07-28T20:39:14.874+00:00 | PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x70C0C001).
+8 | OK | 2026-07-28T20:39:14.895+00:00 | PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x70C0C003).
+9 | OK | 2026-07-28T20:39:14.915+00:00 | PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 0, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x70C1C003).
+10 | OK | 2026-07-28T20:39:15+00:00 | BMC firmware rebooted due to reason BMC power-on reset.
+11 | Warning | 2026-07-28T20:39:19.068+00:00 | Chassis intrusion detected at 2026-07-28 20:37:08
+12 | OK | 2026-07-28T20:39:19+00:00 | The resource `Host0` has powered on.
+13 | OK | 2026-07-28T20:39:20+00:00 | Chassis Intrusion Reset.
+14 | OK | 2026-07-28T20:39:40+00:00 | A platform error occurred.
+15 | OK | 2026-07-28T20:39:40+00:00 | A platform error occurred.
+16 | OK | 2026-07-28T20:40:10+00:00 | The resource has been created successfully.
+17 | OK | 2026-07-28T20:40:27+00:00 | The property SecureCurrentBoot was assigned the value 'Disabled' due to modification by the service.
+18 | OK | 2026-07-28T20:40:27+00:00 | The property SecureBootEnable was assigned the value '0' due to modification by the service.
+19 | OK | 2026-07-28T20:40:27+00:00 | The property SecureBootMode was assigned the value 'Setup' due to modification by the service.
+20 | OK | 2026-07-28T20:40:30+00:00 | The resource has been removed successfully.
+21 | OK | 2026-07-28T20:40:52+00:00 | The resource has been created successfully.
+22 | OK | 2026-07-28T20:40:52+00:00 | The resource has been created successfully.
+23 | OK | 2026-07-28T20:55:08.408+00:00 | BMC Boot
+24 | OK | 2026-07-28T20:55:08+00:00 | The resource has been removed successfully.
+25 | OK | 2026-07-28T20:55:08+00:00 | The resource has been removed successfully.
+26 | OK | 2026-07-28T20:55:09+00:00 | The resource `Host0` has powered on.
+27 | OK | 2026-07-28T20:55:11.895+00:00 | PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x70C0C001).
+28 | OK | 2026-07-28T20:55:12.286+00:00 | PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 0, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x70C0C003).
+29 | OK | 2026-07-28T20:55:12+00:00 | BMC firmware rebooted due to reason BMC power-on reset.
+30 | OK | 2026-07-28T20:55:12.773+00:00 | PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 0, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x70C1C003).
+31 | OK | 2026-07-28T20:55:13.038+00:00 | PSC ROM I2C external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_I2C_EXT_MSG_INIT, Code 0x71C0C001).
+32 | OK | 2026-07-28T20:55:13.328+00:00 | PSC ROM USB external messaging initialization - encodes reset reason in instance field on CPU 1, reported by PSCROM, reset reason SYS_RESET_N (PSC_ROM_PC_USB_EXT_MSG_INIT, Code 0x71C0C003).
+33 | OK | 2026-07-28T20:55:13.511+00:00 | PSC FMC NVLink low-speed link up - encodes reset reason in instance field on CPU 1, reported by PSCFMC, reset reason SYS_RESET_N (PSC_FMC_PC_LPI_LS_LINK_UP, Code 0x71C1C003).
+34 | Warning | 2026-07-28T20:55:15.869+00:00 | Chassis intrusion detected at 2026-07-28 20:53:06
+35 | OK | 2026-07-28T20:55:16+00:00 | Chassis Intrusion Reset.
+36 | OK | 2026-07-28T20:55:36+00:00 | A platform error occurred.
+37 | OK | 2026-07-28T20:55:36+00:00 | A platform error occurred.
+38 | OK | 2026-07-28T20:56:08+00:00 | The resource has been created successfully.
+39 | OK | 2026-07-28T20:56:25+00:00 | The property SecureCurrentBoot was assigned the value 'Disabled' due to modification by the service.
+40 | OK | 2026-07-28T20:56:25+00:00 | The property SecureBootEnable was assigned the value '0' due to modification by the service.
+41 | OK | 2026-07-28T20:56:25+00:00 | The property SecureBootMode was assigned the value 'Setup' due to modification by the service.
+42 | OK | 2026-07-28T20:56:28+00:00 | The resource has been removed successfully.
+43 | OK | 2026-07-28T20:56:50+00:00 | The resource has been created successfully.
+44 | OK | 2026-07-28T20:56:51+00:00 | The resource has been created successfully.

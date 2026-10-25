@@ -1,0 +1,8 @@
+Target: Neutrino0_n1
+Completed loops: 0
+Attempts: 1; boot confirmed: 0; valid cycles: 0
+Blocked: No
+Stop reason: Boot recovery was not confirmed; POST hardware execution blocked
+PRE: FAIL (5 findings)
+START: PASS (0 findings)
+LOOP 1: FAIL (6 findings)

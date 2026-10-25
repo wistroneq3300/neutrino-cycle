@@ -1,0 +1,79 @@
+Run ID: neutrino_power_cycle_outband_20261026_022930_f6c919
+Execution: COMPLETE
+Health: FAIL
+Requested limits: {'loops': 10, 'hours': 0.0}
+Completed node-loops: 40
+Attempts: 40; boot confirmed: 40; valid cycles: 40
+Stop reason: Requested run limit reached
+Unique issues: 142
+Campaign elapsed: 00:39:18
+Persistence: OK
+Report: READY
+Target: Neutrino1_n0
+Completed loops: 10
+Attempts: 10; boot confirmed: 10; valid cycles: 10
+Blocked: No
+Stop reason: 
+PRE: FAIL (5 findings)
+START: PASS (0 findings)
+LOOP 1: FAIL (8 findings)
+LOOP 2: FAIL (8 findings)
+LOOP 3: FAIL (8 findings)
+LOOP 4: FAIL (8 findings)
+LOOP 5: FAIL (8 findings)
+LOOP 6: FAIL (8 findings)
+LOOP 7: FAIL (8 findings)
+LOOP 8: FAIL (8 findings)
+LOOP 9: FAIL (9 findings)
+LOOP 10: FAIL (9 findings)
+Target: Neutrino1_n1
+Completed loops: 10
+Attempts: 10; boot confirmed: 10; valid cycles: 10
+Blocked: No
+Stop reason: 
+PRE: FAIL (5 findings)
+START: PASS (0 findings)
+LOOP 1: FAIL (8 findings)
+LOOP 2: FAIL (8 findings)
+LOOP 3: FAIL (8 findings)
+LOOP 4: FAIL (8 findings)
+LOOP 5: FAIL (8 findings)
+LOOP 6: FAIL (8 findings)
+LOOP 7: FAIL (8 findings)
+LOOP 8: FAIL (8 findings)
+LOOP 9: FAIL (8 findings)
+LOOP 10: FAIL (8 findings)
+Target: Neutrino1_n2
+Completed loops: 10
+Attempts: 10; boot confirmed: 10; valid cycles: 10
+Blocked: No
+Stop reason: 
+PRE: FAIL (5 findings)
+START: PASS (0 findings)
+LOOP 1: FAIL (8 findings)
+LOOP 2: FAIL (9 findings)
+LOOP 3: FAIL (9 findings)
+LOOP 4: FAIL (9 findings)
+LOOP 5: FAIL (9 findings)
+LOOP 6: FAIL (9 findings)
+LOOP 7: FAIL (9 findings)
+LOOP 8: FAIL (9 findings)
+LOOP 9: FAIL (9 findings)
+LOOP 10: FAIL (9 findings)
+Target: Neutrino1_n3
+Completed loops: 10
+Attempts: 10; boot confirmed: 10; valid cycles: 10
+Blocked: No
+Stop reason: 
+PRE: FAIL (5 findings)
+START: PASS (0 findings)
+LOOP 1: FAIL (8 findings)
+LOOP 2: FAIL (8 findings)
+LOOP 3: FAIL (8 findings)
+LOOP 4: FAIL (8 findings)
+LOOP 5: FAIL (8 findings)
+LOOP 6: FAIL (8 findings)
+LOOP 7: FAIL (8 findings)
+LOOP 8: FAIL (8 findings)
+LOOP 9: FAIL (8 findings)
+LOOP 10: FAIL (8 findings)

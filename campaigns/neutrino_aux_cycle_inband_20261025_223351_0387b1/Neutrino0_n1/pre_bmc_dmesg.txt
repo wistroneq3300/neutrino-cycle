@@ -1,0 +1,7 @@
+UTC+8: 2026-10-25T22:34:36+08:00
+Role: bmc
+Command: dmesg -c | grep -iE 'mctp|musb|error -71|USB disconnect|usb device|renamed from|reset|timeout' || true
+Exit: 0
+State: RETURNED
+Duration: 1.49s
+

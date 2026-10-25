@@ -1,0 +1,47 @@
+UTC+8: 2026-10-26T02:54:00+08:00
+Role: bmc
+Command: lsusb -tv
+Exit: 0
+State: RETURNED
+Duration: 1.43s
+
+unable to initialize usb spec/:  Bus 001.Port 001: Dev 001, Class=root_hub, Driver=ehci-platform/1p, 480M
+    ID 1d6b:0002  
+    |__ Port 001: Dev 002, If 0, Class=[unknown], Driver=hub/4p, 480M
+        ID 0424:2514  
+        |__ Port 001: Dev 003, If 0, Class=[unknown], Driver=hub/4p, 480M
+            ID 0424:2514  
+        |__ Port 002: Dev 004, If 0, Class=[unknown], Driver=hub/4p, 480M
+            ID 0424:2514  
+            |__ Port 001: Dev 020, If 0, Class=[unknown], Driver=[none], 480M
+                ID 0955:7410  
+            |__ Port 001: Dev 020, If 1, Class=[unknown], Driver=[none], 480M
+                ID 0955:7410  
+            |__ Port 001: Dev 020, If 2, Class=[unknown], Driver=mctp-usb, 480M
+                ID 0955:7410  
+            |__ Port 001: Dev 020, If 3, Class=[unknown], Driver=[none], 480M
+                ID 0955:7410  
+            |__ Port 002: Dev 021, If 0, Class=[unknown], Driver=[none], 480M
+                ID 0955:7410  
+            |__ Port 002: Dev 021, If 1, Class=[unknown], Driver=[none], 480M
+                ID 0955:7410  
+            |__ Port 002: Dev 021, If 2, Class=[unknown], Driver=mctp-usb, 480M
+                ID 0955:7410  
+            |__ Port 002: Dev 021, If 3, Class=[unknown], Driver=[none], 480M
+                ID 0955:7410  
+            |__ Port 003: Dev 008, If 0, Class=[unknown], Driver=cp210x, 12M
+                ID 10c4:ea71  
+            |__ Port 003: Dev 008, If 1, Class=[unknown], Driver=cp210x, 12M
+                ID 10c4:ea71  
+            |__ Port 003: Dev 008, If 2, Class=[unknown], Driver=cp210x, 12M
+                ID 10c4:ea71  
+            |__ Port 003: Dev 008, If 3, Class=[unknown], Driver=cp210x, 12M
+                ID 10c4:ea71  
+            |__ Port 004: Dev 009, If 0, Class=[unknown], Driver=mctp-usb, 480M
+                ID 0955:cf11  
+            |__ Port 004: Dev 009, If 1, Class=[unknown], Driver=lstp, 480M
+                ID 0955:cf11  
+        |__ Port 003: Dev 005, If 0, Class=[unknown], Driver=mctp-usb, 480M
+            ID 0955:cf11  
+        |__ Port 003: Dev 005, If 1, Class=[unknown], Driver=lstp, 480M
+            ID 0955:cf11  

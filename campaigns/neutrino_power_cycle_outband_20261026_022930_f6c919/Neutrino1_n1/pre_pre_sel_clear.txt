@@ -1,0 +1,8 @@
+UTC+8: 2026-10-26T02:29:39+08:00
+Role: oob
+Command: sel clear
+Exit: 0
+State: RETURNED
+Duration: 0.27s
+
+[Command output suppressed; status retained in this evidence file.]

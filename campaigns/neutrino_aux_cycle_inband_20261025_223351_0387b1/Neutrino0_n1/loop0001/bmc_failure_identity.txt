@@ -1,0 +1,9 @@
+UTC+8: 2026-10-25T22:51:04+08:00
+Role: bmc
+Command: printf 'HOSTNAME='; hostname; printf 'BOOT_ID='; cat /proc/sys/kernel/random/boot_id
+Exit: 124
+State: NOT_ISSUED
+Duration: 7.51s
+
+
+TimeoutError: timed out

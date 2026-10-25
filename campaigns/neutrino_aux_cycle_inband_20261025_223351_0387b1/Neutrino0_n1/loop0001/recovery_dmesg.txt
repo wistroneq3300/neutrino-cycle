@@ -1,0 +1,9 @@
+UTC+8: 2026-10-25T22:50:57+08:00
+Role: os
+Command: dmesg -c
+Exit: 124
+State: NOT_ISSUED
+Duration: 10.01s
+
+
+TimeoutError: timed out

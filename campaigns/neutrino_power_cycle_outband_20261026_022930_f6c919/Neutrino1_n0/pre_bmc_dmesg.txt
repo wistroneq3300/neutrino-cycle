@@ -1,0 +1,75 @@
+UTC+8: 2026-10-26T02:30:16+08:00
+Role: bmc
+Command: dmesg -c | grep -iE 'mctp|musb|error -71|USB disconnect|usb device|renamed from|reset|timeout' || true
+Exit: 0
+State: RETURNED
+Duration: 1.51s
+
+[    0.097671] mctp: management component transport protocol core
+[    0.097686] NET: Registered PF_MCTP protocol family
+[    0.097760] MCTP Socket Error Injection: Initialized at /sys/kernel/debug/mctp_socket/
+[    0.533926] aspeed-mctp 1e6f9000.mctp: Dynamic DMA pool
+[    0.537323] aspeed-mctp: error injection enabled
+[    1.941621] MCTP I2C interface driver
+[    1.945735] MCTP I2C Error Injection enabled
+[    1.950603] spb-ap: "MCTP SPI interface driver\n"
+[    1.950625] spb-ap: "MCTP SPI: Error injection initialized at /sys/kernel/debug/mctp_spi/\n"
+[    1.955973] usbcore: registered new interface driver mctp-usb
+[    2.178303] usb usb1: New USB device found, idVendor=1d6b, idProduct=0002, bcdDevice= 6.12
+[    2.192071] usb usb1: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+[    2.200737] i2c_ast2600 1e78a080.i2c: i2c [0]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.251669] i2c i2c-1 mctpi2c1 (uninitialized): NACK retry config: retries=0 delay=0us addr=0xffffffff
+[    2.266441] i2c_ast2600 1e78a100.i2c: i2c [1]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.294579] i2c i2c-2 mctpi2c2 (uninitialized): NACK retry config: retries=0 delay=0us addr=0xffffffff
+[    2.305803] i2c_ast2600 1e78a180.i2c: i2c [2]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.318615] i2c_ast2600 1e78a200.i2c: i2c [3]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.331243] i2c_ast2600 1e78a280.i2c: i2c [4]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.358495] i2c_ast2600 1e78a300.i2c: i2c [5]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.379587] i2c_ast2600 1e78a380.i2c: i2c [6]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.392544] i2c_ast2600 1e78a400.i2c: i2c [7]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.405136] i2c_ast2600 1e78a480.i2c: i2c [8]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.425924] i2c_ast2600 1e78a500.i2c: i2c [9]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.462360] i2c_ast2600 1e78a580.i2c: i2c [10]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.475031] i2c_ast2600 1e78a600.i2c: i2c [11]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.487706] i2c_ast2600 1e78a680.i2c: i2c [12]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.500457] i2c_ast2600 1e78a700.i2c: i2c [13]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.513027] i2c_ast2600 1e78a780.i2c: i2c [14]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.525627] i2c_ast2600 1e78a800.i2c: i2c [15]: adapter [400 KHz] mode [1] version [0] timeout [1000 ms] retries [0]
+[    2.540490] usb 1-1: new high-speed USB device number 2 using ehci-platform
+[    2.763783] usb 1-1: New USB device found, idVendor=0424, idProduct=2514, bcdDevice= b.b3
+[    2.772975] usb 1-1: New USB device strings: Mfr=0, Product=0, SerialNumber=0
+[    3.451959] aspeed-pcie 1e7700c0.pcie: [0:80:08.00]CR tx timeout sts: 0x02000000
+[    3.685280] usb 1-1.1: new high-speed USB device number 3 using ehci-platform
+[    3.810962] usb 1-1.1: New USB device found, idVendor=0424, idProduct=2514, bcdDevice= b.b3
+[    3.820319] usb 1-1.1: New USB device strings: Mfr=0, Product=0, SerialNumber=0
+[    3.920493] usb 1-1.2: new high-speed USB device number 4 using ehci-platform
+[    4.060962] usb 1-1.2: New USB device found, idVendor=0424, idProduct=2514, bcdDevice= b.b3
+[    4.070316] usb 1-1.2: New USB device strings: Mfr=0, Product=0, SerialNumber=0
+[    4.172141] usb 1-1.3: new high-speed USB device number 5 using ehci-platform
+[    4.323253] usb 1-1.3: New USB device found, idVendor=0955, idProduct=cf11, bcdDevice= 2.00
+[    4.333869] usb 1-1.3: New USB device strings: Mfr=0, Product=0, SerialNumber=0
+[    4.400945] usb 1-1.2.3: new full-speed USB device number 6 using ehci-platform
+[    4.572902] usb 1-1.2.3: New USB device found, idVendor=10c4, idProduct=ea71, bcdDevice= 1.90
+[    4.582596] usb 1-1.2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=7
+[    4.780518] usb 1-1.2.4: new high-speed USB device number 7 using ehci-platform
+[    4.940864] usb 1-1.2.4: New USB device found, idVendor=0955, idProduct=cf11, bcdDevice= 2.00
+[    4.950458] usb 1-1.2.4: New USB device strings: Mfr=0, Product=0, SerialNumber=0
+[   16.615440] systemd[1]: Watchdog running with a hardware timeout of 2min.
+[   16.623132] systemd[1]: Watchdog: reading from /sys/dev/char/248:0/pretimeout_governor
+[   16.632188] systemd[1]: Watchdog: failed to read pretimeout governor: No such file or directory
+[   16.641999] systemd[1]: Watchdog: setting pretimeout_governor to 'panic' via '/sys/dev/char/248:0/pretimeout_governor'
+[   16.654323] systemd[1]: Failed to set watchdog pretimeout_governor to 'panic': No such file or directory
+[   16.665047] systemd[1]: Failed to set watchdog pretimeout governor to 'panic', ignoring: No such file or directory
+[   19.530966] systemd[1]: Reached target MCTP local network configuration.
+[   23.507765] g_ether gadget.0 hostusb0: renamed from usb0
+[   25.335313] mctp-usb 1-1.3:1.0 musb1_1_3: renamed from mctpusb0
+[   25.488784] mctp-usb 1-1.2.4:1.0 musb1_1_2_4: renamed from mctpusb1
+[   30.555385] mctpspi spi0.2 mctpspi0_2: Error injection debugfs created at /sys/kernel/debug/mctp_spi/mctpspi0_2
+[   68.010191] usb 1-1.2.1: new high-speed USB device number 8 using ehci-platform
+[   68.168908] usb 1-1.2.1: New USB device found, idVendor=0955, idProduct=7410, bcdDevice= 0.05
+[   68.178663] usb 1-1.2.1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   68.520574] usb 1-1.2.2: new high-speed USB device number 9 using ehci-platform
+[   68.662037] usb 1-1.2.2: New USB device found, idVendor=0955, idProduct=7410, bcdDevice= 0.05
+[   68.671901] usb 1-1.2.2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   69.988277] mctp-usb 1-1.2.1:1.2 musb1_1_2_1: renamed from mctpusb0
+[   71.090022] mctp-usb 1-1.2.2:1.2 musb1_1_2_2: renamed from mctpusb1

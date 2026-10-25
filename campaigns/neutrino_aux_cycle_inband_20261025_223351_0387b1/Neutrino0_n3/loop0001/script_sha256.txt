@@ -1,0 +1,8 @@
+UTC+8: 2026-10-25T22:41:01+08:00
+Role: os
+Command: sha256sum /var/tmp/vera-neutrino_aux_cycle_inband_20261025_223351_0387b1-Neutrino0_n3-41d4dbdffa87.sh
+Exit: 0
+State: RETURNED
+Duration: 1.24s
+
+41d4dbdffa877a36bc7a7cbdbf06fdb1b4043e70541e051bdadcf7a722c515c0  /var/tmp/vera-neutrino_aux_cycle_inband_20261025_223351_0387b1-Neutrino0_n3-41d4dbdffa87.sh

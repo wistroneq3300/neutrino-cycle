@@ -1,0 +1,16 @@
+{
+  "execution": "INCOMPLETE",
+  "health": "FAIL",
+  "persistence": {
+    "detail": "",
+    "history": [],
+    "state": "OK",
+    "updated_at": "2026-10-25T22:57:22+08:00"
+  },
+  "report": {
+    "detail": "",
+    "history": [],
+    "state": "READY",
+    "updated_at": "2026-10-25T22:57:22+08:00"
+  }
+}

@@ -1,0 +1,9 @@
+UTC+8: 2026-10-25T22:56:16+08:00
+Role: oob
+Command: sensor list
+Exit: 255
+State: RETURNED
+Duration: 0.06s
+
+
+SIGN INT: Close Interface IPMI v2.0 RMCP+ LAN Interface

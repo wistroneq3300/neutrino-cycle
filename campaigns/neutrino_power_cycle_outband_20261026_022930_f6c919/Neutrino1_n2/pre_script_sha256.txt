@@ -1,0 +1,8 @@
+UTC+8: 2026-10-26T02:29:57+08:00
+Role: os
+Command: sha256sum /var/tmp/vera-neutrino_power_cycle_outband_20261026_022930_f6c919-Neutrino1_n2-41d4dbdffa87.sh
+Exit: 0
+State: RETURNED
+Duration: 1.19s
+
+41d4dbdffa877a36bc7a7cbdbf06fdb1b4043e70541e051bdadcf7a722c515c0  /var/tmp/vera-neutrino_power_cycle_outband_20261026_022930_f6c919-Neutrino1_n2-41d4dbdffa87.sh

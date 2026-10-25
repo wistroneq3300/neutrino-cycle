@@ -1,0 +1,36 @@
+UTC+8: 2026-10-26T02:50:19+08:00
+Role: bmc
+Command: /usr/local/bin/mctp-stressor-p5032.sh 17 --stop-pldmd
+Exit: 0
+State: RETURNED
+Duration: 13.98s
+
+P5032 CPU1 / EID 17: 10 loops plus baseline; timeout 10s
+ Transport|  EID|                                              UUID|Supported MCTP Types
+       SPI|   10|            "0212041e-1a01-192d-b018-f8ed50ac476a"|  1 5 126 127
+     SMBus|   11|            "d8e3fe7f-f4a2-49c3-ae15-cd8207658121"|  0       
+       USB|   16|            "a4b00c3b-427f-4da3-b4b6-7a967d171955"|  1 5 6 126 127
+       USB|   17|            "9a82c5bb-eb8a-41b6-92a7-2c722fda6b12"|  1 5 6 126 127
+       USB|   20|            "e441792a-785d-338a-8366-58919d742ce8"|  1 5 126 127
+       USB|   60|            "e184b4ad-8be5-dc8a-881f-a05556bbc25e"|  1 5 126 127
+       USB|   61|            "00000000-0000-0000-0000-00000000003d"|  0 1 4 5 6
+       USB|   62|            "00000000-0000-0000-0000-00000000003e"|  0 1 4 5 6
+       USB|    8|            "d8e3fe7f-f4a2-49c3-ae15-cd8207658121"|  0       
+       SPI|    9|            "d8e3fe7f-f4a2-49c3-ae15-cd8207658121"|  0       
+pldmd.service state: active
+Capturing baseline GetFirmwareParameters response
+Baseline raw output:
+pldmSendRecv: pldmtool: <6> Tx: 80 05 02 
+pldmtool: <6> Rx: 00 05 02 00 00 00 00 00 02 00 01 08 00 00 30 30 30 30 30 30 30 30 0a 00 02 00 00 a2 01 07 06 01 0b 00 00 00 00 00 00 00 00 00 00 00 00 01 0b 00 00 00 00 00 00 00 00 3a 00 00 00 00 00 30 36 2e 30 37 2e 30 31 2e 41 32 30 30 2e 30 30 2e 30 30 2e 30 30 0a 00 01 02 00 a2 01 07 06 01 0b 00 00 00 00 00 00 00 00 00 00 00 00 01 0b 00 00 00 00 00 00 00 00 3a 00 00 00 00 00 30 36 2e 30 37 2e 30 31 2e 41 32 30 30 2e 30 30 2e 30 30 2e 30 30 
+PASS iteration=1/10
+PASS iteration=2/10
+PASS iteration=3/10
+PASS iteration=4/10
+PASS iteration=5/10
+PASS iteration=6/10
+PASS iteration=7/10
+PASS iteration=8/10
+PASS iteration=9/10
+PASS iteration=10/10
+SUMMARY cpu=CPU1 eid=17 attempted=10 passed=10 failed=0
+Restoring pldmd.service

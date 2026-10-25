@@ -1,0 +1,231 @@
+2026-10-25T22:33:51+08:00 Run ID: neutrino_aux_cycle_inband_20261025_223351_0387b1
+2026-10-25T22:33:51+08:00 Time zone: UTC+8 (local time in Run ID and +08:00 in console/evidence timestamps)
+2026-10-25T22:33:51+08:00 Planned output: /root/vera-cycle-ts1/campaigns/neutrino_aux_cycle_inband_20261025_223351_0387b1
+2026-10-25T22:33:51+08:00 Project config: /root/vera-cycle-ts1/projects/neutrino/neutrino_config.sh
+2026-10-25T22:33:51+08:00 Selected targets: Neutrino0_n0, Neutrino0_n1, Neutrino0_n2, Neutrino0_n3
+2026-10-25T22:33:51+08:00   Target Neutrino0_n0: os=10.36.72.2 (Neutrino0-n0)  bmc=10.36.72.3 (vc-256-bmc-n0)
+2026-10-25T22:33:51+08:00   Target Neutrino0_n1: os=10.36.72.4 (Neutrino0-n1)  bmc=10.36.72.5 (vc-256-bmc-n1)
+2026-10-25T22:33:51+08:00   Target Neutrino0_n2: os=10.36.72.10 (Neutrino0-n2)  bmc=10.36.72.7 (vc-256-bmc-n2)
+2026-10-25T22:33:51+08:00   Target Neutrino0_n3: os=10.36.72.8 (Neutrino0-n3)  bmc=10.36.72.9 (vc-256-bmc-n3)
+2026-10-25T22:33:51+08:00 Mode: aux_cycle; channel: inband; loops: 5; hours: unlimited
+2026-10-25T22:33:51+08:00 Auxiliary AC cycle uses the BMC standby controller for either selected channel.
+2026-10-25T22:33:51+08:00 PRE started. Missing standard tools will be installed with apt when available; mst is not installed by this program.
+2026-10-25T22:34:21+08:00 PRE: still running — Neutrino0_n0: starting, Neutrino0_n1: starting, Neutrino0_n2: starting, Neutrino0_n3: starting
+2026-10-25T22:34:51+08:00 PRE: still running — Neutrino0_n0: starting, Neutrino0_n1: starting, Neutrino0_n2: starting, Neutrino0_n3: starting
+2026-10-25T22:35:04+08:00 Neutrino0_n1 | PRE | FAIL
+2026-10-25T22:35:04+08:00   Duration: 00:01:13
+2026-10-25T22:35:04+08:00   Identity: BMC SSH OK | OS SSH OK
+2026-10-25T22:35:04+08:00   Checks: eventlog PASS | redfish_sel PASS | dmesg PASS | pci PASS | hardware FAIL | sensor WARN | sel PASS | power PASS | CPU PASS | CPU_ONLINE PASS | DIMM PASS | MEMORY_VISIBLE PASS | NVMe PASS | BF4 FAIL
+2026-10-25T22:35:04+08:00   EventLog: PASS · Critical:0 Warning:0 OK:1 · new:0 · total:1
+2026-10-25T22:35:04+08:00   Redfish SEL: PASS · Critical:0 Warning:0 OK:0 · new:0 · total:0
+2026-10-25T22:35:04+08:00   FAIL BF4: Expected exactly 1 physical card(s); detected 0
+2026-10-25T22:35:04+08:00   WARN PrMo0CPU0EnfEDP0: 2 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0CPU1EnfEDP0: 2 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0MeCn0MeTem0: 4 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0MeCn1MeTem0: 4 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00 Neutrino0_n2 | PRE | FAIL
+2026-10-25T22:35:04+08:00   Duration: 00:01:13
+2026-10-25T22:35:04+08:00   Identity: BMC SSH OK | OS SSH OK
+2026-10-25T22:35:04+08:00   Checks: eventlog PASS | redfish_sel PASS | dmesg PASS | pci PASS | hardware FAIL | sensor WARN | sel PASS | power PASS | CPU PASS | CPU_ONLINE PASS | DIMM PASS | MEMORY_VISIBLE PASS | NVMe PASS | BF4 FAIL
+2026-10-25T22:35:04+08:00   EventLog: PASS · Critical:0 Warning:0 OK:1 · new:0 · total:1
+2026-10-25T22:35:04+08:00   Redfish SEL: PASS · Critical:0 Warning:0 OK:0 · new:0 · total:0
+2026-10-25T22:35:04+08:00   FAIL BF4: Expected exactly 1 physical card(s); detected 0
+2026-10-25T22:35:04+08:00   WARN PrMo0CPU0EnfEDP0: 2 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0CPU1EnfEDP0: 2 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0MeCn0MeTem0: 4 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0MeCn1MeTem0: 4 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00 Neutrino0_n0 | PRE | FAIL
+2026-10-25T22:35:04+08:00   Duration: 00:01:13
+2026-10-25T22:35:04+08:00   Identity: BMC SSH OK | OS SSH OK
+2026-10-25T22:35:04+08:00   Checks: eventlog PASS | redfish_sel PASS | dmesg PASS | pci PASS | hardware FAIL | sensor WARN | sel PASS | power PASS | CPU PASS | CPU_ONLINE PASS | DIMM PASS | MEMORY_VISIBLE PASS | NVMe PASS | BF4 FAIL
+2026-10-25T22:35:04+08:00   EventLog: PASS · Critical:0 Warning:0 OK:1 · new:0 · total:1
+2026-10-25T22:35:04+08:00   Redfish SEL: PASS · Critical:0 Warning:0 OK:0 · new:0 · total:0
+2026-10-25T22:35:04+08:00   FAIL BF4: Expected exactly 1 physical card(s); detected 0
+2026-10-25T22:35:04+08:00   WARN PrMo0CPU0EnfEDP0: 2 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0CPU1EnfEDP0: 2 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0MeCn0MeTem0: 4 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0MeCn1MeTem0: 4 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00 Neutrino0_n3 | PRE | FAIL
+2026-10-25T22:35:04+08:00   Duration: 00:01:13
+2026-10-25T22:35:04+08:00   Identity: BMC SSH OK | OS SSH OK
+2026-10-25T22:35:04+08:00   Checks: eventlog PASS | redfish_sel PASS | dmesg PASS | pci PASS | hardware FAIL | sensor WARN | sel PASS | power PASS | CPU PASS | CPU_ONLINE PASS | DIMM PASS | MEMORY_VISIBLE PASS | NVMe PASS | BF4 FAIL
+2026-10-25T22:35:04+08:00   EventLog: PASS · Critical:0 Warning:0 OK:1 · new:0 · total:1
+2026-10-25T22:35:04+08:00   Redfish SEL: PASS · Critical:0 Warning:0 OK:0 · new:0 · total:0
+2026-10-25T22:35:04+08:00   FAIL BF4: Expected exactly 1 physical card(s); detected 0
+2026-10-25T22:35:04+08:00   WARN PrMo0CPU0EnfEDP0: 2 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0CPU1EnfEDP0: 2 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0MeCn0MeTem0: 4 rows share this sensor name; review each row
+2026-10-25T22:35:04+08:00   WARN PrMo0MeCn1MeTem0: 4 rows share this sensor name; review each row
+2026-10-25T22:35:40+08:00 Operator decision: START
+2026-10-25T22:35:40+08:00 Campaign started. Output: /root/vera-cycle-ts1/campaigns/neutrino_aux_cycle_inband_20261025_223351_0387b1
+2026-10-25T22:35:40+08:00 Stop after the current POST: ./stop_cycle.sh neutrino_aux_cycle_inband_20261025_223351_0387b1
+2026-10-25T22:35:43+08:00 Neutrino0_n0 | log clearing | PASS
+2026-10-25T22:35:43+08:00 Neutrino0_n3 | log clearing | PASS
+2026-10-25T22:35:43+08:00 Neutrino0_n2 | log clearing | PASS
+2026-10-25T22:35:43+08:00 Neutrino0_n1 | log clearing | PASS
+2026-10-25T22:35:43+08:00 Loop 1: starting 4 target(s) concurrently
+2026-10-25T22:35:48+08:00 Loop 1: Neutrino0_n0 | aux cycle sent
+2026-10-25T22:35:48+08:00 Loop 1: Neutrino0_n0 | waiting OS boot
+2026-10-25T22:35:48+08:00 Loop 1: Neutrino0_n1 | aux cycle sent
+2026-10-25T22:35:48+08:00 Loop 1: Neutrino0_n1 | waiting OS boot
+2026-10-25T22:35:48+08:00 Loop 1: Neutrino0_n2 | aux cycle sent
+2026-10-25T22:35:48+08:00 Loop 1: Neutrino0_n2 | waiting OS boot
+2026-10-25T22:35:48+08:00 Loop 1: Neutrino0_n3 | aux cycle sent
+2026-10-25T22:35:48+08:00 Loop 1: Neutrino0_n3 | waiting OS boot
+2026-10-25T22:36:13+08:00 Loop 1: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n1: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:36:43+08:00 Loop 1: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n1: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:37:13+08:00 Loop 1: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n1: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:37:43+08:00 Loop 1: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n1: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:38:13+08:00 Loop 1: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n1: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:38:43+08:00 Loop 1: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n1: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:39:13+08:00 Loop 1: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n1: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:39:43+08:00 Loop 1: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n1: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:40:13+08:00 Loop 1: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n1: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:40:24+08:00 Loop 1: Neutrino0_n0 | OS up, system check running
+2026-10-25T22:40:35+08:00 Loop 1: Neutrino0_n2 | OS up, system check running
+2026-10-25T22:40:43+08:00 Loop 1: still running — Neutrino0_n0: OS up, system check running, Neutrino0_n1: waiting OS boot, Neutrino0_n2: OS up, system check running, Neutrino0_n3: waiting OS boot
+2026-10-25T22:40:45+08:00 Loop 1: Neutrino0_n3 | OS up, system check running
+2026-10-25T22:40:58+08:00 Loop 1: Neutrino0_n0 | MCTP stress EID 16
+2026-10-25T22:41:05+08:00 Loop 1: Neutrino0_n0 | MCTP stress EID 17
+2026-10-25T22:41:09+08:00 Loop 1: Neutrino0_n2 | MCTP stress EID 16
+2026-10-25T22:41:13+08:00 Loop 1: still running — Neutrino0_n0: MCTP stress EID 17, Neutrino0_n1: waiting OS boot, Neutrino0_n2: MCTP stress EID 16, Neutrino0_n3: OS up, system check running
+2026-10-25T22:41:15+08:00 Loop 1: Neutrino0_n2 | MCTP stress EID 17
+2026-10-25T22:41:18+08:00 Loop 1: Neutrino0_n3 | MCTP stress EID 16
+2026-10-25T22:41:21+08:00 Loop 1: Neutrino0_n0 | system check done
+2026-10-25T22:41:22+08:00 Loop 1: Neutrino0_n0 | DONE
+2026-10-25T22:41:22+08:00 Neutrino0_n0 | LOOP 1 | FAIL
+2026-10-25T22:41:22+08:00   Duration: 00:05:35
+2026-10-25T22:41:22+08:00   Checks: pci PASS | hardware FAIL | sensor WARN | sel PASS | eventlog WARN | redfish_sel PASS | power PASS | CPU PASS | CPU_ONLINE PASS | DIMM PASS | MEMORY_VISIBLE PASS | NVMe PASS | BF4 FAIL | dmesg FAIL
+2026-10-25T22:41:22+08:00   EventLog: WARN · Critical:0 Warning:1 OK:21 · new:21 · total:22
+2026-10-25T22:41:22+08:00   Redfish SEL: PASS · Critical:0 Warning:0 OK:0 · new:0 · total:0
+2026-10-25T22:41:22+08:00   New dmesg observations: WARN=0, FAIL=64
+2026-10-25T22:41:22+08:00   Previously observed in PRE: 5 finding(s); see PRE and HTML for details
+2026-10-25T22:41:22+08:00   FAIL network: Network interface usb0 present at PRE is absent after the loop
+2026-10-25T22:41:22+08:00   INFO fail/error: BUNDLE: 4 distinct error/fail line(s), 4 occurrence(s)
+2026-10-25T22:41:22+08:00   FAIL fail/error: BUNDLE: 29 distinct error/fail line(s), 64 occurrence(s)
+2026-10-25T22:41:25+08:00 Loop 1: Neutrino0_n3 | MCTP stress EID 17
+2026-10-25T22:41:32+08:00 Loop 1: Neutrino0_n2 | system check done
+2026-10-25T22:41:33+08:00 Loop 1: Neutrino0_n2 | DONE
+2026-10-25T22:41:33+08:00 Neutrino0_n2 | LOOP 1 | FAIL
+2026-10-25T22:41:33+08:00   Duration: 00:05:46
+2026-10-25T22:41:33+08:00   Checks: pci PASS | hardware FAIL | sensor WARN | sel PASS | eventlog WARN | redfish_sel PASS | power PASS | CPU PASS | CPU_ONLINE PASS | DIMM PASS | MEMORY_VISIBLE PASS | NVMe PASS | BF4 FAIL | dmesg FAIL
+2026-10-25T22:41:33+08:00   EventLog: WARN · Critical:0 Warning:1 OK:21 · new:21 · total:22
+2026-10-25T22:41:33+08:00   Redfish SEL: PASS · Critical:0 Warning:0 OK:0 · new:0 · total:0
+2026-10-25T22:41:33+08:00   New dmesg observations: WARN=0, FAIL=63
+2026-10-25T22:41:33+08:00   Previously observed in PRE: 5 finding(s); see PRE and HTML for details
+2026-10-25T22:41:33+08:00   FAIL network: Network interface usb0 present at PRE is absent after the loop
+2026-10-25T22:41:33+08:00   INFO fail/error: BUNDLE: 4 distinct error/fail line(s), 4 occurrence(s)
+2026-10-25T22:41:33+08:00   FAIL fail/error: BUNDLE: 28 distinct error/fail line(s), 63 occurrence(s)
+2026-10-25T22:41:41+08:00 Loop 1: Neutrino0_n3 | system check done
+2026-10-25T22:41:42+08:00 Loop 1: Neutrino0_n3 | DONE
+2026-10-25T22:41:42+08:00 Neutrino0_n3 | LOOP 1 | FAIL
+2026-10-25T22:41:42+08:00   Duration: 00:05:55
+2026-10-25T22:41:42+08:00   Checks: pci PASS | hardware FAIL | sensor WARN | sel PASS | eventlog WARN | redfish_sel PASS | power PASS | CPU PASS | CPU_ONLINE PASS | DIMM PASS | MEMORY_VISIBLE PASS | NVMe PASS | BF4 FAIL | dmesg FAIL
+2026-10-25T22:41:42+08:00   EventLog: WARN · Critical:0 Warning:1 OK:21 · new:21 · total:22
+2026-10-25T22:41:42+08:00   Redfish SEL: PASS · Critical:0 Warning:0 OK:0 · new:0 · total:0
+2026-10-25T22:41:42+08:00   New dmesg observations: WARN=0, FAIL=62
+2026-10-25T22:41:42+08:00   Previously observed in PRE: 5 finding(s); see PRE and HTML for details
+2026-10-25T22:41:42+08:00   FAIL network: Network interface usb0 present at PRE is absent after the loop
+2026-10-25T22:41:42+08:00   INFO fail/error: BUNDLE: 4 distinct error/fail line(s), 4 occurrence(s)
+2026-10-25T22:41:42+08:00   FAIL fail/error: BUNDLE: 27 distinct error/fail line(s), 62 occurrence(s)
+2026-10-25T22:42:12+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:42:42+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:43:12+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:43:42+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:44:12+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:44:42+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:45:12+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:45:42+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:46:12+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:46:42+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:47:12+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:47:42+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:48:12+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:48:42+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:49:12+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:49:42+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:50:12+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:50:42+08:00 Loop 1: still running — Neutrino0_n1: waiting OS boot
+2026-10-25T22:50:47+08:00 Loop 1: Neutrino0_n1 | Recovery log
+2026-10-25T22:51:12+08:00 Loop 1: still running — Neutrino0_n1: Recovery log
+2026-10-25T22:51:14+08:00 Loop 1: Neutrino0_n1 | DONE
+2026-10-25T22:51:14+08:00 Neutrino0_n1 | LOOP 1 | FAIL
+2026-10-25T22:51:14+08:00   Duration: 00:15:27
+2026-10-25T22:51:14+08:00   Checks: dmesg FAIL
+2026-10-25T22:51:14+08:00   New dmesg observations: WARN=1, FAIL=0
+2026-10-25T22:51:14+08:00   FAIL recovery: Selected endpoints did not recover with a changed OS boot ID within 900s
+2026-10-25T22:51:14+08:00   FAIL recovery: Boot recovery was not confirmed; POST hardware execution blocked
+2026-10-25T22:51:14+08:00   INFO recovery: Boot log could not be read after the failed cycle: exit 124 (NOT_ISSUED)
+2026-10-25T22:51:14+08:00   FAIL recovery: bmc identity unavailable: exit 124 (NOT_ISSUED)
+2026-10-25T22:51:14+08:00   FAIL dmesg_clear: Exit 124 (NOT_ISSUED); see evidence
+2026-10-25T22:51:14+08:00   WARN dmesg: Kernel log collection failed: exit 124 (NOT_ISSUED)
+2026-10-25T22:51:14+08:00 Loop 2: starting 3 target(s) concurrently
+2026-10-25T22:51:20+08:00 Loop 2: Neutrino0_n0 | aux cycle sent
+2026-10-25T22:51:20+08:00 Loop 2: Neutrino0_n0 | waiting OS boot
+2026-10-25T22:51:20+08:00 Loop 2: Neutrino0_n3 | aux cycle sent
+2026-10-25T22:51:20+08:00 Loop 2: Neutrino0_n3 | waiting OS boot
+2026-10-25T22:51:20+08:00 Loop 2: Neutrino0_n2 | aux cycle sent
+2026-10-25T22:51:20+08:00 Loop 2: Neutrino0_n2 | waiting OS boot
+2026-10-25T22:51:44+08:00 Loop 2: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:52:14+08:00 Loop 2: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:52:44+08:00 Loop 2: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:53:14+08:00 Loop 2: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:53:44+08:00 Loop 2: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:54:14+08:00 Loop 2: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:54:44+08:00 Loop 2: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:55:14+08:00 Loop 2: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:55:44+08:00 Loop 2: still running — Neutrino0_n0: waiting OS boot, Neutrino0_n2: waiting OS boot, Neutrino0_n3: waiting OS boot
+2026-10-25T22:55:57+08:00 Loop 2: Neutrino0_n0 | OS up, system check running
+2026-10-25T22:56:07+08:00 Loop 2: Neutrino0_n3 | OS up, system check running
+2026-10-25T22:56:14+08:00 Loop 2: still running — Neutrino0_n0: OS up, system check running, Neutrino0_n2: waiting OS boot, Neutrino0_n3: OS up, system check running
+2026-10-25T22:56:24+08:00 Loop 2: Neutrino0_n2 | OS up, system check running
+2026-10-25T22:56:41+08:00 Loop 2: Neutrino0_n3 | MCTP stress EID 16
+2026-10-25T22:56:41+08:00 Loop 2: Neutrino0_n0 | MCTP stress EID 16
+2026-10-25T22:56:44+08:00 Loop 2: still running — Neutrino0_n0: MCTP stress EID 16, Neutrino0_n2: OS up, system check running, Neutrino0_n3: MCTP stress EID 16
+2026-10-25T22:56:47+08:00 Loop 2: Neutrino0_n0 | MCTP stress EID 17
+2026-10-25T22:56:47+08:00 Loop 2: Neutrino0_n3 | MCTP stress EID 17
+2026-10-25T22:56:58+08:00 Loop 2: Neutrino0_n2 | MCTP stress EID 16
+2026-10-25T22:57:03+08:00 Loop 2: Neutrino0_n3 | system check done
+2026-10-25T22:57:03+08:00 Loop 2: Neutrino0_n0 | system check done
+2026-10-25T22:57:04+08:00 Loop 2: Neutrino0_n2 | MCTP stress EID 17
+2026-10-25T22:57:05+08:00 Loop 2: Neutrino0_n3 | DONE
+2026-10-25T22:57:05+08:00 Neutrino0_n3 | LOOP 2 | FAIL
+2026-10-25T22:57:05+08:00   Duration: 00:05:47
+2026-10-25T22:57:05+08:00   Checks: pci PASS | hardware FAIL | sensor WARN | sel PASS | eventlog WARN | redfish_sel PASS | power PASS | CPU PASS | CPU_ONLINE PASS | DIMM PASS | MEMORY_VISIBLE PASS | NVMe PASS | BF4 FAIL | dmesg FAIL
+2026-10-25T22:57:05+08:00   EventLog: WARN · Critical:0 Warning:2 OK:43 · new:23 · total:45
+2026-10-25T22:57:05+08:00   Redfish SEL: PASS · Critical:0 Warning:0 OK:0 · new:0 · total:0
+2026-10-25T22:57:05+08:00   New dmesg observations: WARN=0, FAIL=62
+2026-10-25T22:57:05+08:00   Previously observed in PRE: 5 finding(s); see PRE and HTML for details
+2026-10-25T22:57:05+08:00   FAIL network: Network interface usb0 present at PRE is absent after the loop
+2026-10-25T22:57:05+08:00   INFO fail/error: BUNDLE: 4 distinct error/fail line(s), 4 occurrence(s)
+2026-10-25T22:57:05+08:00   FAIL fail/error: BUNDLE: 27 distinct error/fail line(s), 62 occurrence(s)
+2026-10-25T22:57:05+08:00 Loop 2: Neutrino0_n0 | DONE
+2026-10-25T22:57:05+08:00 Neutrino0_n0 | LOOP 2 | FAIL
+2026-10-25T22:57:05+08:00   Duration: 00:05:47
+2026-10-25T22:57:05+08:00   Checks: pci PASS | hardware FAIL | sensor FAIL | sel PASS | eventlog WARN | redfish_sel PASS | power PASS | CPU PASS | CPU_ONLINE PASS | DIMM PASS | MEMORY_VISIBLE PASS | NVMe PASS | BF4 FAIL | dmesg FAIL
+2026-10-25T22:57:05+08:00   EventLog: WARN · Critical:0 Warning:2 OK:43 · new:23 · total:45
+2026-10-25T22:57:05+08:00   Redfish SEL: PASS · Critical:0 Warning:0 OK:0 · new:0 · total:0
+2026-10-25T22:57:05+08:00   New dmesg observations: WARN=0, FAIL=62
+2026-10-25T22:57:05+08:00   Previously observed in PRE: 5 finding(s); see PRE and HTML for details
+2026-10-25T22:57:05+08:00   FAIL network: Network interface usb0 present at PRE is absent after the loop
+2026-10-25T22:57:05+08:00   FAIL sensor: Exit 255 (RETURNED); see evidence
+2026-10-25T22:57:05+08:00   INFO fail/error: BUNDLE: 4 distinct error/fail line(s), 4 occurrence(s)
+2026-10-25T22:57:05+08:00   FAIL fail/error: BUNDLE: 27 distinct error/fail line(s), 62 occurrence(s)
+2026-10-25T22:57:20+08:00 Loop 2: Neutrino0_n2 | system check done
+2026-10-25T22:57:22+08:00 Loop 2: Neutrino0_n2 | DONE
+2026-10-25T22:57:22+08:00 Neutrino0_n2 | LOOP 2 | FAIL
+2026-10-25T22:57:22+08:00   Duration: 00:06:04
+2026-10-25T22:57:22+08:00   Checks: pci PASS | hardware FAIL | sensor WARN | sel PASS | eventlog WARN | redfish_sel PASS | power PASS | CPU PASS | CPU_ONLINE PASS | DIMM PASS | MEMORY_VISIBLE PASS | NVMe PASS | BF4 FAIL | dmesg FAIL
+2026-10-25T22:57:22+08:00   EventLog: WARN · Critical:0 Warning:2 OK:42 · new:22 · total:44
+2026-10-25T22:57:22+08:00   Redfish SEL: PASS · Critical:0 Warning:0 OK:0 · new:0 · total:0
+2026-10-25T22:57:22+08:00   New dmesg observations: WARN=0, FAIL=62
+2026-10-25T22:57:22+08:00   Previously observed in PRE: 5 finding(s); see PRE and HTML for details
+2026-10-25T22:57:22+08:00   FAIL network: Network interface usb0 present at PRE is absent after the loop
+2026-10-25T22:57:22+08:00   INFO fail/error: BUNDLE: 4 distinct error/fail line(s), 4 occurrence(s)
+2026-10-25T22:57:22+08:00   FAIL fail/error: BUNDLE: 27 distinct error/fail line(s), 62 occurrence(s)
+2026-10-25T22:57:22+08:00 Output: persistence OK; report READY
+2026-10-25T22:57:22+08:00 ============================================================
+2026-10-25T22:57:22+08:00 FINISHED: INCOMPLETE | Health: FAIL | Completed node-loops: 6
+2026-10-25T22:57:22+08:00 Campaign elapsed: 00:21:42
+2026-10-25T22:57:22+08:00 Report: /root/vera-cycle-ts1/campaigns/neutrino_aux_cycle_inband_20261025_223351_0387b1/CYCLE_REVIEW_REPORT.html
+2026-10-25T22:57:22+08:00 ============================================================

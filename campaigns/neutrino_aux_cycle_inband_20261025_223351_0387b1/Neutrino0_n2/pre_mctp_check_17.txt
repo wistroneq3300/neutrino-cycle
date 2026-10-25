@@ -1,0 +1,21 @@
+UTC+8: 2026-10-25T22:34:44+08:00
+Role: bmc
+Command: /usr/local/bin/mctp-stressor-p5032.sh 17 --check
+Exit: 0
+State: RETURNED
+Duration: 4.14s
+
+P5032 CPU1 / EID 17: 10 loops plus baseline; timeout 10s
+ Transport|  EID|                                              UUID|Supported MCTP Types
+       SPI|   10|            "0812041e-1a02-1004-a884-eada6074223f"|  1 5 126 127
+     SMBus|   11|            "1c535670-1b8d-4193-967d-a2989e65c0a3"|  0       
+       USB|   16|            "a4b00c3b-427f-4da3-b4b6-7a967d171955"|  1 5 6 126 127
+       USB|   17|            "9a82c5bb-eb8a-41b6-92a7-2c722fda6b12"|  1 5 6 126 127
+       USB|   20|            "b9b115bd-484d-ef8d-a63f-a0993aedeb57"|  1 5 126 127
+       USB|   60|            "73f7545c-bc3a-3686-9bc1-7d6b9534f856"|  1 5 126 127
+       USB|   61|            "00000000-0000-0000-0000-00000000003d"|  0 1 4 5 6
+       USB|   62|            "00000000-0000-0000-0000-00000000003e"|  0 1 4 5 6
+       USB|    8|            "1c535670-1b8d-4193-967d-a2989e65c0a3"|  0       
+       SPI|    9|            "1c535670-1b8d-4193-967d-a2989e65c0a3"|  0       
+pldmd.service state: active
+Preflight passed. No PLDM requests sent or service state changed. Confirm EID-to-CPU mapping before stress.

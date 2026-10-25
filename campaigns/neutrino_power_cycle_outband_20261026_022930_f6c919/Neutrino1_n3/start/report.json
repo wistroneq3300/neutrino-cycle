@@ -1,0 +1,81 @@
+{
+  "phase": "START",
+  "started": "2026-10-26T02:31:01+08:00",
+  "finished": "2026-10-26T02:31:04+08:00",
+  "status": "PASS",
+  "issues": [],
+  "evidence": [
+    "Neutrino1_n3/start/bmc_identity.txt",
+    "Neutrino1_n3/start/os_identity.txt"
+  ],
+  "commands": {
+    "bmc_identity": {
+      "command": "printf 'HOSTNAME='; hostname; printf 'BOOT_ID='; cat /proc/sys/kernel/random/boot_id",
+      "role": "bmc",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino1_n3/start/bmc_identity.txt",
+      "valid": true,
+      "output_excerpt": ""
+    },
+    "os_identity": {
+      "command": "printf 'HOSTNAME='; hostname; printf 'BOOT_ID='; cat /proc/sys/kernel/random/boot_id",
+      "role": "os",
+      "code": 0,
+      "state": "RETURNED",
+      "evidence": "Neutrino1_n3/start/os_identity.txt",
+      "valid": true,
+      "output_excerpt": ""
+    }
+  },
+  "identities": {
+    "bmc": {
+      "hostname": "vc-256-bmc-n3",
+      "boot_id": "6fe98fda-f527-495d-b4c3-9fdcf2d01486"
+    },
+    "os": {
+      "hostname": "Neutrino1-n3",
+      "boot_id": "2e18d44f-2243-4e1f-8206-9456cf2f4ab9"
+    }
+  },
+  "identity_observations": [
+    {
+      "role": "bmc",
+      "stage": "bmc_identity",
+      "expected": "vc-256-bmc-n3",
+      "actual": "vc-256-bmc-n3",
+      "result": "MATCH"
+    },
+    {
+      "role": "os",
+      "stage": "os_identity",
+      "expected": "Neutrino1-n3",
+      "actual": "Neutrino1-n3",
+      "result": "MATCH"
+    }
+  ],
+  "observation_status": {},
+  "pci": {},
+  "pci_devices": {},
+  "sensors": [],
+  "action": [],
+  "recovery": {},
+  "sel_evidence_schema": 1,
+  "revision": 3,
+  "persistence": {
+    "state": "OK"
+  },
+  "duration_seconds": 3.0,
+  "check_summary": {
+    "bmc_identity": "PASS",
+    "os_identity": "PASS"
+  },
+  "dmesg_delta": {
+    "WARN": 0,
+    "FAIL": 0
+  },
+  "dmesg_native_error_counts": {
+    "WARN": 0,
+    "FAIL": 0
+  }
+}
