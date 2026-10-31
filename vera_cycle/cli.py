@@ -476,6 +476,16 @@ def campaign(options, targets, credentials, confirm=input, transport_factory=Tra
                 for session in active:
                     session.progress = None
                 safe_checkpoint(output, data, console)
+            # final-only BMC logging: one read of the EventLog and SEL for each
+            # node now that every loop is over, attributed to loops by their
+            # recorded time windows. Runs before the terminal verdict so the
+            # campaign health includes what the BMC logged during the run.
+            if any(getattr(session, 'final_only', False) for session in runnable):
+                console("Collecting the BMC EventLog and SEL for the whole campaign.")
+                parallel(lambda s: s.final_bmc_logs(), runnable, console, 'BMC log')
+                # The final record carries findings the report must show, so
+                # the journal is refreshed from the live node records.
+                data['nodes'] = [s.node for s in sessions]
             data['finished'] = now()
             verdict_fixed = True
             # The execution verdict is persisted on its own first: a later HTML
@@ -1054,6 +1064,11 @@ def parser():
     p.add_argument('--aux-interval', type=float, default=20.0,
                    help='Seconds between consecutive aux_cycle commands across nodes (0 disables staggering; ignored by other cycle modes)')
     p.add_argument('--poll-interval', type=float, default=10)
+    p.add_argument('--no-bmc-time-sync', dest='bmc_time_sync', action='store_false',
+                   help='Do not point the BMC NTP client at its node before PRE; BMC log timestamps stay unsynchronised')
+    p.add_argument('--bmc-log-mode', choices=('per-loop', 'final-only'), default='per-loop',
+                   help='per-loop: read EventLog/SEL before and after every cycle (default). '
+                        'final-only: read them once when the campaign ends and attribute entries to loops by timestamp')
     p.add_argument('--memory-min-ratio', type=float, default=0.90, help='Minimum OS MemTotal / installed SMBIOS capacity (0 < ratio <= 1)')
     p.add_argument('--config-script', type=Path,
                    help='Override the selected project config script')

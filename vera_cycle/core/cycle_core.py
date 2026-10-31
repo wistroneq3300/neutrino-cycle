@@ -1207,6 +1207,7 @@ def aggregate_issues(campaign):
         pre_keys = issue_baseline(pre_items)
         states = {}
         for record in [node["pre"], *([node['start']] if node.get('start') else []), *node["loops"],
+                       *([node['final']] if node.get('final') else []),
                        dict(phase='RECOVERY', issues=node.get('recovery_issues', []))]:
             delta_ids = _redfish_delta_ids(record)
             observations = [split for item in record['issues']
@@ -1326,7 +1327,7 @@ def aggregate_issues(campaign):
                             snippet=raw_item.get('snippet', ''),
                         ))
                 entry["occurrences"].append(dict(
-                    phase=record["phase"], detail=item["detail"],
+                    phase=item.get("phase_override") or record["phase"], detail=item["detail"],
                     details=(details if 'HOSTNAME_MISMATCH' in codes
                              else [item.get('detail', '')]),
                     snippets=[item.get('snippet', '')], codes=codes,

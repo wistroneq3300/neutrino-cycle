@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 import shlex
 import threading
@@ -11,6 +11,8 @@ import time
 from pathlib import Path
 
 from vera_cycle import paths
+from vera_cycle.core import cycle_bmclog as bmclog
+from vera_cycle.core import cycle_ntp as ntp
 from vera_cycle.core.cycle_core import (
     atomic_write,
     bmc_usb_issues,
@@ -214,6 +216,11 @@ class NodeSession:
         self.expected_boot = None
         self.cleanup_safe = True
         self.persistence_failures = []
+        # final-only BMC logging: EventLog and SEL are read once after the last
+        # loop, then each entry is attributed to a loop by its timestamp.
+        self.final_only = getattr(options, 'bmc_log_mode', 'per-loop') == 'final-only'
+        self.eventlog_baseline = None
+        self.sel_baseline = None
 
     def stage(self, text):
         """Report the current phase for this node so the operator can see where
@@ -228,6 +235,11 @@ class NodeSession:
     def folder(self, record):
         if record["phase"] == "START":
             return self.root / self.target.key / "start"
+        # The final BMC log covers the whole campaign, not one loop, so its
+        # evidence lives beside the node's phase folders rather than inside a
+        # loop folder that would imply it belongs to that loop.
+        if record["phase"] == "FINAL":
+            return self.root / self.target.key / "bmc_log"
         return self.root / self.target.key / ("" if record["phase"] == "PRE" else f"loop{record['loop']:04d}")
 
     def cleanup_remote(self):
@@ -997,51 +1009,58 @@ class NodeSession:
         )
         record['observation_status']['sensor'] = (
             'AVAILABLE' if sensor_observation_valid and sensor_content_usable else 'UNAVAILABLE')
-        sel = self.sel_command(record, "sel", "list", save_evidence=True)
-        sel_meta = self._sel_metadata(record, 'sel', sel.output, 'POST' if post else 'PRE')
-        if post:
-            record['sel_post_meta'] = sel_meta
+        if self.final_only:
+            # EventLog and SEL are read once, after the last loop, so the
+            # per-loop read is skipped entirely. The loop still records its
+            # own time window (see ``one_loop``); the final read attributes
+            # each entry to a loop by comparing those windows.
+            record['bmc_logs_deferred'] = True
         else:
-            record['sel_collection'] = sel_meta
-        if post:
-            valid = record['commands']['sel']['valid'] and record.get('sel_before_valid', False)
-            record['sel_status'] = 'REVIEW REQUIRED' if valid else 'COLLECTION FAILED'
-            record['sel_events'] = sel_delta(record.get('sel_before', ''), sel.output).splitlines() if valid else None
-            if valid:
-                path = self.folder(record) / "sel_delta.txt"
-                atomic_write(path, "\n".join(record['sel_events']) or "No new SEL records.\n")
-                record['evidence'].append(path.relative_to(self.root).as_posix())
-                record['sel_delta_meta'] = dict(phase='LOOP', status='COMPARED', valid=True,
-                                                new_event_count=len(record['sel_events']),
-                                                evidence=path.relative_to(self.root).as_posix(),
-                                                reason='Before-cycle and POST SEL snapshots were valid')
+            sel = self.sel_command(record, "sel", "list", save_evidence=True)
+            sel_meta = self._sel_metadata(record, 'sel', sel.output, 'POST' if post else 'PRE')
+            if post:
+                record['sel_post_meta'] = sel_meta
             else:
-                reason = 'Before-cycle SEL collection was unavailable'
-                if not record['commands']['sel'].get('valid', False):
-                    reason = 'POST SEL collection was unavailable or malformed'
-                record['sel_delta_meta'] = dict(phase='LOOP', status='UNAVAILABLE', valid=False,
-                                                new_event_count=None, evidence='', reason=reason)
-            record.pop('sel_before', None)
-        # Redfish EventLog/SEL: collection failure is a finding, but an absent
-        # service (merged build) or a benign entry is not. Verdict is by worst
-        # severity; POST adds a content delta against the before-cycle snapshot.
-        try:
-            self.collect_redfish(record)
-        except Exception as exc:
-            self.add(record, 'REDFISH_UNAVAILABLE', 'eventlog',
-                     f'Redfish BMC log collection unavailable: {exc}')
-            for stem in ('eventlog', 'redfish_sel'):
-                record.setdefault('commands', {}).setdefault(stem, {"command": "redfish", "role": "oob",
-                    "code": 255, "state": "NOT_ISSUED", "evidence": "", "valid": False, "output_excerpt": str(exc)})
-                record.setdefault(f'{stem}_meta', dict(
-                    phase='COLLECT', status='UNAVAILABLE', present=None,
-                    verdict='UNAVAILABLE',
-                    counts={"Critical": 0, "Warning": 0, "OK": 0, "Other": 0},
-                    evidence='', entries=[], complete=False, valid=False,
-                    reason=str(exc),
-                ))
-        if post:
-            self._redfish_loop_delta(record)
+                record['sel_collection'] = sel_meta
+            if post:
+                valid = record['commands']['sel']['valid'] and record.get('sel_before_valid', False)
+                record['sel_status'] = 'REVIEW REQUIRED' if valid else 'COLLECTION FAILED'
+                record['sel_events'] = sel_delta(record.get('sel_before', ''), sel.output).splitlines() if valid else None
+                if valid:
+                    path = self.folder(record) / "sel_delta.txt"
+                    atomic_write(path, "\n".join(record['sel_events']) or "No new SEL records.\n")
+                    record['evidence'].append(path.relative_to(self.root).as_posix())
+                    record['sel_delta_meta'] = dict(phase='LOOP', status='COMPARED', valid=True,
+                                                    new_event_count=len(record['sel_events']),
+                                                    evidence=path.relative_to(self.root).as_posix(),
+                                                    reason='Before-cycle and POST SEL snapshots were valid')
+                else:
+                    reason = 'Before-cycle SEL collection was unavailable'
+                    if not record['commands']['sel'].get('valid', False):
+                        reason = 'POST SEL collection was unavailable or malformed'
+                    record['sel_delta_meta'] = dict(phase='LOOP', status='UNAVAILABLE', valid=False,
+                                                    new_event_count=None, evidence='', reason=reason)
+                record.pop('sel_before', None)
+            # Redfish EventLog/SEL: collection failure is a finding, but an absent
+            # service (merged build) or a benign entry is not. Verdict is by worst
+            # severity; POST adds a content delta against the before-cycle snapshot.
+            try:
+                self.collect_redfish(record)
+            except Exception as exc:
+                self.add(record, 'REDFISH_UNAVAILABLE', 'eventlog',
+                         f'Redfish BMC log collection unavailable: {exc}')
+                for stem in ('eventlog', 'redfish_sel'):
+                    record.setdefault('commands', {}).setdefault(stem, {"command": "redfish", "role": "oob",
+                        "code": 255, "state": "NOT_ISSUED", "evidence": "", "valid": False, "output_excerpt": str(exc)})
+                    record.setdefault(f'{stem}_meta', dict(
+                        phase='COLLECT', status='UNAVAILABLE', present=None,
+                        verdict='UNAVAILABLE',
+                        counts={"Critical": 0, "Warning": 0, "OK": 0, "Other": 0},
+                        evidence='', entries=[], complete=False, valid=False,
+                        reason=str(exc),
+                    ))
+            if post:
+                self._redfish_loop_delta(record)
         self.command(record, "bmc_firmware", "oob", "mc info")
         power = self.command(record, "power", "oob", "power status")
         record["power_on"] = record['commands']['power']['valid'] and bool(re.search(r"Chassis Power is on", power.output, re.I))
@@ -1058,6 +1077,199 @@ class NodeSession:
                 component = item["component"]
                 stem = component if component in record['commands'] else "sensor" if item["code"].startswith("SENSOR") else "pci" if item["code"] == "PCI_DRIFT" else "dmesg" if component == "dmesg" else "hardware"
                 item["evidence"] = record["commands"].get(stem, {}).get("evidence", "")
+
+    def sync_bmc_clock(self, record):
+        """Point this BMC's NTP client at its own node before any log is read.
+
+        Runs before ``_prepare_clean_state`` because that step clears the
+        EventLog and SEL: once the clock is right, every entry this campaign
+        produces carries a timestamp that can be matched back to a loop. A
+        BMC that boots at 2000-01-01 would otherwise stamp the whole run with
+        the same meaningless instant.
+
+        Every failure path is a WARN finding. This is a convenience for
+        reading the logs, never a precondition for cycling, so it must not
+        block a node or resend a power action.
+        """
+        if getattr(self.options, 'bmc_time_sync', True) is False:
+            return
+        os_ip = getattr(self.target, 'os_ip', '') or ''
+        if not os_ip:
+            self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
+                     'No OS address in the inventory to point the BMC clock at', severity='WARN')
+            return
+        try:
+            with self._redfish_session(record) as disc:
+                token = disc['token']
+                managers = self.transport.redfish_get(self.target, '/redfish/v1/Managers', token)
+                if managers.code:
+                    # Only an unreachable BMC is worth a WARN: the clock cannot
+                    # be checked at all. A reachable BMC that answers with an
+                    # error (no such resource, unsupported method) simply has
+                    # no clock this harness can set, which is not a fault.
+                    state = getattr(managers, 'state', '')
+                    severity = 'WARN' if state in {'NOT_ISSUED', 'RESPONSE_LOST', 'HTTP_ERROR'} and not getattr(managers, 'http_status', 0) else 'INFO'
+                    status = getattr(managers, 'http_status', 0)
+                    self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
+                             f"Redfish /Managers unavailable (HTTP {status or managers.code})",
+                             severity=severity)
+                    return
+                manager = ntp.manager_id(self._redfish_json(managers.output))
+                if not manager:
+                    # A BMC that exposes no manager resource cannot be told
+                    # where NTP lives; the campaign still runs, timestamps are
+                    # just not synchronized. INFO keeps it out of node health.
+                    self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
+                             'Redfish /Managers listed no manager; BMC clock left as-is',
+                             severity='INFO')
+                    return
+                base = f'/redfish/v1/Managers/{manager}'
+                state = self._bmc_ntp_state(base, token)
+                if state is None:
+                    self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
+                             f'{base}/NetworkProtocol unreadable; BMC clock left as-is', severity='INFO')
+                    return
+                enabled, servers, skew = state
+                if not ntp.needs_sync(enabled, servers, os_ip, skew):
+                    record['commands']['bmc_clock'] = {
+                        'command': f'redfish NTP {manager}', 'role': 'oob', 'code': 0,
+                        'state': 'ALREADY_SYNCED', 'evidence': '', 'valid': True,
+                        'output_excerpt': f'NTPServers={servers} skew={skew:.0f}s'}
+                    return
+                written = self.transport.redfish_patch(
+                    self.target, f'{base}/NetworkProtocol', token,
+                    {'NTP': {'ProtocolEnabled': True, 'NTPServers': [os_ip]}})
+                if written.code:
+                    self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
+                             f"NTP pointing at {os_ip} rejected (HTTP {getattr(written, 'http_status', 0) or written.code}); "
+                             'BMC log timestamps may be wrong', severity='WARN')
+                    return
+                skew = self._wait_bmc_clock(base, token, os_ip)
+                record['commands']['bmc_clock'] = {
+                    'command': f'redfish NTP {manager} -> {os_ip}', 'role': 'oob', 'code': 0,
+                    'state': 'SYNCED' if skew is not None and abs(skew) <= ntp.CLOCK_TOLERANCE_SECONDS else 'WRITTEN',
+                    'evidence': '', 'valid': True,
+                    'output_excerpt': f'NTPServers=[{os_ip}] ' + ('skew={:.0f}s'.format(skew) if skew is not None else 'skew unreadable')}
+                if skew is not None and abs(skew) > ntp.CLOCK_TOLERANCE_SECONDS:
+                    # The setting was accepted but the clock did not follow: the
+                    # node is probably not serving NTP. Timestamps stay wrong,
+                    # so say so rather than implying a successful sync.
+                    self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
+                             f'BMC clock still {skew:+.0f}s from {os_ip} after enabling NTP; '
+                             f'check that the node serves NTP to {self.target.bmc_ip}', severity='WARN')
+        except Exception as exc:
+            self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
+                     f'BMC clock could not be synchronised: {type(exc).__name__}: {exc}', severity='WARN')
+
+    def _bmc_ntp_state(self, base, token):
+        """Read (enabled, servers, skew_seconds) or None when unreadable."""
+        proto = self.transport.redfish_get(self.target, f'{base}/NetworkProtocol', token)
+        if proto.code:
+            return None
+        enabled, servers = ntp.ntp_state(self._redfish_json(proto.output))
+        return enabled, servers, self._bmc_skew(base, token)
+
+    def _bmc_skew(self, base, token):
+        manager = self.transport.redfish_get(self.target, base, token)
+        if manager.code:
+            return None
+        payload = self._redfish_json(manager.output) or {}
+        return ntp.clock_skew(payload.get('DateTime'), datetime.now(timezone.utc))
+
+    def _wait_bmc_clock(self, base, token, os_ip):
+        """Poll until the clock converges, returning the last skew measured."""
+        skew = self._bmc_skew(base, token)
+        for _ in range(ntp.VERIFY_ATTEMPTS):
+            if skew is not None and abs(skew) <= ntp.CLOCK_TOLERANCE_SECONDS:
+                return skew
+            time.sleep(ntp.VERIFY_INTERVAL)
+            skew = self._bmc_skew(base, token)
+        return skew
+
+    def final_bmc_logs(self):
+        """Read EventLog and SEL once, after the last loop, and attribute them.
+
+        Only used in final-only mode. The PRE clean-start already cleared both
+        logs, so every entry read here belongs to this campaign; the loop
+        windows recorded by ``one_loop`` then say which loop produced it.
+
+        A read failure is recorded as UNAVAILABLE and never becomes PASS: an
+        unreadable log is not an empty one. Nothing here raises.
+        """
+        if not self.final_only:
+            return
+        record = new_record("BMC LOG")
+        record["phase"] = "FINAL"
+        record["bmc_logs_deferred"] = False
+        spans = bmclog.windows(self.node.get("loops") or [])
+        # The last loop runs until this read begins, so open its window to now:
+        # an entry logged after its own end still belongs to that final loop.
+        spans = bmclog.extend_last(spans, bmclog.parse_time(now()))
+        record["loop_windows"] = [dict(loop=number, start=start.isoformat(), end=end.isoformat())
+                                  for number, start, end in spans]
+        # ``history=True`` keeps collect_redfish from emitting generic severity
+        # findings: this read is the whole campaign, so every Critical/Warning
+        # entry is re-issued below with the loop it belongs to.
+        try:
+            self.collect_redfish(record, suppress_findings=True)
+        except Exception as exc:
+            self.add(record, 'REDFISH_UNAVAILABLE', 'eventlog',
+                     f'Final Redfish BMC log collection unavailable: {exc}')
+        sel = self.sel_command(record, "sel", "list", save_evidence=True)
+        record['sel_collection'] = self._sel_metadata(record, 'sel', sel.output, 'FINAL')
+
+        entries = record.get('eventlog_entries') or []
+        eventlog = bmclog.attribute(entries, spans)
+        sel_lines = bmclog.parse_sel_entries(sel.output) if record['commands']['sel'].get('valid') else []
+        sel_entries = bmclog.attribute(sel_lines, spans)
+
+        folder = self.folder(record)
+        eventlog_path = folder / "bmc_eventlog_final.txt"
+        sel_path = folder / "bmc_sel_final.txt"
+        atomic_write(eventlog_path, bmclog.render_lines(eventlog) or "No EventLog entries.\n")
+        atomic_write(sel_path, bmclog.render_lines(sel_entries) or "No SEL entries.\n")
+
+        eventlog_meta = record.get('eventlog_meta') or {}
+        record['bmc_log_final'] = dict(
+            mode='final-only',
+            collected=eventlog_meta.get('status', 'UNAVAILABLE') == 'COLLECTED',
+            eventlog_status=eventlog_meta.get('status', 'UNAVAILABLE'),
+            sel_status=record['sel_collection'].get('status', 'UNAVAILABLE'),
+            eventlog=eventlog, sel=sel_entries,
+            sudden_counts=bmclog.severity_counts(eventlog),
+            evidence_eventlog=eventlog_path.relative_to(self.root).as_posix() if eventlog_path.exists() else '',
+            evidence_sel=sel_path.relative_to(self.root).as_posix() if sel_path.exists() else '',
+        )
+        if not record['bmc_log_final']['collected']:
+            self.add(record, 'BMC_LOG_UNAVAILABLE', 'eventlog',
+                     'Final BMC EventLog could not be read; the campaign has no BMC event history')
+        elif not record['sel_collection'].get('valid'):
+            self.add(record, 'BMC_LOG_UNAVAILABLE', 'sel',
+                     'Final BMC SEL could not be read; the campaign has no SEL history')
+        else:
+            for entry in eventlog:
+                severity = str(entry.get('severity_key', ''))
+                if severity not in ('critical', 'warning'):
+                    continue
+                code = 'REDFISH_CRITICAL' if severity == 'critical' else 'REDFISH_WARNING'
+                level = 'FAIL' if severity == 'critical' else 'WARN'
+                loop = entry.get('loop')
+                detail = f"Redfish EventLog: {entry.get('id', '')} {entry.get('message', '')}".strip()
+                item = issue(code, 'eventlog', detail, level,
+                             record['bmc_log_final']['evidence_eventlog'],
+                             f"{entry.get('id','')} | {entry.get('severity','')} | {entry.get('created','')} | {entry.get('message','')}")
+                item['identity'] = f"EventLog|{entry.get('id','')}|{entry.get('message','')}"
+                if loop is not None:
+                    item['loop_hint'] = loop
+                    # The card segments occurrences by phase; giving each
+                    # entry its own LOOP n makes the loop visible without a
+                    # per-loop snapshot.
+                    item['phase_override'] = f'LOOP {loop}'
+                else:
+                    item['phase_override'] = 'FINAL' 
+                record['issues'].append(item)
+        self.node['final'] = record
+        self.finish(record)
 
     def _prepare_clean_state(self, record):
         """Clear dmesg, IPMI SEL and Redfish logs before the PRE baseline.
@@ -1108,6 +1320,10 @@ class NodeSession:
             if uid.code or uid.output.strip() != "0":
                 self.add(record, "ROOT_UNAVAILABLE", "privileges", "Root execution is unavailable; privileged checks may fail")
             self.dependencies(record)
+            # The BMC clock is set before any log is cleared: the EventLog and
+            # SEL this campaign produces are stamped with it, so a 2000-01-01
+            # BMC would make every entry unusable for the loop timeline.
+            self.sync_bmc_clock(record)
             # Clean-start policy: clear dmesg, IPMI SEL and the BMC Redfish logs
             # BEFORE the PRE baseline is captured, so the baseline (and every
             # later loop delta) reflect only this campaign. No pre-clear backlog
@@ -1421,7 +1637,7 @@ class NodeSession:
     def _redfish_stem(self, name):
         return 'eventlog' if name == 'EventLog' else 'redfish_sel'
 
-    def collect_redfish(self, record, clear=False, history=False):
+    def collect_redfish(self, record, clear=False, history=False, suppress_findings=False):
         """Fetch EventLog and (if present) SEL for this node.
 
         Called once per phase. On ``clear`` the same entries are fetched first
@@ -1505,7 +1721,7 @@ class NodeSession:
                     self.add(record, 'REDFISH_COLLECTION_FAILED', stem,
                              f'Redfish {name} collection failed or incomplete; see evidence',
                              evidence=evidence, snippet=fetched.get('reason', ''))
-                elif not history:
+                elif not history and not suppress_findings:
                     # Propagate severity into the canonical issue model so record
                     # status and campaign health cannot stay PASS behind a failing
                     # EventLog/SEL sub-verdict. Pre-clear history is excluded.
@@ -1803,11 +2019,16 @@ class NodeSession:
             # one read-and-clear covers the whole boot and every step of this
             # loop. A pre-action read here would duplicate that capture and put
             # the previous loop's tail on this loop's record.
-            before = self.sel_command(record, 'sel_before', 'list', save_evidence=True)
-            record['sel_before_valid'] = record['commands']['sel_before']['valid']
-            record['sel_before'] = before.output if record['sel_before_valid'] else ''
-            record['sel_before_meta'] = self._sel_metadata(record, 'sel_before', before.output, 'BEFORE_CYCLE')
-            self._redfish_before_snapshot(record)
+            if self.final_only:
+                # No per-loop BMC log snapshots: the final read identifies this
+                # loop's entries from the window recorded below.
+                record['loop_window_start'] = now()
+            else:
+                before = self.sel_command(record, 'sel_before', 'list', save_evidence=True)
+                record['sel_before_valid'] = record['commands']['sel_before']['valid']
+                record['sel_before'] = before.output if record['sel_before_valid'] else ''
+                record['sel_before_meta'] = self._sel_metadata(record, 'sel_before', before.output, 'BEFORE_CYCLE')
+                self._redfish_before_snapshot(record)
             old_boot = record["identities"]["os"]["boot_id"]
             record["recovery"]["old_boot_id"] = old_boot
             deadline = time.monotonic() + self.options.boot_timeout
@@ -1927,6 +2148,8 @@ class NodeSession:
         # MCTP stress that ran a few lines above; collect_dmesg records its own
         # failure, so nothing is raised from here.
         self.collect_dmesg(record, 'dmesg_clear', clear=True)
+        if self.final_only:
+            record['loop_window_end'] = now()
         result = self.finish(record)
         self.stage("DONE")
         return result

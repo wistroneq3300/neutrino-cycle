@@ -342,6 +342,14 @@ class Transport:
         return self._redfish(["-X", "POST", "-H", f"X-Auth-Token: {token}",
                               "-H", "Content-Type: application/json", url], timeout)
 
+    def redfish_patch(self, target, path, token, body, timeout=30):
+        """PATCH a Redfish resource. ``body`` is serialised by the caller."""
+        import json as _json
+        url = f"https://{target.bmc_ip}{path}"
+        return self._redfish(["-X", "PATCH", "-H", f"X-Auth-Token: {token}",
+                              "-H", "Content-Type: application/json",
+                              "--data-binary", _json.dumps(body), url], timeout)
+
     def local_dependencies(self):
         if shutil.which("ipmitool"):
             return Command(0, "ipmitool is installed")

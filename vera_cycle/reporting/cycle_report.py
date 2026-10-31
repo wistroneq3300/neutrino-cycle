@@ -359,11 +359,17 @@ def _finding_html_compact(record):
             grp = {'component': component, 'detail': message,
                    'severity': item.get('severity', 'UNKNOWN'), 'ids': [],
                    'classification': item.get('classification', 'NEW'),
-                   'snippet': item.get('snippet', ''), 'evidence': []}
+                   'snippet': item.get('snippet', ''), 'evidence': [], 'loops': []}
             by_key[key] = grp
             groups.append(grp)
         if event_id:
             grp['ids'].append(event_id)
+        # final-only BMC logging knows which loop each entry came from; the
+        # card must say so, otherwise the operator can see the fault but not
+        # when it happened.
+        loop = item.get('loop_hint')
+        if loop is not None and loop not in grp['loops']:
+            grp['loops'].append(loop)
         if item['severity'] == 'FAIL':
             grp['severity'] = 'FAIL'
         ev = item.get('evidence')
@@ -384,7 +390,12 @@ def _finding_html_compact(record):
         if grp.get('snippet') and (grp['severity'] == 'FAIL' or classification != 'KNOWN'):
             snippet = f'<pre class="snippet">{esc(grp["snippet"])}</pre>'
         link = f' {evidence_link(grp["evidence"][0])}' if grp['evidence'] else ''
-        rows.append(f'<li>{badge(grp["severity"])} <strong>{esc(grp["component"])}</strong> — {esc(grp["detail"])}{ids_txt} {badge(classification)}{link}{snippet}</li>')
+        loops_txt = ''
+        if grp.get('loops'):
+            shown = ', '.join(f'LOOP {n}' for n in sorted(grp['loops'])[:6])
+            more = f', +{len(grp["loops"]) - 6} more' if len(grp['loops']) > 6 else ''
+            loops_txt = f' <span class="loop-ref">seen in {esc(shown)}{esc(more)}</span>'
+        rows.append(f'<li>{badge(grp["severity"])} <strong>{esc(grp["component"])}</strong> — {esc(grp["detail"])}{ids_txt}{loops_txt} {badge(classification)}{link}{snippet}</li>')
     return '<ul class="record-issues">' + ''.join(dmesg_rows) + ''.join(rows) + '</ul>'
 
 
@@ -799,6 +810,68 @@ def _render_action(record):
     action = '<h3>Cycle action and recovery</h3><div class="tablewrap"><table><thead><tr><th>Command</th><th>Channel endpoint</th><th>Result</th><th>Exit code</th></tr></thead><tbody>' + (rows or '<tr><td colspan="4">No cycle action was dispatched.</td></tr>') + '</tbody></table></div>'
     action += facts([('OS boot changed', 'Yes' if recovery.get('boot_changed') else 'No / not confirmed'), ('Recovery attempts', recovery.get('attempts', 'Not recorded')), ('Before boot ID', recovery.get('old_boot_id', 'Not recorded')), ('After boot ID', recovery.get('new_boot_id', 'Not recorded'))])
     return action
+
+
+def _render_bmc_log_final(record):
+    """Render the one-shot BMC EventLog/SEL read taken after the last loop.
+
+    In final-only mode there is no per-loop snapshot, so this panel is the
+    node's whole BMC history for the campaign. The Loop column is what makes
+    it readable: it says which cycle produced each entry, without needing an
+    entry count per loop.
+    """
+    final = record.get('bmc_log_final')
+    if not final:
+        return ''
+    for service, label, key in (('eventlog', 'BMC EventLog', 'eventlog'),
+                                ('sel', 'BMC SEL', 'sel')):
+        rows = ''
+        entries = final.get(key) or []
+        for entry in entries:
+            sev = (entry.get('severity') or '').strip()
+            loop = entry.get('loop')
+            loop_cell = f'LOOP {esc(loop)}' if loop is not None else '<span class="muted">outside any loop</span>'
+            cls = 'badge' + (' fail' if sev.lower() == 'critical' else ' warn' if sev.lower() == 'warning' else '')
+            rows += (f'<tr><td>{esc(entry.get("id", ""))}</td><td>{esc(entry.get("created", "") or "--")}</td>'
+                     f'<td>{loop_cell}</td><td><span class="{cls}">{esc(sev or "--")}</span></td>'
+                     f'<td>{esc(entry.get("message", ""))}</td></tr>')
+        table = ('<div class="tablewrap"><table><thead><tr><th>ID</th><th>Created (BMC clock)</th>'
+                 '<th>Loop</th><th>Severity</th><th>Message</th></tr></thead><tbody>'
+                 + (rows or '<tr><td colspan="5">No entries.</td></tr>') + '</tbody></table></div>')
+        yield service, label, entries, table
+
+
+def _node_bmc_log_panel(node):
+    """Whole-campaign BMC EventLog/SEL panel for one node (final-only mode).
+
+    Placed after the per-loop history rather than inside a loop card, because
+    the read covers every loop at once. Unavailable reads stay visible: a log
+    that could not be read is not an empty log.
+    """
+    final = (node.get('final') or {}).get('bmc_log_final')
+    if not final:
+        return ''
+    counts = final.get('sudden_counts') or {}
+    summary = facts([
+        ('Collection', badge('PASS') if final.get('collected') else badge('UNAVAILABLE')),
+        ('Critical', counts.get('Critical', 0)),
+        ('Warning', counts.get('Warning', 0)),
+        ('OK', counts.get('OK', 0)),
+        ('EventLog evidence', _record_evidence(node.get('final'), final.get('evidence_eventlog'))),
+        ('SEL evidence', _record_evidence(node.get('final'), final.get('evidence_sel'))),
+    ])
+    body = ''
+    for service, label, entries, table in _render_bmc_log_final(node.get('final')):
+        body += (f'<h4>{esc(label)} <span class="muted">{len(entries)} entries</span></h4>{table}')
+    if not final.get('collected'):
+        body = ('<p class="notice">The BMC EventLog could not be read at the end of the run, so this '
+                'campaign has no BMC event history. See the finding above.</p>' + body)
+    return (f'<details class="bmc-log-final" open><summary>BMC Event Log (read once after the last loop) '
+            f'{badge("PASS") if final.get("collected") else badge("UNAVAILABLE")}</summary>{summary}{body}'
+            f'<p class="muted">Read once at the end of the campaign; the Loop column is derived from each '
+            f'loop\'s recorded time window, so an entry logged between two loops is attributed to the loop '
+            f'that was running. Entries outside every window are listed as outside any loop rather than '
+            f'guessed.</p></details>')
 
 
 def _render_redfish(record):
@@ -1396,7 +1469,8 @@ def render_html(campaign, console_log=''):
         note = '; '.join(node['blocked']) or node['stop_reason'] or '; '.join(dict.fromkeys(item['component'] + ': ' + item['code'] for item in node_items)) or 'No findings'
         rows.append(f'<tr><td class="target"><a href="#node-{i}" data-panel="node-{i}">{esc(node["key"])}</a><small>{esc(node["target"]["os_ip"])}</small></td><td>{badge(health_value)}</td><td>{badge(state)}</td><td>{node["completed"]}</td><td>{esc(note)}</td></tr>')
         choices.append(f'<a class="node-choice" href="#node-{i}" data-panel="node-{i}" data-health="{health_value}">{esc(node["key"])} {badge(health_value)}<small>{node["completed"]} loops</small></a>')
-        records = record_html_compact(node['pre'], i, node['pre']) + (record_html_compact(node['start'], i, node['pre']) if node.get('start') else '') + ''.join(record_html_compact(r, i, node['pre']) for r in node['loops'])
+        final_panel = _node_bmc_log_panel(node)
+        records = record_html_compact(node['pre'], i, node['pre']) + (record_html_compact(node['start'], i, node['pre']) if node.get('start') else '') + ''.join(record_html_compact(r, i, node['pre']) for r in node['loops']) + final_panel
         if node.get('recovery_issues'):
             records += f'<details id="node-{i}-recovery"><summary>Recovery integrity {badge("FAIL")}</summary><ul>' + ''.join(f'<li>{esc(item["detail"])}</li>' for item in node['recovery_issues']) + '</ul></details>'
         last = node['loops'][-1] if node['loops'] else node['pre']
