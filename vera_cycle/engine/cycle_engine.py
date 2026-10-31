@@ -1108,10 +1108,11 @@ class NodeSession:
                     # error (no such resource, unsupported method) simply has
                     # no clock this harness can set, which is not a fault.
                     state = getattr(managers, 'state', '')
-                    severity = 'WARN' if state in {'NOT_ISSUED', 'RESPONSE_LOST', 'HTTP_ERROR'} and not getattr(managers, 'http_status', 0) else 'INFO'
                     status = getattr(managers, 'http_status', 0)
+                    severity = 'WARN' if state in {'NOT_ISSUED', 'RESPONSE_LOST', 'HTTP_ERROR'} and not status else 'INFO'
                     self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
-                             f"Redfish /Managers unavailable (HTTP {status or managers.code})",
+                             'Redfish /Managers not usable for clock setup: '
+                             + (f'HTTP {status}' if status else f'BMC reply code {managers.code}'),
                              severity=severity)
                     return
                 manager = ntp.manager_id(self._redfish_json(managers.output))
@@ -1247,27 +1248,36 @@ class NodeSession:
             self.add(record, 'BMC_LOG_UNAVAILABLE', 'sel',
                      'Final BMC SEL could not be read; the campaign has no SEL history')
         else:
-            for entry in eventlog:
-                severity = str(entry.get('severity_key', ''))
-                if severity not in ('critical', 'warning'):
-                    continue
-                code = 'REDFISH_CRITICAL' if severity == 'critical' else 'REDFISH_WARNING'
-                level = 'FAIL' if severity == 'critical' else 'WARN'
-                loop = entry.get('loop')
-                detail = f"Redfish EventLog: {entry.get('id', '')} {entry.get('message', '')}".strip()
-                item = issue(code, 'eventlog', detail, level,
-                             record['bmc_log_final']['evidence_eventlog'],
-                             f"{entry.get('id','')} | {entry.get('severity','')} | {entry.get('created','')} | {entry.get('message','')}")
-                item['identity'] = f"EventLog|{entry.get('id','')}|{entry.get('message','')}"
-                if loop is not None:
-                    item['loop_hint'] = loop
-                    # The card segments occurrences by phase; giving each
-                    # entry its own LOOP n makes the loop visible without a
-                    # per-loop snapshot.
-                    item['phase_override'] = f'LOOP {loop}'
-                else:
-                    item['phase_override'] = 'FINAL' 
-                record['issues'].append(item)
+            # Both services produce findings the same way, so an SEL IERR is
+            # as visible as an EventLog Critical, with the same evidence link.
+            for source, entries, stem, label, evidence in (
+                    ('EventLog', eventlog, 'eventlog', 'Redfish EventLog',
+                     record['bmc_log_final']['evidence_eventlog']),
+                    ('SEL', sel_entries, 'sel', 'BMC SEL',
+                     record['bmc_log_final']['evidence_sel'])):
+                for entry in entries:
+                    severity = str(entry.get('severity_key', ''))
+                    if severity not in ('critical', 'warning'):
+                        continue
+                    code = ('REDFISH_CRITICAL' if severity == 'critical' else 'REDFISH_WARNING') \
+                        if source == 'EventLog' else \
+                        ('SEL_CRITICAL' if severity == 'critical' else 'SEL_WARNING')
+                    level = 'FAIL' if severity == 'critical' else 'WARN'
+                    loop = entry.get('loop')
+                    detail = f"{label}: {entry.get('id', '')} {entry.get('message', '')}".strip()
+                    item = issue(code, stem, detail, level, evidence,
+                                 f"{entry.get('id','')} | {entry.get('severity','')} | "
+                                 f"{entry.get('created','')} | {entry.get('message','')}")
+                    item['identity'] = f"{source}|{entry.get('id','')}|{entry.get('message','')}"
+                    if loop is not None:
+                        item['loop_hint'] = loop
+                        # The card segments occurrences by phase; giving each
+                        # entry its own LOOP n makes the loop visible without a
+                        # per-loop snapshot.
+                        item['phase_override'] = f'LOOP {loop}'
+                    else:
+                        item['phase_override'] = 'FINAL'
+                    record['issues'].append(item)
         self.node['final'] = record
         self.finish(record)
 

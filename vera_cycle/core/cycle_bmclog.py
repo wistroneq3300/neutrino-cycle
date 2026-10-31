@@ -144,6 +144,36 @@ def render_lines(entries):
 _SEL_ROW = re.compile(
     r"^\s*([0-9a-fA-F]+)\s*\|\s*(\d{1,2}/\d{1,2}/\d{4})\s*\|\s*(\d{2}:\d{2}:\d{2})\s*\|\s*(.*)$")
 
+# `ipmitool sel list` has no severity column, so the text is the only signal.
+# These are the keywords that make an SEL row actionable on this platform; a
+# row matching none of them is kept for the record but is not raised as a
+# finding, because a benign deassert or an informational OEM event would
+# otherwise turn every loop red.
+_SEL_CRITICAL = re.compile(
+    r"\b(IERR|MCERR|catastrophic|thermal trip|uncorrectable|fatal|"
+    r"power supply.*fail|processor.*fail|memory.*fail|watchdog.*expired)\b", re.I)
+_SEL_WARNING = re.compile(
+    r"\b(correctable|threshold|non-critical|non critical|degraded|"
+    r"predictive|redundancy lost|temperature)\b", re.I)
+_SEL_DEASSERT = re.compile(r"\bde-?assert", re.I)
+
+
+def sel_severity(message):
+    """Derive a severity for one SEL row from its text.
+
+    Deassertion rows are the clearing of an earlier event, so they carry no
+    severity of their own. Critical keywords outrank warning keywords: a row
+    that says both ("uncorrectable ... threshold") is the worse of the two.
+    """
+    text = str(message or "")
+    if _SEL_DEASSERT.search(text):
+        return "", ""
+    if _SEL_CRITICAL.search(text):
+        return "Critical", "critical"
+    if _SEL_WARNING.search(text):
+        return "Warning", "warning"
+    return "", ""
+
 
 def parse_sel_entries(text):
     """Turn ``ipmitool sel list`` rows into the same entry shape as Redfish.
@@ -169,12 +199,14 @@ def parse_sel_entries(text):
             stamp = datetime(year, month, day, hour, minute, second, tzinfo=BMC_TIMEZONE)
         except ValueError:
             continue
+        message = " | ".join(part for part in fields if part)
+        severity, severity_key = sel_severity(message)
         entries.append(dict(
             id=number,
             created=stamp.astimezone(timezone.utc).isoformat(),
-            severity="",
-            severity_key="",
-            message=" | ".join(part for part in fields if part),
+            severity=severity,
+            severity_key=severity_key,
+            message=message,
             resolved=False,
         ))
     return entries

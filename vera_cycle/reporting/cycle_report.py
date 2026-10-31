@@ -1349,7 +1349,7 @@ def _issue_segments(events):
                 signature=signature, classification=classification,
                 severity=severity, phases=[], occurrence_count=0,
                 detail=event.get('detail', ''), snippet=event.get('snippet', ''),
-                details=[], snippets=[], event_ids=[],
+                details=[], snippets=[], event_ids=[], evidence=[],
             )
             segments.append(segment)
         segment['phases'].append(phase)
@@ -1364,6 +1364,12 @@ def _issue_segments(events):
         for event_id in event.get('event_ids') or []:
             if event_id and event_id not in segment['event_ids']:
                 segment['event_ids'].append(event_id)
+        # Each occurrence keeps its own evidence file (console output, loop log,
+        # or the final BMC log extract); the card must link them or the reader
+        # has to guess which file backs the finding.
+        for evidence in event.get('evidence_paths') or [event.get('evidence', '')]:
+            if evidence and evidence not in segment['evidence']:
+                segment['evidence'].append(evidence)
         last_loop = loop_number
     for segment in segments:
         segment.pop('signature', None)
@@ -1399,8 +1405,9 @@ def issue_cards_compact(items, indices):
                 shown_ids += f', ... ({len(event_ids)} distinct IDs)'
             raw_ids = (f'<br><span class="muted">Event IDs: {esc(shown_ids)}</span>'
                        if event_ids else '')
+            links = ''.join(f' {evidence_link(path)}' for path in (grp.get('evidence') or [])[:3])
             body_rows.append(f'<tr><td>{esc(phase)}</td><td>{badge(grp["classification"])}</td>'
-                             f'<td>{badge(grp["severity"])}</td><td>{detail_html}{count}{raw_ids}{source}</td></tr>')
+                             f'<td>{badge(grp["severity"])}</td><td>{detail_html}{count}{raw_ids}{source}{links}</td></tr>')
         table = ('<div class="tablewrap"><table><thead><tr><th>Phase</th><th>Lifecycle</th>'
                  '<th>Severity</th><th>Finding and source</th></tr></thead><tbody>' + ''.join(body_rows) +
                  '</tbody></table></div>')

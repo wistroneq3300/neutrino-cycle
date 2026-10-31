@@ -65,6 +65,26 @@ class BmcLogPureTests(unittest.TestCase):
     def test_unparsable_sel_row_is_dropped_not_invented(self):
         self.assertEqual(bmclog.parse_sel_entries('   1 | 99/99/9999 | 18:05:00 | x'), [])
 
+    def test_sel_severity_is_derived_from_the_row_text(self):
+        # `ipmitool sel list` has no severity column, so the text decides.
+        cases = {
+            'Processor #0x01 | IERR | Asserted': ('Critical', 'critical'),
+            'Memory | Uncorrectable ECC | Asserted': ('Critical', 'critical'),
+            'Temperature #0x02 | Upper non-critical going high | Asserted': ('Warning', 'warning'),
+            'Processor #0x01 | IERR | Deasserted': ('', ''),
+            'Power Unit #0x01 | Power off/down | Asserted': ('', ''),
+            'OEM | vendor specific | Asserted': ('', ''),
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(bmclog.sel_severity(text), expected)
+
+    def test_critical_keyword_outranks_warning_keyword(self):
+        # A row naming both must be the worse of the two, not whichever the
+        # pattern happens to match first.
+        self.assertEqual(bmclog.sel_severity('Device | uncorrectable threshold | Asserted'),
+                         ('Critical', 'critical'))
+
 
 class FinalOnlySessionTests(unittest.TestCase):
     def setUp(self):
@@ -161,6 +181,45 @@ class FinalOnlySessionTests(unittest.TestCase):
         self.assertIsNotNone(start)
         self.assertIsNotNone(end)
         self.assertLessEqual(start, end)
+
+    def test_bmc_without_a_sel_service_is_not_a_finding(self):
+        # This platform's BMCs merge SEL into the EventLog. A missing SEL must
+        # stay quiet, or every campaign on this hardware would report a fault
+        # that does not exist.
+        self.session.precheck()
+        self.session.start()
+        self.session.one_loop(1)
+        self.session.final_bmc_logs()
+        final = self.session.node['final']
+        self.assertFalse([item for item in final['issues']
+                          if item['code'] in ('SEL_CRITICAL', 'SEL_WARNING', 'BMC_LOG_UNAVAILABLE')
+                          and item['component'] == 'sel'])
+
+    def test_sel_ierr_becomes_a_fail_finding_with_evidence(self):
+        # A platform that does expose SEL: the IERR row must reach the issue
+        # list with its own evidence file, exactly like an EventLog Critical.
+        self.session.precheck()
+        self.session.start()
+        first = self.session.one_loop(1)
+        stamp = bmclog.parse_time(first['loop_window_start']).astimezone(timezone.utc)
+        local = stamp.astimezone(bmclog.BMC_TIMEZONE)
+        row = (f" 7 | {local.month}/{local.day}/{local.year} | "
+               f"{local.hour:02d}:{local.minute:02d}:{local.second:02d} | "
+               "Processor #0x01 | IERR | Asserted\n")
+        original = self.fake.oob
+
+        def oob(target, cmd, timeout=30):
+            return Command(0, row) if cmd == 'sel list' else original(target, cmd, timeout)
+
+        self.fake.oob = oob
+        self.fake.redfish_sel_present = True
+        self.session.final_bmc_logs()
+        final = self.session.node['final']
+        sel_items = [item for item in final['issues'] if item['code'] == 'SEL_CRITICAL']
+        self.assertEqual(len(sel_items), 1)
+        self.assertEqual(sel_items[0]['severity'], 'FAIL')
+        self.assertEqual(sel_items[0]['evidence'], 'tray1_n1/bmc_log/bmc_sel_final.txt')
+        self.assertEqual(sel_items[0]['loop_hint'], 1)
 
 
 if __name__ == '__main__':
