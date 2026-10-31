@@ -62,12 +62,21 @@ PRE and START verify expected hostnames before any cycle action; mismatch or bla
 
 Before PRE, each node's BMC NTP client is pointed at that node's own OS address (Redfish `PATCH /redfish/v1/Managers/<id>/NetworkProtocol`), so the SEL and EventLog entries this campaign produces carry timestamps that can be matched to a loop. These BMCs boot with an empty NTP server list and would otherwise stamp the whole run with `2000-01-01`. The setting persists across BMC reboots, so one write per campaign is enough. A BMC that refuses the write, or whose clock does not follow, is reported as `BMC_CLOCK_SYNC` WARN; it never blocks a node or resends a power action. `--no-bmc-time-sync` disables it.
 
-`--bmc-log-mode` selects how the BMC EventLog and SEL are read:
+`--bmc-log-mode` selects how the BMC EventLog and SEL are read. The default is
+`final-only`; the interactive wizard does not ask, so a wizard-driven campaign
+always reads the logs once at the end. `per-loop` remains available for A/B
+comparison and for the engine tests that exercise the per-loop delta path.
 
 | Mode | Behaviour |
 | --- | --- |
-| `per-loop` (default) | Read before and after every cycle; each loop carries its own snapshot and delta. |
-| `final-only` | Read once after the last loop. Each entry is attributed to a loop by comparing its BMC timestamp with the wall-clock window that loop recorded, so the report still shows *which loop* produced a finding, while the journal and HTML hold one history per node instead of one per loop. |
+| `final-only` (**default**) | Read once after the last loop. Each entry is attributed to a loop by comparing its BMC timestamp with the wall-clock window that loop recorded, so the report still shows *which loop* produced a finding, while the journal and HTML hold one history per node instead of one per loop. |
+| `per-loop` | Read before and after every cycle; each loop carries its own snapshot and delta. A 100-loop campaign makes 200 reads for data that only the end-of-run view is used for. |
+
+Both modes clear the BMC logs during PRE, because the EventLog and SEL have to
+be emptied for the final read to contain only this campaign. That is a read
+plus a clear at PRE, no reads during the loops, and one read at the end —
+three BMC log operations per node regardless of loop count, instead of one per
+loop.
 
 In `final-only` mode an entry outside every loop window is kept and labelled `outside any loop` rather than being guessed at. A final read that fails stays `UNAVAILABLE` and is never reported as PASS: an unreadable log is not an empty one. The `Loop` column in the report's BMC Event Log panel comes from these windows, and FAIL/WARN entries carry the loop they occurred in.
 

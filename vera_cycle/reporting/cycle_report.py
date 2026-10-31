@@ -845,32 +845,35 @@ def _node_bmc_log_panel(node):
     """Whole-campaign BMC EventLog/SEL panel for one node (final-only mode).
 
     Placed after the per-loop history rather than inside a loop card, because
-    the read covers every loop at once. Unavailable reads stay visible: a log
-    that could not be read is not an empty log.
+    the read covers every loop at once. `facts()` escapes its values, so the
+    counts and links are written as plain elements here rather than passed
+    through it as pre-built HTML.
     """
     final = (node.get('final') or {}).get('bmc_log_final')
     if not final:
         return ''
+    record = node.get('final')
     counts = final.get('sudden_counts') or {}
-    summary = facts([
-        ('Collection', badge('PASS') if final.get('collected') else badge('UNAVAILABLE')),
-        ('Critical', counts.get('Critical', 0)),
-        ('Warning', counts.get('Warning', 0)),
-        ('OK', counts.get('OK', 0)),
-        ('EventLog evidence', _record_evidence(node.get('final'), final.get('evidence_eventlog'))),
-        ('SEL evidence', _record_evidence(node.get('final'), final.get('evidence_sel'))),
-    ])
+    collected = final.get('collected')
+    badge_html = badge('PASS') if collected else badge('UNAVAILABLE')
+    tally = (f'<p class="muted">{counts.get("Critical", 0)} critical · '
+             f'{counts.get("Warning", 0)} warning · {counts.get("OK", 0)} informational</p>')
+
     body = ''
-    for service, label, entries, table in _render_bmc_log_final(node.get('final')):
-        body += (f'<h4>{esc(label)} <span class="muted">{len(entries)} entries</span></h4>{table}')
-    if not final.get('collected'):
+    for _, label, entries, table in _render_bmc_log_final(record):
+        links = ''
+        path = final.get('evidence_eventlog') if 'EventLog' in label else final.get('evidence_sel')
+        if path:
+            links = f' <span class="muted">raw file:</span> {_record_evidence(record, path)}'
+        body += f'<h4>{esc(label)} <span class="muted">{len(entries)} entries</span>{links}</h4>{table}'
+    if not collected:
         body = ('<p class="notice">The BMC EventLog could not be read at the end of the run, so this '
-                'campaign has no BMC event history. See the finding above.</p>' + body)
+                'campaign has no BMC event history.</p>' + body)
     return (f'<details class="bmc-log-final" open><summary>BMC Event Log (read once after the last loop) '
-            f'{badge("PASS") if final.get("collected") else badge("UNAVAILABLE")}</summary>{summary}{body}'
+            f'{badge_html}</summary>{tally}{body}'
             f'<p class="muted">Read once at the end of the campaign; the Loop column is derived from each '
-            f'loop\'s recorded time window, so an entry logged between two loops is attributed to the loop '
-            f'that was running. Entries outside every window are listed as outside any loop rather than '
+            f'loop\'s recorded time window. An entry logged between two loops is attributed to the loop '
+            f'that was running, and an entry outside every window is shown as outside any loop rather than '
             f'guessed.</p></details>')
 
 
@@ -1405,9 +1408,8 @@ def issue_cards_compact(items, indices):
                 shown_ids += f', ... ({len(event_ids)} distinct IDs)'
             raw_ids = (f'<br><span class="muted">Event IDs: {esc(shown_ids)}</span>'
                        if event_ids else '')
-            links = ''.join(f' {evidence_link(path)}' for path in (grp.get('evidence') or [])[:3])
             body_rows.append(f'<tr><td>{esc(phase)}</td><td>{badge(grp["classification"])}</td>'
-                             f'<td>{badge(grp["severity"])}</td><td>{detail_html}{count}{raw_ids}{source}{links}</td></tr>')
+                             f'<td>{badge(grp["severity"])}</td><td>{detail_html}{count}{raw_ids}{source}</td></tr>')
         table = ('<div class="tablewrap"><table><thead><tr><th>Phase</th><th>Lifecycle</th>'
                  '<th>Severity</th><th>Finding and source</th></tr></thead><tbody>' + ''.join(body_rows) +
                  '</tbody></table></div>')

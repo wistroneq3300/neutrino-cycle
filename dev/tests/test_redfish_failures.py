@@ -140,7 +140,7 @@ class RedfishSessionCase(unittest.TestCase):
                                        boot_timeout=.03, poll_interval=.001, loops=1, hours=0, cycle=True,
                                        config_script=paths.project_config_path('neutrino'),
                                        issue_policy=paths.ISSUE_POLICY,
-                                       output=self.root/'output', sensor_retry_delay=0)
+                                       output=self.root/'output', sensor_retry_delay=0, bmc_log_mode='per-loop')
         self.fake = FakeRedfish({}, self.root/'ssh')
         self.session = NodeSession(base.target(), self.fake, self.root, 'test', b'script', digest(b'script'),
                                    self.options, parse_policy(self.options.issue_policy.read_text()))

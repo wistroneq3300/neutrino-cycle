@@ -567,7 +567,7 @@ class EngineTests(unittest.TestCase):
         self.options = SimpleNamespace(project='neutrino',cycle_mode='power_cycle',channel='inband',
                                        boot_timeout=.03,poll_interval=.001,loops=2,hours=0,cycle=True,
                                        config_script=paths.project_config_path('neutrino'),issue_policy=paths.ISSUE_POLICY,output=self.root/'output',
-                                       sensor_retry_delay=0)
+                                       sensor_retry_delay=0, bmc_log_mode='per-loop')
         self.fake = FakeTransport({}, self.root/'ssh')
         self.session = NodeSession(target(),self.fake,self.root,'test',b'script',digest(b'script'),self.options,
                                    parse_policy(self.options.issue_policy.read_text()))

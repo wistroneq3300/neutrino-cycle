@@ -217,8 +217,11 @@ class NodeSession:
         self.cleanup_safe = True
         self.persistence_failures = []
         # final-only BMC logging: EventLog and SEL are read once after the last
-        # loop, then each entry is attributed to a loop by its timestamp.
-        self.final_only = getattr(options, 'bmc_log_mode', 'per-loop') == 'final-only'
+        # loop, then each entry is attributed to a loop by its timestamp. This
+        # is the default because the interactive wizard does not ask, and a
+        # per-loop read on a 100-loop campaign is both slow and mostly noise.
+        # 'per-loop' stays reachable through --bmc-log-mode for replay/compare.
+        self.final_only = getattr(options, 'bmc_log_mode', 'final-only') != 'per-loop'
         self.eventlog_baseline = None
         self.sel_baseline = None
 

@@ -15,6 +15,28 @@ from vera_cycle.engine.cycle_engine import NodeSession
 
 
 class BmcLogPureTests(unittest.TestCase):
+    def test_cli_defaults_to_final_only(self):
+        """The interactive wizard never asks about BMC log mode, so the parser
+        default is what a wizard-driven campaign actually gets. It must be
+        final-only, or every operator run silently reads the logs per loop."""
+        from vera_cycle.cli import parser
+        self.assertEqual(parser().parse_args([]).bmc_log_mode, 'final-only')
+        self.assertEqual(parser().parse_args(['--project', 'neutrino', '--node', 'all']).bmc_log_mode,
+                         'final-only')
+
+    def test_session_treats_an_unspecified_mode_as_final_only(self):
+        # A NodeSession built from options that never carried the attribute
+        # (direct use, older replay) must not fall back to the per-loop read.
+        options = SimpleNamespace(project='neutrino', cycle_mode='power_cycle', channel='inband',
+                                  boot_timeout=.03, poll_interval=.001, loops=1, hours=0, cycle=True,
+                                  config_script=paths.project_config_path('neutrino'),
+                                  issue_policy=paths.ISSUE_POLICY, output=Path('/tmp/x'),
+                                  sensor_retry_delay=0)
+        session = NodeSession(fixtures.target(), fixtures.FakeTransport({}, Path('/tmp/x/ssh')),
+                              Path('/tmp/x'), 't', b's', fixtures.digest(b's'), options,
+                              parse_policy(options.issue_policy.read_text()))
+        self.assertTrue(session.final_only)
+
     def test_windows_skip_loops_without_both_boundaries(self):
         loops = [
             {'loop': 1, 'loop_window_start': '2026-10-31T02:00:00+08:00',
