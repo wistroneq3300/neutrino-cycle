@@ -126,6 +126,23 @@ class FinalOnlySessionTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def test_bmc_clock_sync_reaches_the_operator_console(self):
+        # The operator needs to see the verdict during PRE, not hours later in
+        # the report: an unsynchronised clock invalidates the loop timeline.
+        stages = []
+        self.session.progress = stages.append
+        self.session.precheck()
+        lines = [line for line in stages if 'BMC clock' in line]
+        self.assertTrue(lines, f'no BMC clock stage line; got {stages}')
+        self.assertTrue(any('NOT synced' in line or 'sync' in line for line in lines))
+
+    def test_bmc_clock_sync_disabled_still_says_so(self):
+        self.options.bmc_time_sync = False
+        stages = []
+        self.session.progress = stages.append
+        self.session.precheck()
+        self.assertTrue(any('disabled' in line for line in stages if 'BMC clock' in line))
+
     def test_per_loop_reads_are_skipped_in_final_only_mode(self):
         self.assertTrue(self.session.final_only)
         self.session.precheck()

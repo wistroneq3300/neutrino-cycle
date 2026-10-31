@@ -1090,14 +1090,21 @@ class NodeSession:
         BMC that boots at 2000-01-01 would otherwise stamp the whole run with
         the same meaningless instant.
 
+        Every outcome also reaches the operator as a ``stage`` line, because a
+        silent success would leave them unable to tell a working sync from a
+        skipped one until the report was written hours later, and a broken
+        clock quietly invalidates the whole loop timeline.
+
         Every failure path is a WARN finding. This is a convenience for
         reading the logs, never a precondition for cycling, so it must not
         block a node or resend a power action.
         """
         if getattr(self.options, 'bmc_time_sync', True) is False:
+            self.stage('BMC clock: sync disabled (--no-bmc-time-sync)')
             return
         os_ip = getattr(self.target, 'os_ip', '') or ''
         if not os_ip:
+            self.stage('BMC clock: NOT checked, no OS address in the inventory')
             self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
                      'No OS address in the inventory to point the BMC clock at', severity='WARN')
             return
@@ -1113,6 +1120,8 @@ class NodeSession:
                     state = getattr(managers, 'state', '')
                     status = getattr(managers, 'http_status', 0)
                     severity = 'WARN' if state in {'NOT_ISSUED', 'RESPONSE_LOST', 'HTTP_ERROR'} and not status else 'INFO'
+                    self.stage('BMC clock: NOT synced, Redfish /Managers unusable ('
+                               + (f'HTTP {status}' if status else f'code {managers.code}') + ')')
                     self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
                              'Redfish /Managers not usable for clock setup: '
                              + (f'HTTP {status}' if status else f'BMC reply code {managers.code}'),
@@ -1123,6 +1132,7 @@ class NodeSession:
                     # A BMC that exposes no manager resource cannot be told
                     # where NTP lives; the campaign still runs, timestamps are
                     # just not synchronized. INFO keeps it out of node health.
+                    self.stage('BMC clock: NOT synced, no manager resource on this BMC')
                     self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
                              'Redfish /Managers listed no manager; BMC clock left as-is',
                              severity='INFO')
@@ -1130,6 +1140,7 @@ class NodeSession:
                 base = f'/redfish/v1/Managers/{manager}'
                 state = self._bmc_ntp_state(base, token)
                 if state is None:
+                    self.stage('BMC clock: NOT synced, NetworkProtocol unreadable')
                     self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
                              f'{base}/NetworkProtocol unreadable; BMC clock left as-is', severity='INFO')
                     return
@@ -1139,11 +1150,15 @@ class NodeSession:
                         'command': f'redfish NTP {manager}', 'role': 'oob', 'code': 0,
                         'state': 'ALREADY_SYNCED', 'evidence': '', 'valid': True,
                         'output_excerpt': f'NTPServers={servers} skew={skew:.0f}s'}
+                    self.stage(f'BMC clock: already synced to {os_ip} '
+                               f'(skew {skew:+.0f}s)')
                     return
+                self.stage(f'BMC clock: setting NTP server to {os_ip}')
                 written = self.transport.redfish_patch(
                     self.target, f'{base}/NetworkProtocol', token,
                     {'NTP': {'ProtocolEnabled': True, 'NTPServers': [os_ip]}})
                 if written.code:
+                    self.stage(f'BMC clock: NOT synced, NTP write to {os_ip} rejected')
                     self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
                              f"NTP pointing at {os_ip} rejected (HTTP {getattr(written, 'http_status', 0) or written.code}); "
                              'BMC log timestamps may be wrong', severity='WARN')
@@ -1158,10 +1173,16 @@ class NodeSession:
                     # The setting was accepted but the clock did not follow: the
                     # node is probably not serving NTP. Timestamps stay wrong,
                     # so say so rather than implying a successful sync.
+                    self.stage(f'BMC clock: NOT synced, still {skew:+.0f}s off after enabling '
+                               f'NTP to {os_ip} (does the node serve NTP?)')
                     self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
                              f'BMC clock still {skew:+.0f}s from {os_ip} after enabling NTP; '
                              f'check that the node serves NTP to {self.target.bmc_ip}', severity='WARN')
+                else:
+                    self.stage(f'BMC clock: synced to {os_ip} '
+                               f'(skew {"unreadable" if skew is None else f"{skew:+.0f}s"})')
         except Exception as exc:
+            self.stage(f'BMC clock: NOT synced, {type(exc).__name__}')
             self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
                      f'BMC clock could not be synchronised: {type(exc).__name__}: {exc}', severity='WARN')
 
