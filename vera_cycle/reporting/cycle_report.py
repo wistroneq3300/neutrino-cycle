@@ -826,18 +826,32 @@ def _render_bmc_log_final(record):
     for service, label, key in (('eventlog', 'BMC EventLog', 'eventlog'),
                                 ('sel', 'BMC SEL', 'sel')):
         rows = ''
-        entries = final.get(key) or []
+        all_entries = final.get(key) or []
+        # Only Critical and Warning are shown. The informational tier (logged
+        # as "OK" here) repeats on every loop of a power-cycle campaign and
+        # would otherwise bury the entries that matter; the full log stays in
+        # the raw evidence file either way.
+        entries = [e for e in all_entries
+                   if (e.get('severity') or '').strip().lower() in ('critical', 'warning')]
         for entry in entries:
             sev = (entry.get('severity') or '').strip()
             loop = entry.get('loop')
             loop_cell = f'LOOP {esc(loop)}' if loop is not None else '<span class="muted">outside any loop</span>'
-            cls = 'badge' + (' fail' if sev.lower() == 'critical' else ' warn' if sev.lower() == 'warning' else '')
+            cls = 'badge' + (' fail' if sev.lower() == 'critical' else ' warn')
             rows += (f'<tr><td>{esc(entry.get("id", ""))}</td><td>{esc(entry.get("created", "") or "--")}</td>'
-                     f'<td>{loop_cell}</td><td><span class="{cls}">{esc(sev or "--")}</span></td>'
+                     f'<td>{loop_cell}</td><td><span class="{cls}">{esc(sev)}</span></td>'
                      f'<td>{esc(entry.get("message", ""))}</td></tr>')
+        hidden = len(all_entries) - len(entries)
+        if entries:
+            empty = ''
+        elif all_entries:
+            empty = (f'<tr><td colspan="5">No Critical or Warning entries.'
+                     f'<span class="muted"> {hidden} informational entries are in the raw file.</span></td></tr>')
+        else:
+            empty = '<tr><td colspan="5">No entries.</td></tr>'
         table = ('<div class="tablewrap"><table><thead><tr><th>ID</th><th>Created (BMC clock)</th>'
                  '<th>Loop</th><th>Severity</th><th>Message</th></tr></thead><tbody>'
-                 + (rows or '<tr><td colspan="5">No entries.</td></tr>') + '</tbody></table></div>')
+                 + (rows or empty) + '</tbody></table></div>')
         yield service, label, entries, table
 
 
@@ -1379,14 +1393,218 @@ def _issue_segments(events):
     return segments
 
 
-def issue_cards_compact(items, indices):
-    """Issue cards with compact, de-duplicated occurrences.
+# One lost host produces these at once. Left separate they turn a single
+# dropout into a dozen cards that all say the same thing.
+_DROPOUT_CODES = frozenset({
+    'COLLECTION_FAILED', 'NODE_UNAVAILABLE', 'PCI_EMPTY',
+    'SCRIPT_VALIDATION_FAILED', 'DMESG_COLLECT_FAILED', 'RECOVERY_LOG_FAILED',
+})
 
-    The summary line shows loop ranges, not every loop. The body is an
-    "All occurrences" table with two columns (phase, finding); identical
-    findings are collapsed to one row whose phase is a loop range. Evidence
-    links live on the Nodes tab, so they are not repeated here.
+
+def _issue_group_key(item):
+    """Return the summary card an item belongs to: one bucket, one node.
+
+    The overview is a summary. A node that drops out produces one finding per
+    probe (pci, usb, disks ...), and one dmesg line reappears under every PCI
+    address it touched, so listing findings one by one turns two real events
+    into hundreds of cards. Findings are therefore folded per node and per
+    event kind. Nodes are never combined: each host's history stays its own,
+    and the per-finding detail remains on the Nodes tab.
     """
+    # ``code`` is the finding kind (COLLECTION_FAILED, REDFISH_CRITICAL ...);
+    # ``component`` is the probe that produced it (pci, usb, disks ...). Group
+    # on the former: one dropout yields one code across many probes.
+    code = str(item.get('code') or '').upper()
+    node = item.get('node', '')
+    phases = [e.get('phase') for e in item.get('occurrences') or [] if e.get('phase')]
+
+    if code.startswith('DMESG'):
+        return ('dmesg', node)
+    if code in ('SENSOR_DUPLICATE', 'SENSOR_UNREADABLE', 'SENSOR_SHIFT', 'SENSOR_MISSING'):
+        return ('sensor', node)
+    if code in ('REDFISH_CRITICAL', 'REDFISH_WARNING', 'BMC_LOG_UNAVAILABLE'):
+        return ('eventlog', node)
+    if code in _DROPOUT_CODES:
+        # Everything one lost host produces shares this node and these loops.
+        return ('dropout', node, tuple(sorted(set(p for p in phases if p))))
+    return ('other', node)
+
+
+_BUCKET_RANK = {'dropout': 0, 'eventlog': 1, 'dmesg': 2, 'sensor': 3, 'other': 4}
+
+
+def _group_issue_cards(items):
+    """Fold per-item cards into one card per node and event kind."""
+    groups = {}
+    for item in items:
+        groups.setdefault(_issue_group_key(item), []).append(item)
+    return sorted(groups.items(), key=lambda kv: (_BUCKET_RANK.get(kv[0][0], 9), str(kv[0])))
+
+
+def issue_cards_compact(items, indices):
+    """Issue cards, one per node and event kind rather than one per finding.
+
+    A node that drops out produces one finding per probe (pci, usb, disks ...),
+    and one dmesg line reappears under every PCI address it touched, so listing
+    findings one by one turns two real events into hundreds of cards. Findings
+    are folded per node and event kind here; per-finding detail stays on the
+    Nodes tab.
+    """
+    return _render_grouped_cards(items, indices)
+
+
+def _render_grouped_cards(items, indices):
+    """Render one collapsed card per (node, event kind) group."""
+    blocks = []
+    for ident, members in _group_issue_cards(items):
+        bucket, node = ident[0], ident[1]
+        if bucket == 'dropout':
+            blocks.append(_render_dropout_card(node, ident[2], members))
+        elif bucket == 'dmesg':
+            blocks.append(_render_dmesg_card(node, members))
+        elif bucket == 'sensor':
+            blocks.append(_render_sensor_card(node, members))
+        elif bucket == 'eventlog':
+            blocks.append(_render_eventlog_card(node, members))
+        else:
+            blocks.append(_render_other_card(node, members))
+    return ''.join(blocks) or '<p>No issues recorded.</p>'
+
+
+def _card_shell(severity, title, meta, body):
+    sev = (severity or 'FAIL').upper()
+    return (f'<details class="issue-group" data-severity="{esc(sev)}"><summary>{badge(sev)}'
+            f'<span class="issue-title">{esc(title)}</span>'
+            f'<span class="issue-meta">{meta}</span></summary>'
+            f'<div class="detail-body">{body}</div></details>')
+
+
+def _dmesg_family(item):
+    """Human family label for a dmesg finding, matching ``_issue_title``.
+
+    ``bundle`` is the parser's name for the catch-all sweep of lines no family
+    pattern claimed, and the report has always shown it as ``fail/error``; a
+    named family (NVMe, EDAC, MCE ...) keeps its own name. Grouping on this
+    keeps that distinction visible now that a whole node shares one card.
+    """
+    component = str(item.get('component') or '')
+    if item.get('code') == 'DMESG_APEI':
+        return 'apei'
+    return 'fail/error' if component in ('', 'bundle') else component
+
+
+def _dmesg_sections(members):
+    """Group a node's dmesg findings by family, then by device."""
+    by_family = {}
+    for item in members:
+        by_family.setdefault(_dmesg_family(item), []).append(item)
+    blocks = []
+    for family in sorted(by_family):
+        items = by_family[family]
+        # Collapse to one row per (device, loop span) pair so a rule repeated on
+        # twenty loops is one line with a count, not twenty identical lines.
+        rows = {}
+        for item in items:
+            device = ', '.join(item.get('device') or []) or '&mdash;'
+            loops = _loop_ranges(e['phase'] for e in item.get('occurrences') or [])
+            text = _first_line(item)
+            key = (device, loops, text)
+            count = sum(int(e.get('occurrence_count', 1) or 1) for e in item.get('occurrences') or [])
+            rows[key] = rows.get(key, 0) + count
+        # Device-attributed rows first; the rest is the boot-time noise that
+        # has no BDF of its own, which reads better at the bottom.
+        ordered = sorted(rows.items(), key=lambda kv: (kv[0][0] == '&mdash;', kv[0][0], kv[0][1]))
+        body = ''.join(
+            f'<tr><td><code>{device}</code></td><td>{esc(loops)}</td>'
+            f'<td>{esc(text)} <span class="muted">({count}&times;)</span></td></tr>'
+            for (device, loops, text), count in ordered)
+        blocks.append(
+            f'<h4>Dmesg-{esc(family)} <span class="muted">{len(items)} rule(s), '
+            f'{len(rows)} row(s)</span></h4>'
+            f'<div class="tablewrap"><table><thead><tr><th>Device</th><th>Loop</th>'
+            f'<th>Message</th></tr></thead><tbody>{body}</tbody></table></div>')
+    return ''.join(blocks)
+
+
+def _member_rows(members, columns=('Device', 'Loop', 'Message')):
+    """Per-finding rows shown when a summary card is expanded.
+
+    ``detail`` is a count of distinct lines ("2 distinct error/fail line(s)"),
+    which carries no information on its own, and ``component`` is the parser
+    family for every dmesg finding ("bundle"). The row therefore shows the
+    device the message came from and the first line of its text.
+    """
+    out = []
+    for item in sorted(members, key=lambda x: (x['severity'] != 'FAIL', str(x.get('device') or ''), x['code'])):
+        loops = _loop_ranges(e['phase'] for e in item.get('occurrences') or [])
+        device = ', '.join(item.get('device') or []) or (item.get('component') or '')
+        code = str(item.get('code') or '')
+        text = _first_line(item)
+        count = sum(int(e.get('occurrence_count', 1) or 1) for e in item.get('occurrences') or [])
+        shown = f' <span class="muted">({count}&times;)</span>' if count > 1 else ''
+        out.append(f'<tr><td><code>{esc(device)}</code></td><td>{esc(loops)}</td>'
+                   f'<td>{badge(item["severity"])} <span class="muted">{esc(code)}</span> '
+                   f'{esc(text)}{shown}</td></tr>')
+    head = ''.join(f'<th>{esc(c)}</th>' for c in columns)
+    return (f'<details><summary>Show all {len(members)} findings</summary><div class="tablewrap">'
+            f'<table><thead><tr>{head}</tr></thead><tbody>{"".join(out)}</tbody></table></div></details>')
+
+
+def _first_line(item):
+    """Message text for a finding: the key line of its snippet, else its detail."""
+    snippet = (item.get('snippet') or '').strip()
+    if snippet:
+        return snippet.splitlines()[0][:160]
+    return (item.get('detail') or '')[:160]
+
+
+def _total_occurrences(members):
+    return sum(int(e.get('occurrence_count', 1) or 1)
+               for m in members for e in m.get('occurrences') or [])
+
+
+def _render_dropout_card(node, loops, members):
+    title = f'{node} — node lost at {_loop_ranges(loops) or "an unknown loop"}'
+    body = ('<p>The host stopped responding during the check phase and the listed probes '
+            'failed together. This is a single loss of connectivity, not one independent '
+            'hardware fault per probe.</p>' + _member_rows(members))
+    return _card_shell('FAIL', title, f'{len(members)} probe(s)', body)
+
+
+def _render_dmesg_card(node, members):
+    title = f'{node} — dmesg findings'
+    families = sorted({_dmesg_family(m) for m in members})
+    body = ('<p>Kernel messages reported during the check phases, grouped by the parser '
+            'family that claimed them. <code>fail/error</code> is the catch-all sweep of '
+            'error and fail lines no family pattern matched. Per-loop raw text is on the '
+            'Nodes tab.</p>' + _dmesg_sections(members))
+    return _card_shell('FAIL', title,
+                       f'{len(families)} family &middot; {len(members)} rule(s) &middot; '
+                       f'{_total_occurrences(members)} hits', body)
+
+
+def _render_sensor_card(node, members):
+    title = f'{node} — duplicate sensor readings'
+    body = ('<p>These sensors are reported twice in every loop. The pattern points at the '
+            'BMC sensor definition rather than a hardware fault.</p>' + _member_rows(members))
+    return _card_shell('WARN', title, f'{len(members)} sensor(s)', body)
+
+
+def _render_eventlog_card(node, members):
+    title = f'{node} — BMC EventLog / SEL'
+    body = ('<p>Critical and Warning entries from the BMC EventLog and SEL, attributed to '
+            'the loop that was running. Full entries and raw files are in the BMC Event Log '
+            'panel on the Nodes tab.</p>' + _member_rows(members))
+    return _card_shell('FAIL', title, f'{len(members)} group(s) &middot; {_total_occurrences(members)} entries', body)
+
+
+def _render_other_card(node, members):
+    return _card_shell('WARN', f'{node} — other findings', f'{len(members)} finding(s)',
+                       _member_rows(members))
+
+
+def _issue_cards_per_item(items, indices):
+    """Legacy one-card-per-item renderer, kept for reference."""
     rows = []
     opened = False
     for item in sorted(items, key=lambda x: (x['severity'] != 'FAIL', x['node'], x['code'])):

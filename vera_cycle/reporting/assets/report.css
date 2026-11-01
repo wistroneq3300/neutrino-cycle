@@ -24,3 +24,14 @@ td>.snippet{max-width:100%;margin:0;min-width:260px}
 .degraded-banner ul{margin:0;padding-left:20px}
 .degraded-banner li{margin:4px 0;overflow-wrap:anywhere}
 .degraded-banner .label{display:inline-block;min-width:74px;color:var(--muted);font-size:13px}
+
+/* Summary issue cards: Device never splits mid-token; Loop and Message share
+   the remaining width so a long loop list wraps a few times, not per item. */
+.issue-group .detail-body table{table-layout:fixed}
+.issue-group .detail-body table th:nth-child(1),
+.issue-group .detail-body table td:nth-child(1){white-space:nowrap;width:15%;font-family:Consolas,"Liberation Mono",monospace;font-size:12.5px}
+.issue-group .detail-body table th:nth-child(2),
+.issue-group .detail-body table td:nth-child(2){width:25%}
+.issue-group .detail-body table th:nth-child(3),
+.issue-group .detail-body table td:nth-child(3){width:60%}
+.issue-group .detail-body table td code{white-space:nowrap}
