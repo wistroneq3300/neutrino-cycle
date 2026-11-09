@@ -24,6 +24,12 @@ DPU_BOOT = '11111111-2222-3333-4444-555555555555'
 BMC_BOOT = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
 
 
+def loop_record(number=1):
+    record = new_record(f'LOOP {number}')
+    record['loop'] = number
+    return record
+
+
 def bf4_target():
     return Target('tray1', 'n1', '192.0.2.1', '192.0.2.2', 'bmc-n1', 'os-n1',
                   bf4_os_ip='192.0.2.101', bf4_bmc_ip='192.0.2.102',
@@ -57,34 +63,58 @@ class FakeBf4Transport:
         raise AssertionError('BF4 check must not touch IPMI')
 
 
+class FakeClock:
+    """Monotonic clock that advances only when something sleeps.
+
+    The settle loop is wall-clock bounded, so without this every "unreachable"
+    test would really wait out the full window.
+    """
+
+    def __init__(self):
+        self.now = 0.0
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
 class Bf4EndpointTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.options = SimpleNamespace(
-            project='neutrino', bf4_settle_timeout=120, bf4_fail_confirmations=2,
+            project='neutrino', bf4_settle_timeout=120, bf4_fail_confirmations=3,
             issue_policy=paths.ISSUE_POLICY)
 
     def tearDown(self):
         self.temp.cleanup()
 
     def session(self, transport):
+        self.clock = FakeClock()
+        patcher = patch.multiple(
+            cycle_engine.time, sleep=self.clock.sleep, monotonic=self.clock.monotonic)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         return NodeSession(bf4_target(), transport, self.root, 'test', b'script', 'hash',
                            self.options, parse_policy(self.options.issue_policy.read_text()))
 
     def test_no_bf4_endpoints_means_no_check(self):
         plain = Target('tray1', 'n1', '192.0.2.1', '192.0.2.2', 'bmc-n1', 'os-n1')
-        session = NodeSession(plain, FakeBf4Transport(), self.root, 'test', b's', 'h',
+        transport = FakeBf4Transport()
+        session = NodeSession(plain, transport, self.root, 'test', b's', 'h',
                               self.options, [])
-        record = new_record('LOOP 1')
+        record = loop_record()
         session.check_bf4_endpoints(record)
         self.assertEqual(record['bf4'], {})
         self.assertEqual(record['issues'], [])
+        self.assertEqual(transport.probed, [])
 
     def test_reachable_card_passes_without_complaint(self):
         transport = FakeBf4Transport()
         session = self.session(transport)
-        record = new_record('LOOP 1')
+        record = loop_record()
         session.check_bf4_endpoints(record)
         self.assertTrue(record['bf4']['bf4_os']['reachable'])
         self.assertTrue(record['bf4']['bf4_bmc']['reachable'])
@@ -94,7 +124,7 @@ class Bf4EndpointTests(unittest.TestCase):
         # The DPU reports localhost.localdomain and the BMC dpu-bmc; neither can
         # match the inventory name, and neither may be reported as a mismatch.
         session = self.session(FakeBf4Transport(hostname='localhost.localdomain'))
-        record = new_record('LOOP 1')
+        record = loop_record()
         session.check_bf4_endpoints(record)
         self.assertEqual([i for i in record['issues'] if i['code'] == 'HOSTNAME_MISMATCH'], [])
         self.assertEqual(record['bf4']['bf4_os']['hostname'], 'localhost.localdomain')
@@ -102,35 +132,40 @@ class Bf4EndpointTests(unittest.TestCase):
     def test_first_unreachable_loop_is_only_a_warning(self):
         transport = FakeBf4Transport(up=())
         session = self.session(transport)
-        record = new_record('LOOP 1')
+        record = loop_record()
         session.check_bf4_endpoints(record)
         issues = [i for i in record['issues'] if i['code'] == 'BF4_ENDPOINT_UNREACHABLE']
         self.assertEqual(len(issues), 2)
         self.assertTrue(all(i['severity'] == 'WARN' for i in issues))
         self.assertEqual(session.node['bf4_failures']['bf4_os'], 1)
 
-    def test_second_consecutive_loop_fails(self):
+    def test_third_consecutive_loop_fails(self):
         transport = FakeBf4Transport(up=())
         session = self.session(transport)
-        session.check_bf4_endpoints(new_record('LOOP 1'))
-        record = new_record('LOOP 2')
+        for number in (1, 2):
+            record = loop_record(number)
+            session.check_bf4_endpoints(record)
+            issues = [i for i in record['issues'] if i['code'] == 'BF4_ENDPOINT_UNREACHABLE']
+            self.assertTrue(all(i['severity'] == 'WARN' for i in issues),
+                            f'loop {number} must still be a WARN')
+        record = loop_record(3)
         session.check_bf4_endpoints(record)
         issues = [i for i in record['issues'] if i['code'] == 'BF4_ENDPOINT_UNREACHABLE']
         self.assertTrue(all(i['severity'] == 'FAIL' for i in issues))
-        self.assertEqual(session.node['bf4_failures']['bf4_os'], 2)
+        self.assertEqual(session.node['bf4_failures']['bf4_os'], 3)
 
     def test_a_pass_resets_the_consecutive_counter(self):
         session = self.session(FakeBf4Transport(up=()))
         session.check_bf4_endpoints(new_record('LOOP 1'))
         self.assertEqual(session.node['bf4_failures']['bf4_os'], 1)
         session.transport = FakeBf4Transport()          # card came back
-        session.check_bf4_endpoints(new_record('LOOP 2'))
+        session.check_bf4_endpoints(loop_record(2))
         self.assertEqual(session.node['bf4_failures']['bf4_os'], 0)
 
     def test_unreachable_records_listening_ports(self):
         transport = FakeBf4Transport(up=(), open_ports=[])
         session = self.session(transport)
-        record = new_record('LOOP 1')
+        record = loop_record()
         session.check_bf4_endpoints(record)
         self.assertEqual(record['bf4']['bf4_os']['open_ports'], [])
         self.assertIn('none', [i for i in record['issues']
@@ -149,7 +184,7 @@ class Bf4EndpointTests(unittest.TestCase):
                 return super().ssh(t, role, cmd, timeout, sudo)
 
         session = self.session(Flaky())
-        record = new_record('LOOP 1')
+        record = loop_record()
         with patch.object(cycle_engine.time, 'sleep'):
             session.check_bf4_endpoints(record)
         self.assertTrue(record['bf4']['bf4_os']['reachable'])
@@ -167,7 +202,7 @@ class Bf4EndpointTests(unittest.TestCase):
     def test_missing_boot_id_is_a_warning_not_a_stop(self):
         transport = FakeBf4Transport(boot_ids={'bf4_os': 'not-a-boot-id', 'bf4_bmc': BMC_BOOT})
         session = self.session(transport)
-        record = new_record('LOOP 1')
+        record = loop_record()
         session.check_bf4_endpoints(record)
         codes = [i['code'] for i in record['issues']]
         self.assertIn('BF4_BOOT_ID_UNAVAILABLE', codes)
@@ -176,20 +211,20 @@ class Bf4EndpointTests(unittest.TestCase):
 
 class Bf4ReportTests(unittest.TestCase):
     def test_healthy_card_renders_nothing(self):
-        record = new_record('LOOP 1')
+        record = loop_record()
         record['bf4'] = {'bf4_os': {'reachable': True, 'seconds': 5.9},
                          'bf4_bmc': {'reachable': True, 'seconds': 5.9}}
         self.assertEqual(_render_bf4_group(record), '')
 
     def test_failing_card_renders_a_block(self):
-        record = new_record('LOOP 1')
+        record = loop_record()
         record['bf4'] = {'bf4_os': {'reachable': False, 'seconds': 120, 'attempts': 12,
                                     'last_error': 'ConnectionError: refused', 'open_ports': []}}
         record['issues'].append(dict(code='BF4_ENDPOINT_UNREACHABLE', component='bf4_os',
                                      detail='no answer', severity='FAIL', evidence='', snippet=''))
         html = _render_bf4_group(record)
         self.assertIn('BF4 DPU / BMC after reboot', html)
-        self.assertIn('bf4_os', html)
+        self.assertIn('BF4 DPU OS', html)
 
     def test_no_bf4_data_renders_nothing(self):
         self.assertEqual(_render_bf4_group(new_record('LOOP 1')), '')

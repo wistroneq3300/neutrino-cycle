@@ -1092,7 +1092,7 @@ def parser():
     p.add_argument('--poll-interval', type=float, default=10)
     p.add_argument('--bf4-settle-timeout', type=float, default=120,
                    help='Seconds to keep retrying each BF4 DPU OS/BMC after the host checks (0 disables the wait)')
-    p.add_argument('--bf4-fail-confirmations', type=int, default=2,
+    p.add_argument('--bf4-fail-confirmations', type=int, default=3,
                    help='Consecutive failing loops before an unreachable BF4 endpoint is a FAIL instead of a WARN')
     p.add_argument('--no-bmc-time-sync', dest='bmc_time_sync', action='store_false',
                    help='Do not point the BMC NTP client at its node before PRE; BMC log timestamps stay unsynchronised')

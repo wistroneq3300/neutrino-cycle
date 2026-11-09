@@ -133,7 +133,7 @@ BF4_SETTLE_TIMEOUT = 120
 BF4_POLL_INTERVAL = 10
 # One failed window is a WARN; the failure being hunted is intermittent, so a
 # single refusal is not proof. Two loops in a row is.
-BF4_FAIL_CONFIRMATIONS = 2
+BF4_FAIL_CONFIRMATIONS = 3
 BF4_ROLES = ("bf4_os", "bf4_bmc")
 IDENTITY = "printf 'HOSTNAME='; hostname; printf 'BOOT_ID='; cat /proc/sys/kernel/random/boot_id"
 CAPTURES = {
@@ -442,6 +442,15 @@ class NodeSession:
                                           timeout=min(20, max(1, limit - time.monotonic())),
                                           save_evidence=False, record_command=False,
                                           check_hostname=False)
+                except IdentityTransient as exc:
+                    # The card is booting: its sshd refuses auth until it is
+                    # ready. Retryable, and it must be caught before
+                    # IdentityUnsafe because it is a subclass of it.
+                    last = f'{type(exc).__name__}: {exc}'
+                    if time.monotonic() + BF4_POLL_INTERVAL >= limit:
+                        break
+                    time.sleep(BF4_POLL_INTERVAL)
+                    continue
                 except IdentityUnsafe:
                     raise
                 except (ConnectionError, TimeoutError, OSError) as exc:
