@@ -13,7 +13,23 @@ import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-USERS = {"bmc": "root", "os": "root", "lily_bmc": "service", "lily_os": "ubuntu"}
+USERS = {"bmc": "root", "os": "root", "lily_bmc": "service", "lily_os": "ubuntu",
+         "bf4_os": "ubuntu", "bf4_bmc": "service"}
+
+
+def user_for(role):
+    """Login name for a role.
+
+    ``<ROLE>_USER`` wins; the project-prefixed form (e.g. ``NEUTRINO_OS_USER``)
+    is also accepted, so one ``.env.credentials`` file can carry both halves of
+    every login under a single naming scheme.
+    """
+    for name in (role.upper() + '_USER', 'NEUTRINO_' + role.upper() + '_USER'):
+        value = os.environ.get(name)
+        if value:
+            return value
+    return USERS[role]
+
 
 @dataclass
 class Command:
@@ -31,6 +47,18 @@ class Command:
 
 class IdentityUnsafe(RuntimeError):
     pass
+
+
+class IdentityTransient(IdentityUnsafe):
+    """SSH auth refused while a node is still bringing sshd up.
+
+    Paramiko reports "sshd not ready yet" as AuthenticationException rather
+    than ConnectionRefused, so a boot-window read can fail this way and then
+    succeed seconds later. It is still an IdentityUnsafe everywhere else:
+    only the boot-recovery loops treat it as retryable. A changed host key
+    stays a plain IdentityUnsafe and is never retried.
+    """
+
 
 class Transport:
     def __init__(self, credentials, known_hosts):
@@ -75,13 +103,16 @@ class Transport:
         watchdog.start()
         try:
             client.connect(getattr(target, role + "_ip"),
-                           username=os.environ.get(role.upper() + "_USER", USERS[role]),
+                           username=user_for(role),
                            password=self.credentials.get(role), timeout=timeout,
                            banner_timeout=timeout, auth_timeout=timeout,
                            look_for_keys=not bool(self.credentials.get(role)), allow_agent=True)
-        except (paramiko.AuthenticationException, paramiko.BadHostKeyException) as exc:
+        except paramiko.BadHostKeyException as exc:
             client.close()
-            raise IdentityUnsafe(f"{role}: authentication or SSH host key validation failed") from exc
+            raise IdentityUnsafe(f"{role}: SSH host key validation failed") from exc
+        except paramiko.AuthenticationException as exc:
+            client.close()
+            raise IdentityTransient(f"{role}: authentication failed") from exc
         except BaseException:
             # Clean up even on cancellation, then preserve the original exception.
             client.close()
@@ -107,7 +138,7 @@ class Transport:
             channel = client.get_transport().open_session(timeout=min(10, timeout / 4))
             channel.set_combine_stderr(True)
             channel.settimeout(max(1, timeout - (time.monotonic() - start)))
-            sudo = sudo and os.environ.get(role.upper() + "_USER", USERS[role]) != "root"
+            sudo = sudo and user_for(role) != "root"
             if sudo:
                 command = "sudo -S -p '' -- sh -c " + shlex.quote(command)
             # Once dispatch starts, a lost reply is ambiguous, never safe to retry.
@@ -197,6 +228,26 @@ class Transport:
         finally:
             watchdog.cancel()
             client.close()
+
+    def tcp_probe(self, target, role, ports=(22, 443), timeout=5):
+        """Which of ``ports`` accept a TCP connection on ``role``'s address.
+
+        Used for the BF4 DPU endpoints, where "the card is back" is a weaker
+        question than "the login works". A card that answers on 443 but refuses
+        SSH is still a finding, but it is a different finding from a card that
+        answers on nothing, and the report has to be able to tell them apart.
+        """
+        host = getattr(target, role + "_ip", "")
+        if not host:
+            return []
+        open_ports = []
+        for port in ports:
+            try:
+                with socket.create_connection((host, port), timeout=timeout):
+                    open_ports.append(port)
+            except (OSError, ValueError):
+                continue
+        return open_ports
 
     def oob(self, target, command, timeout=30):
         env = os.environ.copy()

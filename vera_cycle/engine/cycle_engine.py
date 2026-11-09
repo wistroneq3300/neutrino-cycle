@@ -49,7 +49,7 @@ from vera_cycle.core.cycle_core import (
     sensor_issues,
     write_json,
 )
-from vera_cycle.core.cycle_transport import Command, IdentityUnsafe
+from vera_cycle.core.cycle_transport import Command, IdentityTransient, IdentityUnsafe
 
 # P5032 MCTP stressor: BMC-side PLDM GetFirmwareParameters stressor. EID 16/17
 # are CPU0/CPU1 on the saved P5032 BMC configuration.
@@ -118,6 +118,23 @@ def _entry_field(entry, field):
 PACKAGES = {"lspci": "pciutils", "dmidecode": "dmidecode", "nvme": "nvme-cli",
             "ipmitool": "ipmitool", "lsusb": "usbutils", "ip": "iproute2"}
 SENSOR_RETRY_DELAY = 10
+# wait_boot() returns the moment the kernel boot ID changes, which can
+# precede a usable sshd by seconds. The first identity read after that
+# transition is therefore a transient, not an unrecoverable failure.
+IDENTITY_SETTLE_DELAY = 10
+IDENTITY_SETTLE_TRIES = 3
+# Measured on Neutrino7-n0 during a power cycle: the DPU OS comes up *before*
+# the host OS, and once the host's boot ID had changed the card answered in
+# under 6 seconds. The window below is therefore generous rather than tight --
+# it exists to give an intermittently-slow card room, not because the card is
+# normally slow. The check runs after the host's own checks, so this wait never
+# delays the host verdict.
+BF4_SETTLE_TIMEOUT = 120
+BF4_POLL_INTERVAL = 10
+# One failed window is a WARN; the failure being hunted is intermittent, so a
+# single refusal is not proof. Two loops in a row is.
+BF4_FAIL_CONFIRMATIONS = 2
+BF4_ROLES = ("bf4_os", "bf4_bmc")
 IDENTITY = "printf 'HOSTNAME='; hostname; printf 'BOOT_ID='; cat /proc/sys/kernel/random/boot_id"
 CAPTURES = {
     "pci": ("lspci -Dnn", False), "pci_tree": ("lspci -Dtv", False),
@@ -136,7 +153,7 @@ class BootNotConfirmed(ConnectionError):
 def new_record(phase):
     return dict(phase=phase, started=now(), finished=None, status="PENDING", issues=[],
                 evidence=[], commands={}, identities={}, identity_observations=[],
-                observation_status={}, pci={}, pci_devices={}, sensors=[], action=[], recovery={},
+                observation_status={}, pci={}, pci_devices={}, sensors=[], action=[], recovery={}, bf4={},
                 # Marks records written by the SEL evidence-aware schema.  The
                 # renderer uses this to distinguish an unfinished new record
                 # from an old record that never retained SEL metadata.
@@ -339,6 +356,133 @@ class NodeSession:
         if delay > 0:
             time.sleep(delay)
 
+    def identity_after_boot(self, record, role, stem=None):
+        """Identity read taken immediately after a confirmed boot transition.
+
+        ``wait_boot`` returns as soon as the OS boot ID changes, which can be
+        before sshd accepts connections. A single refused connection there is a
+        transient, not the "unrecoverable SSH failure" that AGENTS.md allows to
+        stop a node, so it is retried a bounded number of times. Only reads are
+        retried: a dispatched power action stays ambiguous and is never resent.
+
+        Retry bookkeeping keeps the first observation, matching the sensor
+        path, and records how many attempts a successful read needed so an
+        intermittent post-boot sshd stays visible instead of being masked.
+        """
+        last = None
+        for attempt in range(1, IDENTITY_SETTLE_TRIES + 1):
+            if attempt > 1:
+                time.sleep(IDENTITY_SETTLE_DELAY)
+            try:
+                current = self.identity(record, role, stem if attempt == 1 else None,
+                                        save_evidence=False, record_command=False)
+            except IdentityTransient as exc:
+                # sshd was still starting; the same read succeeds once it is up.
+                last = exc
+                continue
+            except ConnectionError as exc:
+                last = exc
+                continue
+            if attempt > 1:
+                self.add(record, 'IDENTITY_SETTLE', role,
+                         f"{role} identity needed {attempt} attempt(s) after boot; "
+                         "post-boot SSH was transiently unavailable",
+                         severity='INFO')
+            return current
+        raise last
+
+    def bf4_settle_timeout(self):
+        value = getattr(self.options, 'bf4_settle_timeout', None)
+        return BF4_SETTLE_TIMEOUT if value is None else max(0.0, float(value))
+
+    def bf4_endpoints(self):
+        return [(role, getattr(self.target, role + '_ip'), getattr(self.target, role + '_hostname'))
+                for role in BF4_ROLES if getattr(self.target, role + '_ip', '')]
+
+    def check_bf4_endpoints(self, record):
+        """Confirm the BF4 card's own DPU OS and BMC answer after the cycle.
+
+        ``lspci`` proves the card is still enumerated by the host, which is all
+        the hardware script can see. It cannot tell a healthy card from one
+        whose DPU OS failed to boot, and that is the reported failure mode: the
+        host comes up, the PCIe function is still there, and the card never
+        becomes reachable. This check answers the operator's question directly
+        by logging in to the card.
+
+        Called after the host's own checks have completed, so the card has had
+        the whole POST to boot and can never hold up the host verdict. Each
+        endpoint is retried until it answers or the settle window closes, and
+        the elapsed time is recorded either way: a card that used to answer in
+        seconds and now needs a minute is degrading while it still passes.
+
+        The failure being hunted is intermittent, so a single refusal is not
+        treated as proof. One failed window is a WARN with the evidence kept;
+        only ``BF4_FAIL_CONFIRMATIONS`` consecutive failures are raised to FAIL.
+        """
+        endpoints = self.bf4_endpoints()
+        if not endpoints:
+            return
+        window = self.bf4_settle_timeout()
+        confirmed = getattr(self.options, 'bf4_fail_confirmations', None)
+        confirmations = max(1, BF4_FAIL_CONFIRMATIONS if confirmed is None else int(confirmed))
+        for role, _, _ in endpoints:
+            started = time.monotonic()
+            limit = started + window
+            attempts = 0
+            last = 'no attempt made'
+            reachable = False
+            while True:
+                attempts += 1
+                try:
+                    # No hostname expectation here: the DPU OS answers as
+                    # ``localhost.localdomain`` and the BMC as ``dpu-bmc``, so
+                    # "did the card come back" is answered by a successful login
+                    # plus a boot ID, never by matching the tray/node name.
+                    ident = self.identity(record, role, f'{role}_after_cycle',
+                                          timeout=min(20, max(1, limit - time.monotonic())),
+                                          save_evidence=False, record_command=False,
+                                          check_hostname=False)
+                except IdentityUnsafe:
+                    raise
+                except (ConnectionError, TimeoutError, OSError) as exc:
+                    last = f'{type(exc).__name__}: {exc}'
+                    if time.monotonic() + BF4_POLL_INTERVAL >= limit:
+                        break
+                    time.sleep(BF4_POLL_INTERVAL)
+                    continue
+                reachable = True
+                elapsed = time.monotonic() - started
+                self.command(record, f'{role}_reachable', role,
+                             IDENTITY, timeout=20, check=False)
+                self.stage(f'BF4 {role} reachable after {elapsed:.1f}s')
+                record.setdefault('bf4', {})[role] = dict(
+                    reachable=True, seconds=round(elapsed, 1), attempts=attempts,
+                    hostname=ident.get('hostname', ''), boot_id=ident.get('boot_id', ''))
+                break
+            if reachable:
+                self.node.setdefault('bf4_failures', {})[role] = 0
+                continue
+            elapsed = time.monotonic() - started
+            streak = self.node.setdefault('bf4_failures', {}).get(role, 0) + 1
+            self.node['bf4_failures'][role] = streak
+            ports = self.transport.tcp_probe(self.target, role) \
+                if hasattr(self.transport, 'tcp_probe') else []
+            record.setdefault('bf4', {})[role] = dict(
+                reachable=False, seconds=round(elapsed, 1), attempts=attempts,
+                last_error=last, open_ports=ports, consecutive_failures=streak)
+            detail = (f"{role} {self._bf4_addr(role)} did not answer within {window:.0f}s "
+                      f"after the host checks finished ({attempts} attempt(s), last: {last}); "
+                      f"listening TCP ports: {ports if ports else 'none'}. The host OS is up, "
+                      f"so this is the card's own DPU/BMC that failed to come back "
+                      f"({streak} consecutive failing loop(s))")
+            self.add(record, 'BF4_ENDPOINT_UNREACHABLE', role, detail,
+                     severity='FAIL' if streak >= confirmations else 'WARN')
+
+    def _bf4_addr(self, role):
+        ip = getattr(self.target, role + '_ip', '')
+        host = getattr(self.target, role + '_hostname', '')
+        return f'{host} ({ip})' if host else ip
+
     def command(self, record, stem, role, cmd, sudo=False, timeout=90, check=True,
                 save_evidence=True, record_command=True, include_output=True, filter_output=None):
         try:
@@ -376,8 +520,12 @@ class NodeSession:
         return result
 
     def identity(self, record, role, stem=None, timeout=30, save_evidence=True, record_command=True,
-                 strict_hostname=False):
-        expected = getattr(self.target, role + "_hostname")
+                 strict_hostname=False, check_hostname=True):
+        # The BF4 DPU OS reports ``localhost.localdomain`` and its BMC reports
+        # ``dpu-bmc``: neither is the tray/node name held in the inventory, so
+        # a hostname comparison there can only ever fail. Those endpoints are
+        # judged by reachability plus a valid boot ID instead.
+        expected = getattr(self.target, role + "_hostname") if check_hostname else ""
         try:
             result = self.command(record, stem or (role + "_identity"), role, IDENTITY, timeout=timeout,
                                   check=False, save_evidence=save_evidence, record_command=record_command)
@@ -407,7 +555,7 @@ class NodeSession:
         mismatch = bool(expected and (
             (not actual) or actual.lower().rstrip(".") != expected.lower().rstrip(".")
         ))
-        invalid_boot_id = role == 'os' and not re.fullmatch(r"[0-9a-fA-F-]{36}", boot_id)
+        invalid_boot_id = role in ('os',) + BF4_ROLES and not re.fullmatch(r"[0-9a-fA-F-]{36}", boot_id)
         # Retain a compact trace of meaningful identity checks.  Polling while
         # waiting for a boot can run hundreds of times, so successful anonymous
         # polls are omitted; named stages, normal recorded checks, and every
@@ -436,7 +584,16 @@ class NodeSession:
                              severity='FAIL',
                              evidence=record.get('commands', {}).get(stem or (role + "_identity"), {}).get('evidence', ''))
         if invalid_boot_id:
-            raise IdentityUnsafe("OS did not provide a valid boot ID")
+            if role in BF4_ROLES:
+                # A BF4 endpoint that answers without a readable boot ID is a
+                # finding, not a reason to abandon the node: the card is up
+                # enough to log in to, which is what the operator asked for.
+                self.add(record, 'BF4_BOOT_ID_UNAVAILABLE', role,
+                         f"{role} {self._bf4_addr(role)} answered but did not report a valid "
+                         f"boot ID ('{boot_id}'); reachability confirmed, reboot identity not",
+                         severity='WARN')
+            else:
+                raise IdentityUnsafe("OS did not provide a valid boot ID")
         record["identities"][role] = dict(hostname=actual, boot_id=boot_id)
         return record["identities"][role]
 
@@ -1349,6 +1506,8 @@ class NodeSession:
             # so this is the last chance to refuse a machine that does not match
             # the inventory without having touched it.
             for role, _, _ in self.target.endpoints():
+                if role in BF4_ROLES:
+                    continue
                 self.identity(record, role, strict_hostname=True)
             uid = self.command(record, "root_uid", "os", "id -u", sudo=True, check=False)
             if uid.code or uid.output.strip() != "0":
@@ -1937,6 +2096,8 @@ class NodeSession:
             # START re-verifies identity before the first loop; the operator is
             # about to hand the run over, so a wrong machine still stops here.
             for role, _, _ in self.target.endpoints():
+                if role in BF4_ROLES:
+                    continue
                 self.identity(record, role, strict_hostname=True)
             if self.expected_boot and record['identities']['os']['boot_id'] != self.expected_boot:
                 raise IdentityUnsafe('OS rebooted while awaiting PRE approval; reviewed baseline is no longer current')
@@ -1963,14 +2124,20 @@ class NodeSession:
                     # Aux cycles can leave the BMC or Lily SSH service behind the
                     # host boot. Retry transient transport failures to the same
                     # deadline, without requiring their boot IDs to change.
+                    # BF4 endpoints are excluded: the DPU boots minutes behind
+                    # the host, and waiting for it here would turn a normal boot
+                    # into the host's own BOOT_TIMEOUT.
                     for role, _, _ in self.target.endpoints():
-                        if role != 'os':
+                        if role != 'os' and role not in BF4_ROLES:
                             remaining = deadline - time.monotonic()
                             if remaining <= 0:
                                 raise ConnectionError('Recovery deadline reached')
                             self.identity(record, role, timeout=min(20, remaining),
                                           save_evidence=False, record_command=False)
                     return True
+            except IdentityTransient:
+                # Boot window: sshd refuses auth until it is ready. Keep polling.
+                pass
             except IdentityUnsafe:
                 raise
             except ConnectionError:
@@ -2044,6 +2211,8 @@ class NodeSession:
             # operator reviewed, so it must not be power-cycled. Raising
             # IdentityUnsafe deactivates only this node; the other nodes continue.
             for role, _, _ in self.target.endpoints():
+                if role in BF4_ROLES:
+                    continue
                 self.identity(record, role, role + "_before_cycle",
                               save_evidence=False, record_command=False,
                               strict_hostname=True)
@@ -2104,12 +2273,15 @@ class NodeSession:
                 recovered = False
                 record["recovery"]["boot_changed"] = False
             # Even a rejected power action receives POST while the OS is available.
-            self.identity(record, "os", "os_after_cycle",
-                          save_evidence=False, record_command=False)
+            # Retried: the boot transition can precede a usable sshd.
+            self.identity_after_boot(record, "os", "os_after_cycle")
+            # BF4 endpoints are deliberately NOT checked here. They are read
+            # after the host's own checks finish: the card is an independent
+            # machine that must not be able to delay or fail the host verdict,
+            # and by then it has had as long as the POST took to come up.
             for role, _, _ in self.target.endpoints():
-                if role != "os":
-                    self.identity(record, role, role + "_after_cycle",
-                                  save_evidence=False, record_command=False)
+                if role != "os" and role not in BF4_ROLES:
+                    self.identity_after_boot(record, role, role + "_after_cycle")
             expected_post_boot = record['recovery']['new_boot_id'] if recovered else old_boot
             record['recovery']['post_entry_boot_id'] = record['identities']['os']['boot_id']
             if record['identities']['os']['boot_id'] != expected_post_boot:
@@ -2133,6 +2305,13 @@ class NodeSession:
                 self.stage(f"MCTP stress EID {eid}")
                 self.run_mctp_stressor(record, f'mctp_stress_{eid}', eid, cpu, '--stop-pldmd', judge=True)
             self.collect_bmc_dmesg(record)
+            # The BF4 card's own DPU OS and BMC are read last, after every host
+            # check has completed. That ordering is the point: a card that is
+            # slow or dead must never change whether the *host* passed, and by
+            # now it has had the whole POST to boot. Retried, because the
+            # failure being hunted is intermittent and a single refused
+            # connection is not evidence of it.
+            self.check_bf4_endpoints(record)
             self.expected_boot = post_boot
             self.stage("system check done")
             if recovered and record.get("power_on"):

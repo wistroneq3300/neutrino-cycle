@@ -423,6 +423,8 @@ _LABELS = {
     'NIC_MISSING': 'NIC removed (present at PRE, absent after loop)',
     'NIC_SLOT': 'NIC slot inventory',
     'BF4': 'BF4 validation', 'BF4_IDENTITIES': 'BF4 identities',
+    'bf4_os': 'BF4 DPU OS (card reachable)', 'bf4_bmc': 'BF4 BMC (card reachable)',
+    'bf4_os_reachable': 'BF4 DPU OS login', 'bf4_bmc_reachable': 'BF4 BMC login',
     'PCI': 'PCI inventory', 'PCIe': 'PCIe validation', 'PCIeFAB': 'PCIeFAB bridge inventory', 'sensor': 'Sensors',
     'USB_DRIFT': 'USB device removed (present at PRE, absent after loop)',
     'NET_DRIFT': 'Network interface removed (present at PRE, absent after loop)',
@@ -792,6 +794,57 @@ def _render_summary_groups(record):
     return '<div class="summary-groups">' + ''.join(html_groups) + '</div>'
 
 
+def _render_bf4_group(record):
+    """Render the BF4 DPU OS / BMC post-reboot reachability block.
+
+    Deliberately silent unless something failed: a healthy card produces no
+    output at all, so the report stays as short as it is today and this block
+    only appears when the operator has a card to look at. The timing is kept in
+    the same row because "it came back, but it took 170s" is the early warning
+    that the failure is developing.
+    """
+    bf4 = record.get('bf4') or {}
+    if not bf4:
+        return ''
+    issues = [i for i in record.get('issues', [])
+              if i.get('component') in {'bf4_os', 'bf4_bmc'}
+              or str(i.get('code', '')).startswith('BF4_')]
+    failed = [i for i in issues if i.get('severity') in {'FAIL', 'WARN'}]
+    if not failed:
+        return ''
+    result = 'FAIL' if any(i['severity'] == 'FAIL' for i in issues) else 'WARN'
+    rows = []
+    for role in ('bf4_os', 'bf4_bmc'):
+        state = bf4.get(role) or {}
+        role_issues = [i for i in issues if i.get('component') == role]
+        role_result = ('FAIL' if any(i['severity'] == 'FAIL' for i in role_issues)
+                       else 'WARN' if role_issues else 'PASS')
+        label = _check_label(role)
+        if state.get('reachable'):
+            detail = (f"Reachable after {state.get('seconds', '?')}s "
+                      f"({state.get('attempts', '?')} attempt(s)); "
+                      f"hostname '{state.get('hostname', '') or '—'}', "
+                      f"boot ID {state.get('boot_id', '') or '—'}")
+        elif state:
+            detail = (f"No answer within the BF4 settle window "
+                      f"({state.get('attempts', '?')} attempt(s)); "
+                      f"last error: {state.get('last_error', '—')}; "
+                      f"listening TCP ports: {state.get('open_ports') or 'none'}")
+        else:
+            detail = 'Not checked in this phase'
+        if role_issues:
+            detail += '<br><small class="muted">' + '; '.join(
+                esc(i.get('detail', '')) for i in role_issues) + '</small>'
+        evidence = record.get('commands', {}).get(role + '_reachable', {}).get('evidence', '')
+        rows.append(f'<tr><td>{esc(label)}</td><td>{badge(role_result)}</td>'
+                    f'<td>{detail}</td><td>{_record_evidence(record, evidence)}</td></tr>')
+    return (f'<details class="summary-group" open><summary><span>BF4 DPU / BMC after reboot</span> '
+            f'{badge(result)}<span class="summary-meta">{len(failed)} finding(s)</span></summary>'
+            f'<div class="tablewrap"><table><thead><tr><th>Endpoint</th><th>Result</th>'
+            f'<th>Reachability</th><th>Evidence</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table></div></details>')
+
+
 def _render_action(record):
     phase = _phase_kind(record)
     if phase == 'START':
@@ -1155,7 +1208,7 @@ def record_html(record, node_index, baseline=None):
     action = _render_action(record)
     sel = _render_sel(record) + _render_redfish(record)
     return f'''<details id="{phase_id}"><summary><strong>{esc(record['phase'])}</strong> {badge(record['status'])}<span class="phase-count">{esc(_finding_summary(record))} · {esc(duration(record.get('duration_seconds')))} · {esc(record.get('finished') or 'Not finished')}</span></summary><div class="detail-body">
-      {_render_summary_groups(record)}{_render_pci_group(record, baseline) if phase != 'START' or record.get('pci') or record.get('pci_devices') else ''}{_render_mctp_group(record)}{_render_hwfw(record) if phase == 'PRE' else ''}<h3>Findings</h3>{_finding_html(record)}{collection}{sel}<details><summary>{'START preparation and verified identities' if phase == 'START' else 'Cycle action and verified identities' if phase == 'LOOP' else 'Verified identities'}</summary>{action}{identity}</details>
+      {_render_summary_groups(record)}{_render_bf4_group(record)}{_render_pci_group(record, baseline) if phase != 'START' or record.get('pci') or record.get('pci_devices') else ''}{_render_mctp_group(record)}{_render_hwfw(record) if phase == 'PRE' else ''}<h3>Findings</h3>{_finding_html(record)}{collection}{sel}<details><summary>{'START preparation and verified identities' if phase == 'START' else 'Cycle action and verified identities' if phase == 'LOOP' else 'Verified identities'}</summary>{action}{identity}</details>
       <p class="muted">{esc(record.get('sel_review', ''))}</p><details><summary>Original evidence files</summary><ul class="evidence-list">{evidence or '<li>Evidence paths were not recorded.</li>'}</ul></details></div></details>'''
 
 def record_html_compact(record, node_index, baseline=None):

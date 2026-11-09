@@ -19,6 +19,17 @@ SCRIPTS_DIR = REPO_ROOT / "scripts"
 
 ISSUE_POLICY = CONFIG_DIR / "issue_policy.md"
 
+# Operator-supplied logins. Kept per project, because each project has its own
+# machines and its own passwords, and out of git (see .gitignore). Loaded
+# automatically so a campaign does not need the operator to export anything.
+CREDENTIALS_FILE = REPO_ROOT / ".env.credentials"
+
+
+def credentials_path(project: str) -> Path:
+    """Per-project login file, falling back to the repository-wide one."""
+    local = project_dir(project) / ".env.credentials"
+    return local if local.exists() else CREDENTIALS_FILE
+
 REPORTING_ASSETS = PACKAGE_ROOT / "reporting" / "assets"
 REPORT_CSS = REPORTING_ASSETS / "report.css"
 REPORT_JS = REPORTING_ASSETS / "report.js"

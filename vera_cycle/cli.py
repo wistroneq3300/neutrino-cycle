@@ -325,6 +325,32 @@ def safe_checkpoint(output, data, console):
         console(f"Journal checkpoint failed: {exc}. Execution continues; data may be incomplete.")
         return False
 
+def load_credentials_file(path=None):
+    """Load ``.env.credentials`` into the environment if it exists.
+
+    The operator's passwords live in an untracked file rather than in the
+    inventory CSV: the CSV is committed, so a password there would be permanent
+    git history. Values already set in the environment win, so a one-off
+    override on the command line still works.
+    """
+    path = Path(path or paths.CREDENTIALS_FILE)
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        if line.startswith('export '):
+            line = line[len('export '):].lstrip()
+        name, _, value = line.partition('=')
+        name = name.strip()
+        value = value.strip().strip('"').strip("'")
+        if name and name not in os.environ:
+            os.environ[name] = value
+
+
 def campaign(options, targets, credentials, confirm=input, transport_factory=Transport, runtime_root=None):
     console = Console()
     console.node_names = [t.key for t in targets]
@@ -1064,6 +1090,10 @@ def parser():
     p.add_argument('--aux-interval', type=float, default=20.0,
                    help='Seconds between consecutive aux_cycle commands across nodes (0 disables staggering; ignored by other cycle modes)')
     p.add_argument('--poll-interval', type=float, default=10)
+    p.add_argument('--bf4-settle-timeout', type=float, default=120,
+                   help='Seconds to keep retrying each BF4 DPU OS/BMC after the host checks (0 disables the wait)')
+    p.add_argument('--bf4-fail-confirmations', type=int, default=2,
+                   help='Consecutive failing loops before an unreachable BF4 endpoint is a FAIL instead of a WARN')
     p.add_argument('--no-bmc-time-sync', dest='bmc_time_sync', action='store_false',
                    help='Do not point the BMC NTP client at its node before PRE; BMC log timestamps stay unsynchronised')
     p.add_argument('--bmc-log-mode', choices=('per-loop', 'final-only'), default='final-only',
@@ -1136,6 +1166,7 @@ def main(argv=None):
             print('Campaign not started. Fill the real hostnames and resolve inventory conflicts.')
             return 2
         roles = {role for t in targets if t.key not in blocks for role, _, _ in t.endpoints()}
+        load_credentials_file(paths.credentials_path(options.project))
         credentials = {}
         for role in ROLES:
             if role in roles:

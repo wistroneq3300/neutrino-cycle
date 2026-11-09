@@ -21,3 +21,8 @@ ux-bak/
 campaigns/
 campaigns/**/.ssh/
 campaigns/**/.report-writer.lock
+
+# Cycle credentials (real passwords live here, never in git)
+.env.credentials
+*.env.credentials
+.bak-*/

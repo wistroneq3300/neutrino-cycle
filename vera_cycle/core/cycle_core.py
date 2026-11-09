@@ -17,7 +17,10 @@ from pathlib import Path
 
 from vera_cycle.core.cycle_dmesg import dmesg_issues
 
-ROLES = ("bmc", "os", "lily_bmc", "lily_os")
+# ``bf4_os``/``bf4_bmc`` are the BlueField-4 card's own DPU OS and BMC. They are
+# optional: an inventory without those columns simply skips the BF4 endpoint
+# checks, and every existing campaign keeps its current behaviour.
+ROLES = ("bmc", "os", "lily_bmc", "lily_os", "bf4_os", "bf4_bmc")
 
 LOG_TIMEZONE = timezone(timedelta(hours=8), name="UTC+8")
 
@@ -55,6 +58,10 @@ class Target:
     lily_os_ip: str = ""
     lily_bmc_hostname: str = ""
     lily_os_hostname: str = ""
+    bf4_os_ip: str = ""
+    bf4_bmc_ip: str = ""
+    bf4_os_hostname: str = ""
+    bf4_bmc_hostname: str = ""
 
     @property
     def key(self):
