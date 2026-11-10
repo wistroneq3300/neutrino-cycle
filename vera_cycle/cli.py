@@ -1086,7 +1086,11 @@ def parser():
     p.add_argument('--hours', type=float, default=0)
     p.add_argument('--cycle-mode', choices=('reboot', 'power_cycle', 'aux_cycle'), default='power_cycle')
     p.add_argument('--channel', choices=('inband', 'outband'), default='inband')
-    p.add_argument('--boot-timeout', type=float, default=900)
+    p.add_argument('--boot-timeout', type=float, default=1800,
+                   help='Total seconds to wait for the OS after a cycle before the loop fails. '
+                        'A boot that overruns %ds is still followed (polling every %ds) and '
+                        'recorded as BOOT_SLOW, because a slow machine is not a failed one'
+                        % (900, 60))
     p.add_argument('--aux-interval', type=float, default=20.0,
                    help='Seconds between consecutive aux_cycle commands across nodes (0 disables staggering; ignored by other cycle modes)')
     p.add_argument('--poll-interval', type=float, default=10)
@@ -1096,6 +1100,12 @@ def parser():
                    help='Consecutive failing loops before an unreachable BF4 endpoint is a FAIL instead of a WARN')
     p.add_argument('--no-bmc-time-sync', dest='bmc_time_sync', action='store_false',
                    help='Do not point the BMC NTP client at its node before PRE; BMC log timestamps stay unsynchronised')
+    p.add_argument('--ntp-servers', default='',
+                   help='Comma-separated upstream NTP servers written to each node\'s chrony '
+                        'configuration; empty uses the built-in plain-NTP defaults')
+    p.add_argument('--ntp-allow', default='',
+                   help='Subnet allowed to query each node as an NTP server (e.g. 10.36.72.0/22); '
+                        'empty leaves chrony closed to clients')
     p.add_argument('--bmc-log-mode', choices=('per-loop', 'final-only'), default='final-only',
                    help=argparse.SUPPRESS)
     p.add_argument('--memory-min-ratio', type=float, default=0.90, help='Minimum OS MemTotal / installed SMBIOS capacity (0 < ratio <= 1)')

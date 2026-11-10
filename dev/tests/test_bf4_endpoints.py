@@ -14,7 +14,7 @@ import os
 os.environ.setdefault('VERA_CAMPAIGN_TMP', _tempfile.mkdtemp(prefix='vera-campaign-tmp-'))
 
 from vera_cycle import paths
-from vera_cycle.core.cycle_core import Target, parse_policy
+from vera_cycle.core.cycle_core import Target, aggregate_issues, health, parse_policy
 from vera_cycle.core.cycle_transport import Command, IdentityTransient, IdentityUnsafe
 from vera_cycle.engine import cycle_engine
 from vera_cycle.engine.cycle_engine import NodeSession, new_record
@@ -129,15 +129,24 @@ class Bf4EndpointTests(unittest.TestCase):
         self.assertEqual([i for i in record['issues'] if i['code'] == 'HOSTNAME_MISMATCH'], [])
         self.assertEqual(record['bf4']['bf4_os']['hostname'], 'localhost.localdomain')
 
-    def test_first_unreachable_loop_is_only_a_warning(self):
+    def test_first_unreachable_loop_is_only_info(self):
         transport = FakeBf4Transport(up=())
         session = self.session(transport)
         record = loop_record()
         session.check_bf4_endpoints(record)
         issues = [i for i in record['issues'] if i['code'] == 'BF4_ENDPOINT_UNREACHABLE']
         self.assertEqual(len(issues), 2)
-        self.assertTrue(all(i['severity'] == 'WARN' for i in issues))
+        # A missed window below the threshold is boot jitter: recorded for the
+        # trend, but it must not move the case verdict at all.
+        self.assertTrue(all(i['severity'] == 'INFO' for i in issues))
         self.assertEqual(session.node['bf4_failures']['bf4_os'], 1)
+
+    def test_info_below_threshold_does_not_change_health(self):
+        transport = FakeBf4Transport(up=())
+        session = self.session(transport)
+        record = loop_record()
+        session.check_bf4_endpoints(record)
+        self.assertEqual(health(aggregate_issues({'nodes': [session.node]})), 'PASS')
 
     def test_third_consecutive_loop_fails(self):
         transport = FakeBf4Transport(up=())
@@ -146,8 +155,8 @@ class Bf4EndpointTests(unittest.TestCase):
             record = loop_record(number)
             session.check_bf4_endpoints(record)
             issues = [i for i in record['issues'] if i['code'] == 'BF4_ENDPOINT_UNREACHABLE']
-            self.assertTrue(all(i['severity'] == 'WARN' for i in issues),
-                            f'loop {number} must still be a WARN')
+            self.assertTrue(all(i['severity'] == 'INFO' for i in issues),
+                            f'loop {number} must still be INFO')
         record = loop_record(3)
         session.check_bf4_endpoints(record)
         issues = [i for i in record['issues'] if i['code'] == 'BF4_ENDPOINT_UNREACHABLE']

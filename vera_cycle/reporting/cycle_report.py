@@ -16,6 +16,7 @@ from urllib.parse import quote
 from vera_cycle import paths
 from vera_cycle.core.cycle_core import aggregate_issues, atomic_write, display_component, health, now, parse_mctp_stressor, write_json
 from vera_cycle.core.cycle_storage import report_writer_lock, reject_live_rebuild
+from vera_cycle.engine.cycle_engine import BOOT_SLOW_THRESHOLD
 
 ASSETS = paths.REPORTING_ASSETS
 
@@ -861,7 +862,13 @@ def _render_action(record):
     rows = ''.join(f'<tr><td><code>{esc(a.get("command", ""))}</code></td><td>{esc(a.get("role", ""))}</td><td>{badge(a.get("state", "UNKNOWN"))}</td><td>{esc(a.get("code", ""))}</td></tr>' for a in record.get('action', []))
     recovery = record.get('recovery') or {}
     action = '<h3>Cycle action and recovery</h3><div class="tablewrap"><table><thead><tr><th>Command</th><th>Channel endpoint</th><th>Result</th><th>Exit code</th></tr></thead><tbody>' + (rows or '<tr><td colspan="4">No cycle action was dispatched.</td></tr>') + '</tbody></table></div>'
-    action += facts([('OS boot changed', 'Yes' if recovery.get('boot_changed') else 'No / not confirmed'), ('Recovery attempts', recovery.get('attempts', 'Not recorded')), ('Before boot ID', recovery.get('old_boot_id', 'Not recorded')), ('After boot ID', recovery.get('new_boot_id', 'Not recorded'))])
+    boot_seconds = recovery.get('boot_seconds')
+    boot_note = 'Not recorded'
+    if boot_seconds is not None:
+        boot_note = f'{float(boot_seconds):.0f}s'
+        if float(boot_seconds) > BOOT_SLOW_THRESHOLD:
+            boot_note += f' (over {BOOT_SLOW_THRESHOLD}s limit, still completed)'
+    action += facts([('OS boot changed', 'Yes' if recovery.get('boot_changed') else 'No / not confirmed'), ('Recovery attempts', recovery.get('attempts', 'Not recorded')), ('Time to reach OS', boot_note), ('Before boot ID', recovery.get('old_boot_id', 'Not recorded')), ('After boot ID', recovery.get('new_boot_id', 'Not recorded'))])
     return action
 
 

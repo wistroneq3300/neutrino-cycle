@@ -22,6 +22,130 @@ CLOCK_TOLERANCE_SECONDS = 120
 VERIFY_ATTEMPTS = 6
 VERIFY_INTERVAL = 5.0
 
+# The node's own clock only has to line up well enough that timestamps from
+# different nodes land in the same minute. Stricter than the BMC window so a
+# node still stepping is not reported as synced.
+NODE_CLOCK_TOLERANCE_SECONDS = 60
+
+# chrony needs a couple of exchanges before it will step the clock, so a node
+# that was just started is not wrong at 30s - it is simply not finished.
+NODE_VERIFY_ATTEMPTS = 24
+NODE_VERIFY_INTERVAL = 5.0
+
+# Poll budget after a direct DateTime write. The value is applied synchronously
+# by the BMC, so this only covers the read-back round trip.
+DIRECT_VERIFY_ATTEMPTS = 3
+DIRECT_VERIFY_INTERVAL = 1.0
+
+# A BMC rejects a DateTime write while its NTP client is enabled ("its value
+# would conflict with ... NTPProcotolEnabled"), so a forced sync has to disable
+# NTP first and may need a moment before the manager accepts the write.
+FORCE_PAUSE_SECONDS = 2.0
+
+
+def parse_uptime(text):
+    """Return the node's uptime in seconds from ``/proc/uptime``, or None."""
+    if not text:
+        return None
+    parts = str(text).split()
+    if not parts:
+        return None
+    try:
+        value = float(parts[0])
+    except ValueError:
+        return None
+    return value if value >= 0 else None
+
+
+def node_clock_ok(uptime_seconds, tolerance=CLOCK_TOLERANCE_SECONDS):
+    """Decide whether a node's clock is plausible enough to be a time source.
+
+    A node that booted long ago whose clock still reads 2000 is running on a
+    dead RTC and cannot serve time. ``None`` is not evidence either way, so it
+    is treated as usable and the caller falls back to the plain NTP path.
+    """
+    if uptime_seconds is None:
+        return True
+    return uptime_seconds <= tolerance * 10
+
+
+def serving_ntp(listen_output):
+    """True when a node's ``ss -lun`` output shows a UDP listener on port 123.
+
+    Pointing the BMC at a node that does not answer NTP is the failure this
+    check exists to name. An empty or unparsable output is read as "not
+    serving", because the check exists to prove service, not to assume it.
+    """
+    if not listen_output:
+        return False
+    for line in str(listen_output).splitlines():
+        fields = line.split()
+        if not fields:
+            continue
+        # ss prints the local address in a different column depending on
+        # whether the netid was merged; match the port suffix so both layouts
+        # are covered.
+        for field in fields:
+            address = field.rsplit("@", 1)[0]
+            if address.endswith(":123") or address.endswith(".123"):
+                return True
+    return False
+
+
+def utc_now_text(reference):
+    """Format an aware UTC datetime as the Redfish ``DateTime`` string."""
+    return reference.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+
+
+# Ubuntu ships its NTP pools with ``nts prefer``. NTS needs a key exchange on
+# 4460/tcp before any time is exchanged, and that port is commonly blocked in a
+# lab network: chrony then sits at Reach=0 with every source at stratum 0 while
+# plain UDP/123 works fine.
+DEFAULT_SOURCES = ("185.125.190.58", "91.189.91.157")
+
+# ``sourcedir`` entries must end in ``.sources``; chrony silently ignores any
+# other suffix, which would leave the node unreachable with no error.
+SOURCES_FILE = "/etc/chrony/sources.d/cycle-ntp.sources"
+ALLOW_FILE = "/etc/chrony/conf.d/cycle-allow.conf"
+
+# Pool file shipped by the package that carries the NTS pools which never sync
+# on a filtered network. Renamed rather than deleted so the change is
+# reversible from the node itself.
+NTS_POOL_GLOB = "/etc/chrony/sources.d/ubuntu-ntp-pools.sources"
+
+
+def sources_text(servers):
+    """Render a chrony ``.sources`` file from a list of server addresses."""
+    lines = [f'server {server.strip()} iburst' for server in servers if str(server).strip()]
+    return "\n".join(lines) + "\n" if lines else ""
+
+
+def allow_text(network):
+    """Render a chrony ``allow`` line for the BMC subnet, or '' when unset."""
+    network = str(network or '').strip()
+    return f'allow {network}\n' if network else ""
+
+
+def local_date_plausible(epoch_seconds, reference_epoch, tolerance=NODE_CLOCK_TOLERANCE_SECONDS):
+    """True when a reported epoch is near the orchestrator's own clock."""
+    if epoch_seconds is None or reference_epoch is None:
+        return False
+    try:
+        return abs(int(epoch_seconds) - int(reference_epoch)) <= tolerance
+    except (TypeError, ValueError):
+        return False
+
+
+def parse_epoch(text):
+    """Parse a bare integer epoch from a command output, or None."""
+    if not text:
+        return None
+    value = str(text).strip().splitlines()[0].strip() if str(text).strip() else ""
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
 
 def manager_id(payload):
     """Return the first Manager id from a /Managers collection payload.
