@@ -1084,6 +1084,13 @@ class NodeSession:
                 record["issues"] += bmc_usb_issues(self.baseline["bmc_usb"], record["bmc_usb"])
         else:
             record['observation_status']['bmc_usb'] = 'UNAVAILABLE'
+        # BMC FRU inventory: SSH into the BMC and run the in-band `ipmitool fru
+        # list`. Collected purely for the record -- no baseline, no comparison,
+        # and deliberately no finding of any severity, so a missing or unreadable
+        # FRU can never change a loop's PASS/FAIL. PRE refreshes it without
+        # persisting evidence; every LOOP keeps its own bmc_fru.txt.
+        self.command(record, "bmc_fru", "bmc", "ipmitool fru list", timeout=60,
+                     check=False, save_evidence=post, record_command=post)
         try:
             self.ensure_verified_script(record)
         except IdentityUnsafe:

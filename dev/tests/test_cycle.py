@@ -103,6 +103,11 @@ class FakeTransport:
             return Command(0, '' if self.empty_baseline else PCI.splitlines()[0] if self.pci_drift and self.boots.get(t.key) == 1 else PCI)
         if cmd == 'lsusb -tv':
             return Command(0, BMC_USB_TREE)
+        if cmd == 'ipmitool fru list':
+            return Command(0, 'FRU Device Description : Builtin FRU Device (ID 0)\n'
+                              'FRU Device Description : ProcMod_0 (ID 10)\n'
+                              'FRU Device Description : BMC_FRU (ID 57)\n'
+                              'FRU Device Description : StorageBackplane (ID 60)\n')
         if 'dmesg -c | grep' in cmd:
             return Command(0, '')
         if (cmd.startswith('bash ') or cmd.startswith('MEMORY_MIN_RATIO=')):
@@ -579,6 +584,36 @@ class EngineTests(unittest.TestCase):
         self.session.precheck()
         self.assertFalse(self.session.node['blocked'])
         self.session.start()
+
+    def test_loop_records_bmc_fru_without_any_finding(self):
+        # FRU is collected every loop for the record only: the evidence file and
+        # the command entry exist, but no issue of any severity is produced, so
+        # it can never change the loop verdict.
+        self.ready()
+        result = self.session.one_loop(1)
+        self.assertIn('bmc_fru', result['commands'])
+        self.assertEqual(result['commands']['bmc_fru']['code'], 0)
+        fru_path = self.root / self.session.target.key / 'loop0001' / 'bmc_fru.txt'
+        self.assertTrue(fru_path.exists(), 'LOOP must persist bmc_fru.txt')
+        self.assertEqual([i for i in result['issues'] if 'fru' in (i.get('code','') + i.get('device','')).lower()], [])
+
+    def test_bmc_fru_failure_is_never_an_issue(self):
+        # A failed or unreadable FRU collection produces no finding at all.
+        self.ready()
+        original = self.fake.ssh
+        def ssh(t, role, cmd, timeout=60, sudo=False):
+            if cmd == 'ipmitool fru list':
+                return Command(1, 'FRU read failed')
+            return original(t, role, cmd, timeout, sudo)
+        with patch.object(self.fake, 'ssh', side_effect=ssh):
+            result = self.session.one_loop(1)
+        self.assertEqual([i for i in result['issues'] if 'fru' in (i.get('code','') + i.get('device','')).lower()], [])
+
+    def test_pre_bmc_fru_not_persisted(self):
+        # PRE refreshes FRU without persisting evidence or a command entry.
+        self.ready()
+        self.assertFalse((self.root / self.session.target.key / 'pre_bmc_fru.txt').exists())
+        self.assertFalse((self.root / self.session.target.key / 'bmc_fru.txt').exists())
 
     def test_sel_uses_before_snapshot_not_previous_post(self):
         self.ready()
