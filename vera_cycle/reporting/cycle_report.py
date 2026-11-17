@@ -1752,7 +1752,21 @@ def render_html(campaign, console_log=''):
         i = indices[node['key']]
         node_items = [item for item in items if item['node'] == node['key']]
         health_value = health(node_items)
-        state = 'BLOCKED' if node['blocked'] else 'STOPPED' if node['stop_reason'] else campaign['state']
+        # Per-node Execution reflects only this node's run-lifecycle:
+        #   BLOCKED  - PRE gate blocked the node from any loop
+        #   STOPPED  - cli.py parallel wrapper marked node.active=False with a stop_reason
+        #   COMPLETE - node retired at the campaign's run limit without an abort
+        #              (legacy behavior previously folded this in with campaign-level
+        #              INCOMPLETE; that conflated a healthy node with a partial run)
+        #   <campaign.state> otherwise, including in-progress states
+        if node['blocked']:
+            state = 'BLOCKED'
+        elif node['stop_reason']:
+            state = 'STOPPED'
+        elif campaign.get('finished') and campaign['state'] in ('COMPLETE', 'INCOMPLETE'):
+            state = 'COMPLETE'
+        else:
+            state = campaign['state']
         note = '; '.join(node['blocked']) or node['stop_reason'] or '; '.join(dict.fromkeys(item['component'] + ': ' + item['code'] for item in node_items)) or 'No findings'
         rows.append(f'<tr><td class="target"><a href="#node-{i}" data-panel="node-{i}">{esc(node["key"])}</a><small>{esc(node["target"]["os_ip"])}</small></td><td>{badge(health_value)}</td><td>{badge(state)}</td><td>{node["completed"]}</td><td>{esc(note)}</td></tr>')
         choices.append(f'<a class="node-choice" href="#node-{i}" data-panel="node-{i}" data-health="{health_value}">{esc(node["key"])} {badge(health_value)}<small>{node["completed"]} loops</small></a>')

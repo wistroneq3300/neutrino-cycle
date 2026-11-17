@@ -1343,230 +1343,99 @@ class NodeSession:
         return None
 
     def sync_bmc_clock(self, record):
-        """Point this BMC's NTP client at its own node before any log is read.
+        """Configure this BMC's own NTP client to point at the upstream servers.
 
-        Runs before ``_prepare_clean_state`` because that step clears the
-        EventLog and SEL: once the clock is right, every entry this campaign
-        produces carries a timestamp that can be matched back to a loop. A
-        BMC that boots at 2000-01-01 would otherwise stamp the whole run with
-        the same meaningless instant.
+        The BMC and its host synchronise independently from the same upstream
+        NTP servers; the BMC is NOT pointed at its own node. A node that is
+        power-cycled mid-test cannot answer on UDP/123, and the previous design
+        reacted to that by DISABLING the BMC's NTP and writing the clock once
+        by hand. Every aux cycle then rebooted the BMC back to its hardware
+        epoch, so the whole run was stamped from the wrong clock.
 
-        Every outcome also reaches the operator as a ``stage`` line, because a
-        silent success would leave them unable to tell a working sync from a
-        skipped one until the report was written hours later, and a broken
-        clock quietly invalidates the whole loop timeline.
+        Writing an upstream server list survives an aux cycle: the setting is
+        persisted by the BMC and systemd-timesyncd re-reads it on boot. That is
+        what keeps the BMC log timeline inside the loop windows.
 
-        Every failure path is a WARN finding. This is a convenience for
-        reading the logs, never a precondition for cycling, so it must not
-        block a node or resend a power action.
+        Every outcome also reaches the operator as a ``stage`` line. Failures
+        are INFO/WARN only: the clock is a convenience for reading logs, never
+        a precondition for cycling.
         """
         if getattr(self.options, 'bmc_time_sync', True) is False:
             self.stage('BMC clock: sync disabled (--no-bmc-time-sync)')
-            return
-        os_ip = getattr(self.target, 'os_ip', '') or ''
-        if not os_ip:
-            self.stage('BMC clock: NOT checked, no OS address in the inventory')
-            self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
-                     'No OS address in the inventory to point the BMC clock at', severity='WARN')
             return
         try:
             with self._redfish_session(record) as disc:
                 token = disc['token']
                 managers = self.transport.redfish_get(self.target, '/redfish/v1/Managers', token)
                 if managers.code:
-                    # Only an unreachable BMC is worth a WARN: the clock cannot
-                    # be checked at all. A reachable BMC that answers with an
-                    # error (no such resource, unsupported method) simply has
-                    # no clock this harness can set, which is not a fault.
                     state = getattr(managers, 'state', '')
                     status = getattr(managers, 'http_status', 0)
                     severity = 'WARN' if state in {'NOT_ISSUED', 'RESPONSE_LOST', 'HTTP_ERROR'} and not status else 'INFO'
-                    self.stage('BMC clock: NOT synced, Redfish /Managers unusable ('
+                    self.stage('BMC clock: NOT configured, Redfish /Managers unusable ('
                                + (f'HTTP {status}' if status else f'code {managers.code}') + ')')
                     self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
-                             'Redfish /Managers not usable for clock setup: '
+                             'Redfish /Managers not usable for NTP setup: '
                              + (f'HTTP {status}' if status else f'BMC reply code {managers.code}'),
                              severity=severity)
                     return
                 manager = ntp.manager_id(self._redfish_json(managers.output))
                 if not manager:
-                    # A BMC that exposes no manager resource cannot be told
-                    # where NTP lives; the campaign still runs, timestamps are
-                    # just not synchronized. INFO keeps it out of node health.
-                    self.stage('BMC clock: NOT synced, no manager resource on this BMC')
+                    self.stage('BMC clock: NOT configured, no manager resource on this BMC')
                     self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
-                             'Redfish /Managers listed no manager; BMC clock left as-is',
+                             'Redfish /Managers listed no manager; BMC NTP left as-is',
                              severity='INFO')
                     return
                 base = f'/redfish/v1/Managers/{manager}'
-                state = self._bmc_ntp_state(base, token)
-                if state is None:
-                    self.stage('BMC clock: NOT synced, NetworkProtocol unreadable')
-                    self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
-                             f'{base}/NetworkProtocol unreadable; BMC clock left as-is', severity='INFO')
-                    return
-                enabled, servers, skew = state
-                if not ntp.needs_sync(enabled, servers, os_ip, skew):
+                servers = ntp.upstream_servers(self.options)
+                already = False
+                proto = self.transport.redfish_get(
+                    self.target, f'{base}/NetworkProtocol', token)
+                if not proto.code:
+                    enabled, current = ntp.ntp_state(self._redfish_json(proto.output))
+                    # Already pointing exactly here with NTP on: leave it alone
+                    # so a rerun does not churn the persisted setting.
+                    already = bool(enabled) and list(current) == list(servers)
+                if already:
                     record['commands']['bmc_clock'] = {
                         'command': f'redfish NTP {manager}', 'role': 'oob', 'code': 0,
-                        'state': 'ALREADY_SYNCED', 'evidence': '', 'valid': True,
-                        'output_excerpt': f'NTPServers={servers} skew={skew:.0f}s'}
-                    self.stage(f'BMC clock: already synced to {os_ip} '
-                               f'(skew {skew:+.0f}s)')
+                        'state': 'ALREADY_CONFIGURED', 'evidence': '', 'valid': True,
+                        'output_excerpt': f'NTPServers={servers}'}
+                    self.stage(f"BMC clock: NTP already set to {servers}")
                     return
-                # Pointing the BMC at a node that does not answer NTP looks
-                # like success at the PATCH and then leaves the clock at 2000
-                # for the whole run. Prove the service first and name the
-                # missing server explicitly, instead of asking the operator
-                # "does the node serve NTP?" after 30s of waiting.
-                if self._node_serves_ntp(record) is False:
-                    self.stage(f'BMC clock: node {os_ip} is NOT serving NTP; '
-                               'setting the BMC clock directly instead')
-                    record['commands']['bmc_clock'] = {
-                        'command': f'redfish DateTime {manager}', 'role': 'oob', 'code': 0,
-                        'state': 'DIRECT', 'evidence': '', 'valid': True,
-                        'output_excerpt': f'node {os_ip} has no UDP/123 listener'}
-                    # NTP is left disabled: re-enabling it would point the BMC
-                    # back at a server that never answers, so the next boot
-                    # would drop to the wrong epoch again.
-                    self._force_bmc_clock(record, base, token, manager,
-                                          'node does not serve NTP')
-                    return
-                self.stage(f'BMC clock: setting NTP server to {os_ip}')
                 written = self.transport.redfish_patch(
                     self.target, f'{base}/NetworkProtocol', token,
-                    {'NTP': {'ProtocolEnabled': True, 'NTPServers': [os_ip]}})
+                    {'NTP': {'ProtocolEnabled': True, 'NTPServers': servers}})
                 if written.code:
-                    self.stage(f'BMC clock: NOT synced, NTP write to {os_ip} rejected')
+                    self.stage('BMC clock: NOT configured, NTP write rejected')
                     self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
-                             f"NTP pointing at {os_ip} rejected (HTTP {getattr(written, 'http_status', 0) or written.code}); "
+                             f"NTP configuration {servers} rejected (HTTP "
+                             f"{getattr(written, 'http_status', 0) or written.code}); "
                              'BMC log timestamps may be wrong', severity='WARN')
                     return
-                skew = self._wait_bmc_clock(base, token, os_ip)
-                if skew is not None and abs(skew) > ntp.CLOCK_TOLERANCE_SECONDS:
-                    # The setting was accepted but the clock did not follow.
-                    # Fall back to writing the clock so the run still carries
-                    # usable timestamps, and say which path produced them.
-                    self.stage(f'BMC clock: NTP did not converge (still {skew:+.0f}s off); '
-                               'setting the BMC clock directly instead')
-                    record['commands']['bmc_clock'] = {
-                        'command': f'redfish DateTime {manager}', 'role': 'oob', 'code': 0,
-                        'state': 'DIRECT', 'evidence': '', 'valid': True,
-                        'output_excerpt': f'NTP to {os_ip} did not converge (skew {skew:+.0f}s)'}
-                    self._force_bmc_clock(record, base, token, manager,
-                                          f'NTP to {os_ip} did not converge',
-                                          servers=[os_ip], restore_ntp=True)
-                    return
                 record['commands']['bmc_clock'] = {
-                    'command': f'redfish NTP {manager} -> {os_ip}', 'role': 'oob', 'code': 0,
-                    'state': 'SYNCED' if skew is not None and abs(skew) <= ntp.CLOCK_TOLERANCE_SECONDS else 'WRITTEN',
-                    'evidence': '', 'valid': True,
-                    'output_excerpt': f'NTPServers=[{os_ip}] ' + ('skew={:.0f}s'.format(skew) if skew is not None else 'skew unreadable')}
-                self.stage(f'BMC clock: synced to {os_ip} '
-                           f'(skew {"unreadable" if skew is None else f"{skew:+.0f}s"})')
+                    'command': f'redfish NTP {manager}', 'role': 'oob', 'code': 0,
+                    'state': 'CONFIGURED', 'evidence': '', 'valid': True,
+                    'output_excerpt': f'NTPServers={servers} ProtocolEnabled=True'}
+                self.stage(f'BMC clock: NTP set to {servers}')
+                skew = self._wait_ntp_servers(base, token)
+                if skew is None:
+                    self.stage('BMC clock: NTP configured, skew unreadable')
+                elif abs(skew) > ntp.CLOCK_TOLERANCE_SECONDS:
+                    self.stage(f'BMC clock: NTP configured, still {skew:+.0f}s off '
+                               '(converges once the BMC reaches the server)')
+                    self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
+                             f'BMC NTP set to {servers} but still {skew:+.0f}s off; '
+                             'timestamps may lag until the BMC syncs', severity='WARN')
+                else:
+                    self.stage(f'BMC clock: NTP synced (skew {skew:+.0f}s)')
         except Exception as exc:
-            self.stage(f'BMC clock: NOT synced, {type(exc).__name__}')
+            self.stage(f'BMC clock: NOT configured, {type(exc).__name__}')
             self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
-                     f'BMC clock could not be synchronised: {type(exc).__name__}: {exc}', severity='WARN')
-
-    def _node_serves_ntp(self, record):
-        """True/False when the node's NTP listener can be determined, else None.
-
-        Only a node we can actually ask can answer this. ``None`` means "no
-        evidence" and keeps the plain NTP path, so an unreachable node is not
-        silently downgraded to a direct clock write.
-        """
-        probe = self.transport.ssh(
-            self.target, 'os',
-            "cat /proc/uptime; ss -lun 2>/dev/null || netstat -lun 2>/dev/null",
-            timeout=20)
-        if probe.code:
-            self.stage('BMC clock: node NTP service unknown (probe failed)')
-            return None
-        text = probe.output or ''
-        serving = ntp.serving_ntp(text)
-        if serving:
-            uptime = ntp.parse_uptime(text)
-            if not ntp.node_clock_ok(uptime):
-                self.stage('BMC clock: node is listening on 123 but its own clock is '
-                           f'implausible (uptime {uptime:.0f}s); not using it as a source')
-                return False
-        return serving
-
-    def _force_bmc_clock(self, record, base, token, manager, reason, servers=None,
-                         restore_ntp=False):
-        """Write the BMC clock directly, because no NTP source will converge.
-
-        A BMC refuses a DateTime write while NTP is enabled ("its value would
-        conflict with ... NTPProcotolEnabled"), so NTP is switched off for the
-        write. It is only switched back on when ``restore_ntp`` is set: if the
-        node does not serve NTP, re-enabling it would let the BMC drift back to
-        a wrong epoch on the next boot, which is the failure being fixed.
-
-        Nothing here raises. A BMC that will not take the write is a WARN; the
-        clock is a convenience for reading logs, never a precondition for
-        cycling.
-        """
-        try:
-            self.transport.redfish_patch(
-                self.target, f'{base}/NetworkProtocol', token,
-                {'NTP': {'ProtocolEnabled': False}})
-            time.sleep(ntp.FORCE_PAUSE_SECONDS)
-            stamp = ntp.utc_now_text(datetime.now(timezone.utc))
-            written = self.transport.redfish_patch(
-                self.target, base, token, {'DateTime': stamp})
-            if written.code:
-                self.stage(f'BMC clock: NOT synced, direct write rejected '
-                           f'({reason}; HTTP {getattr(written, "http_status", 0) or written.code})')
-                self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
-                         f'BMC clock could not be set directly ({reason}): '
-                         f'HTTP {getattr(written, "http_status", 0) or written.code}',
-                         severity='WARN')
-                return
-            skew = None
-            for _ in range(ntp.DIRECT_VERIFY_ATTEMPTS):
-                skew = self._bmc_skew(base, token)
-                if skew is not None and abs(skew) <= ntp.CLOCK_TOLERANCE_SECONDS:
-                    break
-                time.sleep(ntp.DIRECT_VERIFY_INTERVAL)
-            if skew is None or abs(skew) > ntp.CLOCK_TOLERANCE_SECONDS:
-                self.stage('BMC clock: NOT synced, direct write did not take '
-                           f'(skew {"unreadable" if skew is None else f"{skew:+.0f}s"})')
-                self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
-                         'BMC clock write accepted but the clock did not follow '
-                         f'({reason}); timestamps may be wrong', severity='WARN')
-                return
-            if servers and restore_ntp:
-                restored = self.transport.redfish_patch(
-                    self.target, f'{base}/NetworkProtocol', token,
-                    {'NTP': {'ProtocolEnabled': True, 'NTPServers': servers}})
-                if restored.code:
-                    self.stage('BMC clock: direct set OK, but re-enabling NTP failed; '
-                               'clock stays correct for this run')
-            self.stage(f'BMC clock: set directly, skew {skew:+.0f}s ({reason})')
-        except Exception as exc:
-            self.stage(f'BMC clock: direct set failed, {type(exc).__name__}: {exc}')
-            self.add(record, 'BMC_CLOCK_SYNC', 'bmc_clock',
-                     f'Direct BMC clock write failed ({reason}): {type(exc).__name__}: {exc}',
+                     f'BMC NTP could not be configured: {type(exc).__name__}: {exc}',
                      severity='WARN')
 
-    def _bmc_ntp_state(self, base, token):
-        """Read (enabled, servers, skew_seconds) or None when unreadable."""
-        proto = self.transport.redfish_get(self.target, f'{base}/NetworkProtocol', token)
-        if proto.code:
-            return None
-        enabled, servers = ntp.ntp_state(self._redfish_json(proto.output))
-        return enabled, servers, self._bmc_skew(base, token)
-
-    def _bmc_skew(self, base, token):
-        manager = self.transport.redfish_get(self.target, base, token)
-        if manager.code:
-            return None
-        payload = self._redfish_json(manager.output) or {}
-        return ntp.clock_skew(payload.get('DateTime'), datetime.now(timezone.utc))
-
-    def _wait_bmc_clock(self, base, token, os_ip):
-        """Poll until the clock converges, returning the last skew measured."""
+    def _wait_ntp_servers(self, base, token):
+        """Poll the BMC clock until it agrees with the orchestrator."""
         skew = self._bmc_skew(base, token)
         for _ in range(ntp.VERIFY_ATTEMPTS):
             if skew is not None and abs(skew) <= ntp.CLOCK_TOLERANCE_SECONDS:
@@ -1574,6 +1443,14 @@ class NodeSession:
             time.sleep(ntp.VERIFY_INTERVAL)
             skew = self._bmc_skew(base, token)
         return skew
+
+
+    def _bmc_skew(self, base, token):
+        manager = self.transport.redfish_get(self.target, base, token)
+        if manager.code:
+            return None
+        payload = self._redfish_json(manager.output) or {}
+        return ntp.clock_skew(payload.get('DateTime'), datetime.now(timezone.utc))
 
     def final_bmc_logs(self):
         """Read EventLog and SEL once, after the last loop, and attribute them.
@@ -1719,6 +1596,21 @@ class NodeSession:
             uid = self.command(record, "root_uid", "os", "id -u", sudo=True, check=False)
             if uid.code or uid.output.strip() != "0":
                 self.add(record, "ROOT_UNAVAILABLE", "privileges", "Root execution is unavailable; privileged checks may fail")
+            # Ubuntu 26.04 defaults KillUserProcesses=yes; logind drops root user-slice
+            # when the last root SSH session closes. A new SSH that reaches pam_systemd
+            # inside that drop window finds no seat, aborts preauth, and the
+            # orchestrator sees AuthenticationException surfaced as
+            # "IdentityTransient: os: authentication failed" -- misdiagnosed credentials.
+            # Linger keeps root user@0.service always-on across loop SSH gaps.
+            linger = self.command(record, "ensure_root_linger", "os",
+                                  "loginctl enable-linger root", sudo=True,
+                                  check=False)
+            if linger.code:
+                self.add(record, "LINGER_SET_FAILED", "os",
+                         "loginctl enable-linger root did not complete; Ubuntu may drop "
+                         "root user-slice between SSH sessions, misreported as "
+                         "IdentityTransient: os: authentication failed",
+                         severity="WARN")
             self.dependencies(record)
             # The node must be a working time source before it is offered to
             # the BMC, otherwise the BMC is pointed at a server that never
@@ -2492,7 +2384,17 @@ class NodeSession:
                                        cancelled=lambda: bool(self.stop_requested and self.stop_requested()))
                 state = self.dispatch(record, "cycle_command", "bmc", "/usr/bin/stbypowerctrl.sh aux_cycle")
             elif mode == "reboot" and channel == "outband":
-                state = self.dispatch(record, "cycle_command", "oob", "power reset")
+                # 2026-11-11 finding (Neutrino0 n2 loop 3 / n3 loop 32):
+                # ipmitool-over-LAN "chassis power reset" leaves CPU_RESET#
+                # asserted on n2/n3; PSC microcode throws (see /root/
+                # nvidia_fw_bug_evidence_20261111/n3_stuck/13_sol_cpu0_psc_tail.txt
+                # "FCL: EPC=0x10d8f6; RA=0x10.."). Route the warm reboot via
+                # the board-vendor BMC SSH helper /usr/bin/powerctrl.sh reset
+                # instead. Both commands set RequestedHostTransition=
+                # ForceWarmReboot (verified 2026-11-11 on n0/n1); this is a
+                # transport swap that skips the broken IPMI stack, NOT a
+                # semantics swap. We are STILL testing warm reboot.
+                state = self.dispatch(record, "cycle_command", "bmc", "/usr/bin/powerctrl.sh reset")
             else:
                 inband = channel == "inband"
                 if mode == "reboot":

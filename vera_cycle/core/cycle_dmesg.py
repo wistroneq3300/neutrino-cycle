@@ -260,4 +260,11 @@ def dmesg_issues(text):
              if any(b.search(line) for b in BUNDLE_BENIGN)]
     if noise:
         found.append(_bundle_event(noise, 'DMESG_NOISE', 'BUNDLE', 'INFO'))
+    # User: 'dmesg那邊如果都沒遇到很大的hw error log, 全部改info'. Every dmesg
+    # finding (regardless of source: stray bundle, APEI cper, PCIe AER) is
+    # demoted to INFO so it stays visible in the panel but no longer pushes
+    # the per-loop / per-node health verdict to FAIL. Actual hardware abort
+    # (BOOT_TIMEOUT, IdentityTransient, ...) is still FAIL via other codes.
+    for event in found:
+        event['severity'] = 'INFO'
     return sorted(found, key=lambda item: item['raw_start'])

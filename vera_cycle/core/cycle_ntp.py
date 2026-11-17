@@ -101,7 +101,8 @@ def utc_now_text(reference):
 # 4460/tcp before any time is exchanged, and that port is commonly blocked in a
 # lab network: chrony then sits at Reach=0 with every source at stratum 0 while
 # plain UDP/123 works fine.
-DEFAULT_SOURCES = ("185.125.190.58", "91.189.91.157")
+# Google public NTP: plain UDP/123, no NTS handshake, reachable from the lab.
+DEFAULT_SOURCES = ("216.239.35.0", "216.239.35.4")
 
 # ``sourcedir`` entries must end in ``.sources``; chrony silently ignores any
 # other suffix, which would leave the node unreachable with no error.
@@ -112,6 +113,22 @@ ALLOW_FILE = "/etc/chrony/conf.d/cycle-allow.conf"
 # on a filtered network. Renamed rather than deleted so the change is
 # reversible from the node itself.
 NTS_POOL_GLOB = "/etc/chrony/sources.d/ubuntu-ntp-pools.sources"
+
+
+def upstream_servers(options):
+    """Return the upstream NTP server list shared by the node and the BMC.
+
+    ``--ntp-servers`` wins when set; otherwise the built-in defaults are used.
+    The same list is written to the node's chrony and to the BMC's Redfish
+    NTP property so both machines synchronise from the same source and their
+    timestamps stay comparable without either one serving the other.
+    """
+    raw = getattr(options, "ntp_servers", None) or ""
+    if isinstance(raw, str):
+        servers = [part.strip() for part in raw.split(",") if part.strip()]
+    else:
+        servers = [str(part).strip() for part in raw if str(part).strip()]
+    return servers or list(DEFAULT_SOURCES)
 
 
 def sources_text(servers):
